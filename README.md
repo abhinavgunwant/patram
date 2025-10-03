@@ -28,6 +28,7 @@ Please make sure you have the following:
            "LIB_DIR": "<path/to/glfw.lib;path/to/freetyp.lib>"
             }
         }
+     ]
    }
    ```
 
