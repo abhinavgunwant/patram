@@ -9,6 +9,8 @@
 
 using namespace std;
 
+extern float iconButtonVertices[8];
+
 enum UIElementType {
     UI_LABEL,
     UI_BUTTON,

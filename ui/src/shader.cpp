@@ -14,7 +14,15 @@ string vertexShaders[] = {
     "void main() {\n"
         "vec2 uv = aPos / resolution;"
         "gl_Position = vec4(uv.x * 2 - 1, uv.y * (-2) + 1, 0.0f, 1.0f);\n"
-    "}\0"
+    "}\0",
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "uniform vec2 resolution;\n"
+    "uniform vec2 topLeft;\n"
+    "void main() {\n"
+        "vec2 uv = (aPos + topLeft) / resolution;\n"
+        "gl_Position = vec4(uv.x * 2 - 1, uv.y * (-2) + 1, 0.0f, 1.0f);\n"
+    "}\0",
 };
 
 string fragmentShaders[] = {
@@ -24,12 +32,29 @@ string fragmentShaders[] = {
     "uniform float time;\n"
     "void main() {\n"
         "FragColor = solidColor;\n"
-        // "FragColor = solidColor * sin(time * 10.0f);\n"
-    "}\0"
+    "}\0",
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "uniform vec4 solidColor;\n"
+    "uniform float time;\n"
+    "uniform vec2 topLeft;\n"
+    "uniform vec2 resolution;\n"
+    "void main() {\n"
+        "vec2 uv = gl_FragCoord.xy;\n"
+        "uv.y = resolution.y - uv.y;\n"
+        "vec2 tl = topLeft + 24;"
+        // TODO: make this work on hover
+        "if (distance(uv, tl) < 24) {"
+            "FragColor = solidColor;\n"
+        "} else {\n"
+            "FragColor = vec4(0.0, 0.0, 0.0, 0.0);\n"
+        "}"
+    "}\0",
 };
 
 Shader shaders[] = {
     { 0, 0, 0 },
+    { 0, 1, 1 },
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
@@ -37,16 +62,16 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
     uint32_t vShaderID = glCreateShader(GL_VERTEX_SHADER);
 
     if (vShaderID == 0) {
-        cerr << "\nCould not create vertex shader " << index;
+        cerr << "\nCould not create vertex shader " << (int)index;
     }
 
     int success;
 
-    const char * vsCode = vertexShaders[vs].c_str();
-    const char * fsCode = fragmentShaders[fs].c_str();
+    const char * vsCode = vertexShaders[(int)vs].c_str();
+    const char * fsCode = fragmentShaders[(int)fs].c_str();
 
-    cout << "\nVertex shader code: \n" << vsCode << "\n";
-    cout << "\nFragment shader code: \n" << fsCode << "\n";
+    cout << "\nVertex shader code ("<< (int) vs << "): \n" << vsCode << "\n";
+    cout << "\nFragment shader code (" << (int) fs << "): \n" << fsCode << "\n";
 
 	glShaderSource(vShaderID, 1, (char const* const*)&vsCode, NULL);
 	glCompileShader(vShaderID);
@@ -66,7 +91,7 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
     uint32_t fShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
     if (fShaderID == 0) {
-        cerr << "\nCould not create fragment shader " << index;
+        cerr << "\nCould not create fragment shader " << (int)index;
     }
 
 	glShaderSource(fShaderID, 1, (char const* const*)&fsCode, NULL);
@@ -76,7 +101,7 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
 	if (!success) {
 		char log[1024];
 		glGetShaderInfoLog(fShaderID, 1024, NULL, log);
-		cerr << "\nError: fragmentShader(" << fShaderID << ", index: " << index
+		cerr << "\nError: fragmentShader(" << fShaderID << ", index: " << (int)index
             << ")'s compilation failed:\n" << log;
 
         return 0;
@@ -109,7 +134,7 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
 
 void initShaders() {
     for (uint8_t i=0; i<TOTAL_SHADERS; ++i) {
-        shaders->programId = compile(i, shaders->vsIndex, shaders->fsIndex);
+        shaders[i].programId = compile(i, shaders[i].vsIndex, shaders[i].fsIndex);
     }
 }
 

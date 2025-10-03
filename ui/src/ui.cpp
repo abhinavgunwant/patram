@@ -9,6 +9,16 @@
 
 using namespace std;
 
+float iconButtonVertices[8] = {
+    -1.0, -1.0,
+    -1.0, -1.0,
+    -1.0, -1.0,
+    -1.0, -1.0,
+};
+
+uint32_t iconButtonVAO;
+uint32_t iconButtonVBO;
+
 void defaultCallback(UIElement _elem) {}
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
@@ -133,10 +143,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution) {
                     glDeleteBuffers(1, &elem.vbo);
                 }
 
+                float right = elem.left + elem.width;
+                float bottom = elem.top + elem.height;
+
                 float vertices[] = {
-                    elem.left + elem.width, elem.top + elem.height,
-                    elem.left + elem.width, elem.top,
-                    elem.left, elem.top + elem.height,
+                    right, bottom,
+                    right, elem.top,
+                    elem.left, bottom,
                     elem.left, elem.top,
                 };
 
@@ -196,6 +209,57 @@ void renderElement(UIElement& elem, glm::vec2 &resolution) {
         case UI_BUTTON: {
             break;
         }
+
+        case UI_ICON_BUTTON: {
+            if (iconButtonVertices[0] == -1.0) {
+                cout << "\nInitializing icon button vertices";
+                iconButtonVertices[0] = 48.0f;
+                iconButtonVertices[1] = 48.0f;
+                iconButtonVertices[2] = 48.0f;
+                iconButtonVertices[3] = 0.0f;
+                iconButtonVertices[4] = 0.0f;
+                iconButtonVertices[5] = 48.0f;
+                iconButtonVertices[6] = 0.0f;
+                iconButtonVertices[7] = 0.0f;
+
+                if (elem.reDraw) {
+                    cout << "\nRedrawing icon button";
+                    glGenVertexArrays(1, &iconButtonVAO);
+                    glBindVertexArray(iconButtonVAO);
+                    glGenBuffers(1, &iconButtonVBO);
+                    glBindBuffer(GL_ARRAY_BUFFER, iconButtonVBO);
+                    glBufferData(GL_ARRAY_BUFFER, sizeof(iconButtonVertices), iconButtonVertices, GL_STATIC_DRAW);
+                    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                    glEnableVertexAttribArray(0);
+                }
+            }
+
+            glBindVertexArray(iconButtonVAO);
+            glUseProgram(shaders[SHADER_ICON_BUTTON].programId);
+
+            int resU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "resolution");
+            int colorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "solidColor");
+            int timeU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "time");
+            int topLeftU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "topLeft");
+
+            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform4f(
+                colorU,
+                elem.backgroundColor.x,
+                elem.backgroundColor.y,
+                elem.backgroundColor.z,
+                elem.backgroundColor.w
+            );
+            glUniform2f(topLeftU, elem.left, elem.top);
+            glUniform1f(timeU, glfwGetTime());
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            elem.reDraw = false;
+            break;
+        }
+
+        default: break;
     }
 }
 

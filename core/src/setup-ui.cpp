@@ -9,12 +9,14 @@
 #include "include/setup-ui.hpp"
 #include "include/window-utils.hpp"
 
-#define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0);
-#define BLACK               glm::vec4(0.0, 0.0, 0.0, 0.0);
-#define ROOT_BG_DARK        glm::vec4(0.10, 0.09, 0.09, 1.0);
-#define TOOL_BAR_BG_DARK    glm::vec4(0.19, 0.17, 0.17, 1.0);
-#define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0);
-#define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0);
+#define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define BLACK               glm::vec4(0.0, 0.0, 0.0, 0.0)
+#define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0)
+#define ICON_BUTTON_BG      glm::vec4(0.84, 0.80, 0.81, 1.0)
+#define ROOT_BG_DARK        glm::vec4(0.10, 0.09, 0.09, 1.0)
+#define TOOL_BAR_BG_DARK    glm::vec4(0.19, 0.17, 0.17, 1.0)
+#define ICON_BUTTON_BG_DARK glm::vec4(0.22, 0.19, 0.20, 1.0)
 
 using namespace std;
 
@@ -82,25 +84,39 @@ void processInput(GLFWwindow * win) {
 }
 
 void setupUI(bool darkTheme) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    UIElement* menuBar = &elements[0];
+    UIElement* newButton = &elements[1];
+
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    UIElement* a = &elements[0];
-    initElement(*a, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 40.0f);
+    initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
+    initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, WINDOW_WIDTH, 48.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
-        a->backgroundColor = TOOL_BAR_BG_DARK;
-        a->color = WHITE;
+        menuBar->backgroundColor = TOOL_BAR_BG_DARK;
+        menuBar->color = WHITE;
+        newButton->backgroundColor = ICON_BUTTON_BG_DARK;
+        // newButton->backgroundColor = glm::vec4(1.0, 0.0, 0.0, 1.0);
+        newButton->color = WHITE;
     } else {
         rootContainer.backgroundColor = ROOT_BG;
-        a->backgroundColor = TOOL_BAR_BG;
-        a->color = BLACK;
+        menuBar->backgroundColor = TOOL_BAR_BG;
+        menuBar->color = BLACK;
+        newButton->backgroundColor = ICON_BUTTON_BG;
+        newButton->color = BLACK;
     }
 
-    a->text = "test";
-    a->widthPreference = UI_FULL;
-    a->heightPreference = UI_FIXED;
+    menuBar->text = "test";
+    menuBar->widthPreference = UI_FULL;
+    menuBar->heightPreference = UI_FIXED;
 
-    addChild(rootContainer, a);
+    newButton->text = "New";
+
+    addChild(rootContainer, menuBar);
+    addChild(rootContainer, newButton);
 }
 
 void enterRenderLoop() {
