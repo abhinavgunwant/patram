@@ -1,0 +1,10 @@
+#ifndef PATRAM_CORE_WINDOW_UTILS
+#define PATRAM_CORE_WINDOW_UTILS
+
+#define WINDOW_WIDTH 550
+#define WINDOW_HEIGHT 600
+
+void showWindow();
+
+#endif // PATRAM_CORE_WINDOW_UTILS
+

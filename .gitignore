@@ -1,0 +1,14 @@
+# compiler-specific files
+.clangd
+X64
+*.vcxproj*
+*.sln
+Debug
+*.dir
+
+# cmake-specific files
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+cmake_install.cmake
+
