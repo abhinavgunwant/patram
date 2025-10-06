@@ -3,14 +3,15 @@
 
 #include <string>
 
-#define TOTAL_SHADERS 2
-#define TOTAL_VERTEX_SHADERS 2
-#define TOTAL_FRAGMENT_SHADERS 2
+#define TOTAL_SHADERS 3
+#define TOTAL_VERTEX_SHADERS 3
+#define TOTAL_FRAGMENT_SHADERS 3
 
 using namespace std;
 
 enum Shaders {
     SHADER_DEFAULT,
+    SHADER_TEXT,
     SHADER_ICON_BUTTON,
 };
 

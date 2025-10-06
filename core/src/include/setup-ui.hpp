@@ -12,6 +12,8 @@ extern GLFWwindow* window;
 extern UIElement rootContainer;
 extern bool minimized;
 extern bool focused;
+extern uint16_t windowHeight;
+extern uint16_t windowWidth;
 
 void resizeCallback(GLFWwindow* window, int width, int height);
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos);

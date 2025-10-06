@@ -3,9 +3,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include "ui.hpp"
 #include "include/ui.hpp"
 #include "include/shader.hpp"
+#include "include/text.hpp"
 
 using namespace std;
 
@@ -16,12 +16,37 @@ float iconButtonVertices[8] = {
     -1.0, -1.0,
 };
 
+bool darkTheme = false;
+
 uint32_t iconButtonVAO;
 uint32_t iconButtonVBO;
 
 void defaultCallback(UIElement _elem) {}
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
+    glm::vec4 backgroundColor;
+    glm::vec4 hoverColor;
+    glm::vec4 color;
+
+    switch (type) {
+        case UI_ICON_BUTTON:
+            if (darkTheme) {
+                backgroundColor = ICON_BUTTON_BG_DARK;
+                hoverColor = ICON_BUTTON_HOVER_BG_DARK;
+                color = WHITE;
+            } else {
+                backgroundColor = ICON_BUTTON_BG;
+                hoverColor = ICON_BUTTON_HOVER_BG;
+                color = WHITE;
+            }
+            break;
+
+        default:
+            backgroundColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            hoverColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.5f);
+            color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
     elem = {
         type,
         top,
@@ -49,8 +74,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         0,
         nullptr,
 
-        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-        glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+        backgroundColor,
+        hoverColor,
+        color,
 
         0,
         0,
@@ -68,19 +94,20 @@ void addChild(UIElement& parent, UIElement * child) {
     uint32_t oldChildrenCount = parent.totalChildren;
     uint32_t oldCapacity = parent.capacity;
 
-    if (oldChildrenCount == 0) {
-        parent.children = new UIElement*[8];
+    if (oldCapacity == 0) {
+        parent.children = new UIElement*[INITIAL_PARENT_CAPACITY];
         parent.children[0] = child;
         ++parent.totalChildren;
+        parent.capacity = INITIAL_PARENT_CAPACITY;
         child->parent = &parent;
         return;
     }
 
     if (parent.totalChildren > parent.capacity) {
-        if (parent.capacity > 1000) {
-            parent.capacity += 128;
+        if (parent.capacity > GROWTH_THRESHOLD) {
+            parent.capacity += INCR_POST_GROWTH_THRESHOLD;
         } else {
-            parent.capacity *= 2;
+            parent.capacity *= GROWTH_FACTOR;
         }
 
         UIElement** newlist = new UIElement*[parent.capacity];
@@ -127,7 +154,7 @@ void recalculateLayout(UIElement * elem) {
     }
 }
 
-void renderElement(UIElement& elem, glm::vec2 &resolution) {
+void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
     // cout << "resolution: " << resolution.x << "x" << resolution.y;
     switch (elem.type) {
         case UI_CONTAINER: {
@@ -193,7 +220,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution) {
 
             if (elem.totalChildren) {
                 for (int i=0; i<elem.totalChildren; ++i) {
-                    renderElement(*elem.children[i], resolution);
+                    renderElement(*elem.children[i], resolution, cursor);
                 }
             }
 
@@ -239,8 +266,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution) {
 
             int resU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "resolution");
             int colorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "solidColor");
+            int hoverColorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "hoverColor");
             int timeU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "time");
             int topLeftU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "topLeft");
+            int widthU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "width");
+            int heightU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "height");
+            int cursorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "cursor");
 
             glUniform2f(resU, resolution.x, resolution.y);
             glUniform4f(
@@ -250,8 +281,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution) {
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
+            glUniform4f(
+                hoverColorU,
+                elem.hoverColor.x,
+                elem.hoverColor.y,
+                elem.hoverColor.z,
+                elem.hoverColor.w
+            );
             glUniform2f(topLeftU, elem.left, elem.top);
+            glUniform2f(cursorU, cursor.x, cursor.y);
             glUniform1f(timeU, glfwGetTime());
+            glUniform1f(widthU, elem.width);
+            glUniform1f(heightU, elem.height);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
