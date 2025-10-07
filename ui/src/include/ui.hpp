@@ -12,23 +12,27 @@
 #define GROWTH_THRESHOLD            1000
 #define INCR_POST_GROWTH_THRESHOLD  128
 
+#define TOTAL_ICONS                 3
+
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 0.0)
 
 // Theme colors
 //// Light theme colors
-#define ICON_BUTTON_BG      glm::vec4(0.84, 0.80, 0.81, 1.0)
-#define ICON_BUTTON_HOVER_BG      glm::vec4(0.9, 0.85, 0.86, 1.0)
+#define ICON_BUTTON_BG              glm::vec4(0.93, 0.84, 0.85, 1.0)
+#define ICON_BUTTON_HOVER_BG        glm::vec4(0.8, 0.7, 0.71, 1.0)
+#define ICON_BUTTON_COLOR           glm::vec4(0.5, 0.45, 0.4, 1.0)
 
 //// Dark theme colors
-#define ICON_BUTTON_BG_DARK glm::vec4(0.19, 0.17, 0.17, 1.0)
-// #define ICON_BUTTON_BG_DARK glm::vec4(0.22, 0.19, 0.20, 1.0)
-#define ICON_BUTTON_HOVER_BG_DARK      glm::vec4(0.31, 0.27, 0.28, 1.0)
+#define ICON_BUTTON_BG_DARK         glm::vec4(0.19, 0.17, 0.17, 1.0)
+// #define ICON_BUTTON_BG_DARK         glm::vec4(0.22, 0.19, 0.20, 1.0)
+#define ICON_BUTTON_HOVER_BG_DARK   glm::vec4(0.31, 0.27, 0.28, 1.0)
+#define ICON_BUTTON_COLOR_DARK      glm::vec4(0.8, 0.75, 0.79, 1.0)
 
 using namespace std;
 
-extern float iconButtonVertices[8];
+extern float iconButtonVertices[16];
 extern bool darkTheme;
 
 enum UIElementType {
@@ -51,6 +55,12 @@ enum UISizePreference {
     UI_PERCENT,
     UI_STRETCH,
     UI_FULL,
+};
+
+enum Icon {
+    ICON_NONE,
+    ICON_PLUS,
+    ICON_FILE,
 };
 
 struct UIElement {
@@ -93,9 +103,12 @@ struct UIElement {
 
     uint32_t vao;
     uint32_t vbo;
+    uint32_t texture;
 
     UISizePreference widthPreference;
     UISizePreference heightPreference;
+
+    Icon icon;
 };
 
 void defaultCallback(UIElement);
@@ -103,6 +116,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 void addChild(UIElement& parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+string getIconLocation(Icon icon);
 
 #endif // PATRAM_UI
 

@@ -63,7 +63,7 @@ void initFonts() {
 	FT_Face face;
 
 	// if (FT_New_Face(ft, "assets/fonts/inter/Inter-Regular.ttf", 0, &face)) {
-	if (FT_New_Face(ft, "fonts/poppins/Poppins-Regular.ttf", 0, &face)) {
+	if (FT_New_Face(ft, "assets/fonts/poppins/Poppins-Regular.ttf", 0, &face)) {
 		std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
 		return;
 	}

@@ -6,14 +6,15 @@
 #include "include/ui.hpp"
 #include "include/shader.hpp"
 #include "include/text.hpp"
+#include "../lib/stb_image.h"
 
 using namespace std;
 
-float iconButtonVertices[8] = {
-    -1.0, -1.0,
-    -1.0, -1.0,
-    -1.0, -1.0,
-    -1.0, -1.0,
+float iconButtonVertices[16] = {
+    -1.0, -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0, -1.0,
 };
 
 bool darkTheme = false;
@@ -33,11 +34,11 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             if (darkTheme) {
                 backgroundColor = ICON_BUTTON_BG_DARK;
                 hoverColor = ICON_BUTTON_HOVER_BG_DARK;
-                color = WHITE;
+                color = ICON_BUTTON_COLOR_DARK;
             } else {
                 backgroundColor = ICON_BUTTON_BG;
                 hoverColor = ICON_BUTTON_HOVER_BG;
-                color = WHITE;
+                color = ICON_BUTTON_COLOR;
             }
             break;
 
@@ -80,9 +81,12 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         0,
         0,
+        0,
 
         UI_FIXED,
         UI_FIXED,
+
+        ICON_NONE,
     };
 }
 
@@ -230,24 +234,40 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_LABEL: {
+            renderText(elem.text, glm::vec2(elem.top, elem.left), resolution, elem.color);
             break;
         }
 
         case UI_BUTTON: {
+            renderText(elem.text, glm::vec2(elem.top, elem.left), resolution, elem.color);
             break;
         }
 
         case UI_ICON_BUTTON: {
             if (iconButtonVertices[0] == -1.0) {
-                cout << "\nInitializing icon button vertices";
+                // TODO: update this to run on every initialization and changes
+                // in appearance settings
+
+                // cout << "\nInitializing icon button vertices";
                 iconButtonVertices[0] = 48.0f;
                 iconButtonVertices[1] = 48.0f;
-                iconButtonVertices[2] = 48.0f;
+                iconButtonVertices[2] = 1.0f;
                 iconButtonVertices[3] = 0.0f;
-                iconButtonVertices[4] = 0.0f;
-                iconButtonVertices[5] = 48.0f;
-                iconButtonVertices[6] = 0.0f;
-                iconButtonVertices[7] = 0.0f;
+
+                iconButtonVertices[4] = 48.0f;
+                iconButtonVertices[5] = 0.0f;
+                iconButtonVertices[6] = 1.0f;
+                iconButtonVertices[7] = 1.0f;
+
+                iconButtonVertices[8] = 0.0f;
+                iconButtonVertices[9] = 48.0f;
+                iconButtonVertices[10] = 0.0f;
+                iconButtonVertices[11] = 0.0f;
+
+                iconButtonVertices[12] = 0.0f;
+                iconButtonVertices[13] = 0.0f;
+                iconButtonVertices[14] = 0.0f;
+                iconButtonVertices[15] = 1.0f;
 
                 if (elem.reDraw) {
                     cout << "\nRedrawing icon button";
@@ -256,8 +276,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glGenBuffers(1, &iconButtonVBO);
                     glBindBuffer(GL_ARRAY_BUFFER, iconButtonVBO);
                     glBufferData(GL_ARRAY_BUFFER, sizeof(iconButtonVertices), iconButtonVertices, GL_STATIC_DRAW);
-                    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
                     glEnableVertexAttribArray(0);
+                    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+                    glEnableVertexAttribArray(1);
                 }
             }
 
@@ -266,6 +288,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             int resU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "resolution");
             int colorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "solidColor");
+            int bgU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "backgroundColor");
             int hoverColorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "hoverColor");
             int timeU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "time");
             int topLeftU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "topLeft");
@@ -273,26 +296,69 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             int heightU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "height");
             int cursorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "cursor");
 
+            // cout << "icon button color: r: " << elem.color.r << " g: " << elem.color.g << " b: " << elem.color.b << " a: " << elem.color.a;
+
             glUniform2f(resU, resolution.x, resolution.y);
             glUniform4f(
+                bgU,
+                elem.backgroundColor.r,
+                elem.backgroundColor.g,
+                elem.backgroundColor.b,
+                elem.backgroundColor.a
+            );
+            glUniform4f(
                 colorU,
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
+                elem.color.r,
+                elem.color.g,
+                elem.color.b,
+                elem.color.a
             );
             glUniform4f(
                 hoverColorU,
-                elem.hoverColor.x,
-                elem.hoverColor.y,
-                elem.hoverColor.z,
-                elem.hoverColor.w
+                elem.hoverColor.r,
+                elem.hoverColor.g,
+                elem.hoverColor.b,
+                elem.hoverColor.a
             );
             glUniform2f(topLeftU, elem.left, elem.top);
             glUniform2f(cursorU, cursor.x, cursor.y);
             glUniform1f(timeU, glfwGetTime());
             glUniform1f(widthU, elem.width);
             glUniform1f(heightU, elem.height);
+
+            if (elem.icon != ICON_NONE) {
+                if (elem.texture == 0) {
+                    glGenTextures(1, &elem.texture);
+                    glBindTexture(GL_TEXTURE_2D, elem.texture);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+                    int width, height, nrChannels;
+
+                    stbi_set_flip_vertically_on_load(true);
+
+                    string location = getIconLocation(elem.icon);
+                    uint8_t* data = stbi_load(location.c_str(), &width, &height, &nrChannels, 0);
+
+                    if (data) {
+                        cout << "\nTexture " << location << " loaded.";
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+                        glGenerateMipmap(GL_TEXTURE_2D);
+                    } else {
+                        cerr << "\nFailed to load texture.";
+                    }
+
+                    stbi_image_free(data);
+                }
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, elem.texture);
+            }
+
+            uint32_t itexU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "iconTexture");
+            glUniform1i(itexU, 0);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -302,5 +368,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
         default: break;
     }
+}
+
+string getIconLocation(Icon icon) {
+    string path = "assets/images/";
+
+    switch (icon) {
+        case ICON_NONE: return "";
+        case ICON_PLUS: path += "plus.png"; break;
+        case ICON_FILE: path += "file.png"; break;
+    }
+
+    return path;
 }
 

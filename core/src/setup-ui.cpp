@@ -88,6 +88,7 @@ void setupUI(bool isDarkTheme) {
     initTextRendering(windowWidth, windowHeight);
 
     glEnable(GL_BLEND);
+    glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     UIElement* menuBar = &elements[0];
@@ -118,6 +119,8 @@ void setupUI(bool isDarkTheme) {
     menuBar->horizontalAlign = UI_ALIGN_CENTER;
 
     newButton->text = "New";
+    newButton->icon = ICON_PLUS;
+    button2->icon = ICON_FILE;
     button2->text = "Button2";
 
     addChild(rootContainer, menuBar);

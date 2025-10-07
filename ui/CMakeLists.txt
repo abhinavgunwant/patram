@@ -1,6 +1,6 @@
 project(ui)
 
-add_library(ui src/ui.cpp src/render.cpp src/shader.cpp src/text.cpp)
+add_library(ui src/ui.cpp src/render.cpp src/shader.cpp src/text.cpp lib/stb_image.cpp)
 
 target_include_directories(ui
     PUBLIC

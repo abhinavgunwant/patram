@@ -29,6 +29,7 @@ extern unsigned int textVAO, textVBO;
 void initCharGlyph(FT_Face& face, uint16_t c);
 void initFonts();
 void initTextRendering(uint16_t width, uint16_t height);
+// TODO: add font size
 void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0));
 void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0));
 

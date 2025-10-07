@@ -31,11 +31,14 @@ string vertexShaders[] = {
     // Icon Button Shader
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoords;\n"
     "uniform vec2 resolution;\n"
     "uniform vec2 topLeft;\n"
+    "out vec2 TexCoords;\n"
     "void main() {\n"
         "vec2 uv = (aPos + topLeft) / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
+        "TexCoords = aTexCoords;\n"
     "}\0",
 };
 
@@ -63,8 +66,10 @@ string fragmentShaders[] = {
 
     // Icon Button Shader
     "#version 330 core\n"
+    "in vec2 TexCoords;\n"
     "out vec4 FragColor;\n"
     "uniform vec4 solidColor;\n"
+    "uniform vec4 backgroundColor;\n"
     "uniform vec4 hoverColor;\n"
     "uniform float time;\n"
     "uniform float width;\n"
@@ -72,7 +77,33 @@ string fragmentShaders[] = {
     "uniform vec2 topLeft;\n"
     "uniform vec2 resolution;\n"
     "uniform vec2 cursor;\n"
+    "uniform sampler2D iconTexture;\n"
+
+    "bool isForeground(vec4 color) {\n"
+        "return color.r == 0 && color.g == 0 && color.b == 0 && color.a > 0;\n"
+    "}\n"
+
+    "vec4 textureColor(vec4 texCol, vec4 color) {\n"
+        "vec4 newColor = texCol;\n"
+        "float alpha = newColor.a;\n"
+        "newColor = 1 - newColor;\n"
+        "newColor *= color;\n"
+        "if (newColor.r == color.r) {\n"
+            "newColor.a = 1.0;\n"
+        "} else {\n"
+            "newColor.a = 0;"
+        "}\n"
+        "return newColor;"
+    "}\n"
+
     "void main() {\n"
+        "vec4 texColor = texture(iconTexture, TexCoords);\n"
+
+        "if (isForeground(texColor)) {\n"
+            "FragColor = textureColor(texColor, solidColor);\n"
+            "return;\n"
+        "}\n"
+
         "vec2 uv = gl_FragCoord.xy;\n"
         "uv.y = resolution.y - uv.y;\n"
         "float width_2 = width/2;\n"
@@ -82,24 +113,20 @@ string fragmentShaders[] = {
 
         "float d_uv_mid = distance(uv, mid);\n"
 
-        "if (distance(uv, mid) > width_2) {\n"
-            "FragColor = vec4(0);\n"
+        "if (d_uv_mid > width_2) {\n"
+            "FragColor = backgroundColor;\n"
             "return;\n"
         "}\n"
-
-        "const float PI_2 = 1.5708;\n"
-        "const float PI_4 = 0.7854;"
 
         "float d_cursor_uv = distance(cursor, uv);\n"
 
         "if (d_cursor_uv > width * 1.5) {\n"
-            "FragColor = solidColor;\n"
+            "FragColor = textureColor(texColor, solidColor);\n"
             "return;\n"
         "}\n"
 
-        "float radians = d_cursor_uv / (width * 1.5) * 0.9;\n"
-
-        "FragColor = hoverColor * cos(radians);\n"
+        "float radians = clamp(d_cursor_uv / (width * 0.9), 0, 1.5708);\n"
+        "FragColor = mix(backgroundColor, hoverColor, cos(radians));\n"
     "}\0",
 };
 
