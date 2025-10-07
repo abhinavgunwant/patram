@@ -61,7 +61,6 @@ string fragmentShaders[] = {
     "void main() {\n"
         "vec4 sampled = vec4(1, 1, 1, texture(text, TexCoords).r);\n"
         "color = vec4(textColor, 1) * sampled;\n"
-        // "color = vec4(1.0, 0, 0, 1.0);\n"
     "}\0",
 
     // Icon Button Shader
@@ -79,28 +78,28 @@ string fragmentShaders[] = {
     "uniform vec2 cursor;\n"
     "uniform sampler2D iconTexture;\n"
 
-    "bool isForeground(vec4 color) {\n"
-        "return color.r == 0 && color.g == 0 && color.b == 0 && color.a > 0;\n"
-    "}\n"
-
-    "vec4 textureColor(vec4 texCol, vec4 color) {\n"
+    // Final texture color
+    "vec4 ftc(vec4 texCol, vec4 color, vec4 bgColor) {\n"
         "vec4 newColor = texCol;\n"
         "float alpha = newColor.a;\n"
         "newColor = 1 - newColor;\n"
         "newColor *= color;\n"
-        "if (newColor.r == color.r) {\n"
-            "newColor.a = 1.0;\n"
-        "} else {\n"
-            "newColor.a = 0;"
+
+        "if (alpha != 0) {\n"
+            "newColor = color;\n"
         "}\n"
-        "return newColor;"
+
+        "newColor.a = alpha;\n"
+        "return newColor;\n"
     "}\n"
 
     "void main() {\n"
         "vec4 texColor = texture(iconTexture, TexCoords);\n"
 
-        "if (isForeground(texColor)) {\n"
-            "FragColor = textureColor(texColor, solidColor);\n"
+        "bool isForeg = texColor.a > 0;\n"
+
+        "if (texColor.a != 0) {\n"
+            "FragColor = ftc(texColor, solidColor, hoverColor);\n"
             "return;\n"
         "}\n"
 
@@ -114,14 +113,14 @@ string fragmentShaders[] = {
         "float d_uv_mid = distance(uv, mid);\n"
 
         "if (d_uv_mid > width_2) {\n"
-            "FragColor = backgroundColor;\n"
+            "FragColor = vec4(0);\n"
             "return;\n"
         "}\n"
 
         "float d_cursor_uv = distance(cursor, uv);\n"
 
         "if (d_cursor_uv > width * 1.5) {\n"
-            "FragColor = textureColor(texColor, solidColor);\n"
+            "FragColor = ftc(texColor, solidColor, hoverColor);\n"
             "return;\n"
         "}\n"
 
