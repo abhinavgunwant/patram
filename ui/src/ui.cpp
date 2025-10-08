@@ -22,7 +22,9 @@ bool darkTheme = false;
 uint32_t iconButtonVAO;
 uint32_t iconButtonVBO;
 
-void defaultCallback(UIElement _elem) {}
+void defaultCallback(UIElement* _elem) {
+    cout << "\nDefault callback executed!";
+}
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
     glm::vec4 backgroundColor;
@@ -30,6 +32,18 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     glm::vec4 color;
 
     switch (type) {
+        case UI_BUTTON: {
+            if (darkTheme) {
+                backgroundColor = BUTTON_BG_DARK;
+                hoverColor = BUTTON_HOVER_BG_DARK;
+                color = BUTTON_COLOR_DARK;
+            } else {
+                backgroundColor = BUTTON_BG;
+                hoverColor = BUTTON_HOVER_BG;
+                color = BUTTON_COLOR;
+            }
+            break;
+        }
         case UI_ICON_BUTTON:
             if (darkTheme) {
                 backgroundColor = ICON_BUTTON_BG_DARK;
@@ -249,7 +263,78 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_BUTTON: {
-            renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
+            if (elem.reDraw) {
+                // recalculateLayout(&elem);
+
+                cout << "\nRe-drawing";
+                if (elem.vao != 0) {
+                    glDeleteVertexArrays(1, &elem.vao);
+                }
+
+                if (elem.vbo != 0) {
+                    glDeleteBuffers(1, &elem.vbo);
+                }
+
+                float right = elem.left + elem.width;
+                float bottom = elem.top + elem.height;
+
+                float vertices[] = {
+                    right, bottom,
+                    right, elem.top,
+                    elem.left, bottom,
+                    elem.left, elem.top,
+                };
+
+                // cout << "\nvertices: (" << vertices[0] << ", " << vertices[1]
+                //     << "),\n(" << vertices[2] << ", " << vertices[3]
+                //     << "),\n(" << vertices[4] << ", " << vertices[5]
+                //     << "),\n(" << vertices[6] << ", " << vertices[7] << ")";
+
+                glGenVertexArrays(1, &elem.vao);
+                glBindVertexArray(elem.vao);
+                glGenBuffers(1, &elem.vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+            }
+
+            glBindVertexArray(elem.vao);
+            glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+            uint32_t resU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "resolution");
+            uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+            uint32_t timeU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "time");
+
+            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform4f(
+                colorU,
+                elem.backgroundColor.x,
+                elem.backgroundColor.y,
+                elem.backgroundColor.z,
+                elem.backgroundColor.w
+            );
+
+            glUniform1f(timeU, glfwGetTime());
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            glm::vec4 textDimensions = renderText(
+                elem.text,
+                glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING),
+                resolution,
+                elem.color,
+                elem.fontSize
+            );
+
+            if (elem.width == textDimensions.w + BUTTON_PADDING) {
+                elem.reDraw = false;
+            } else {
+                elem.reDraw = true;
+                elem.width = textDimensions.w + BUTTON_PADDING;
+                elem.height = textDimensions.z + BUTTON_PADDING - elem.top;
+            }
+
             break;
         }
 

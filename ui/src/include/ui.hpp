@@ -25,11 +25,22 @@
 #define ICON_BUTTON_HOVER_BG        glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define ICON_BUTTON_COLOR           glm::vec4(0.5, 0.45, 0.4, 1.0)
 
+#define BUTTON_BG                   glm::vec4(0.93, 0.7, 0.7, 1.0)
+#define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
+#define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
+
 //// Dark theme colors
 #define ICON_BUTTON_BG_DARK         glm::vec4(0.19, 0.17, 0.17, 1.0)
 // #define ICON_BUTTON_BG_DARK         glm::vec4(0.22, 0.19, 0.20, 1.0)
 #define ICON_BUTTON_HOVER_BG_DARK   glm::vec4(0.31, 0.27, 0.28, 1.0)
 #define ICON_BUTTON_COLOR_DARK      glm::vec4(0.8, 0.75, 0.79, 1.0)
+
+#define BUTTON_BG_DARK              glm::vec4(0.19, 0.17, 0.17, 1.0)
+#define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
+#define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
+
+
+#define BUTTON_PADDING              8
 
 using namespace std;
 
@@ -83,8 +94,11 @@ struct UIElement {
      */
     bool direction;
 
-    void (*onClick)(UIElement);
-    void (*onHover)(UIElement);
+    /**
+     * Click behaviour for buttons.
+     */
+    void (*onClick)(UIElement*);
+    void (*onHover)(UIElement*);
 
     string text;
 
@@ -114,7 +128,7 @@ struct UIElement {
     uint8_t fontSize;
 };
 
-void defaultCallback(UIElement);
+void defaultCallback(UIElement* elem);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 void addChild(UIElement& parent, UIElement* child);
 void recalculateLayout(UIElement * elem);

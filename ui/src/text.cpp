@@ -140,7 +140,9 @@ void initTextRendering(uint16_t width, uint16_t height) {
 }
 
 // render line of text
-void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
+
     int32_t pid = shaders[SHADER_TEXT].programId;
 
     glUseProgram(pid);
@@ -187,8 +189,10 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, ui
 		float xpos = pos.x + bearingLeft;
 		float ypos = pos.y + (glyphHeight - bearingTop) + fontSize;
 
-		// float xpos_plus_w = xpos + ch.width;
-		// float ypos_plus_h = ypos - ch.height; // ypos + h
+        if (dimensions.z == 0) {
+            // TODO: update dimensions.z when there's a new line
+            dimensions.z = ypos;
+        }
 
 		float xpos_plus_w = xpos + glyphWidth;
 		float ypos_plus_h = ypos - glyphHeight; // ypos + h
@@ -213,6 +217,7 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, ui
 			{ xpos_plus_w,  ypos,           1.0f, 1.0f },
 			{ xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f },
 		};
+
 		// render glyph texture over quad
 		glBindTexture(GL_TEXTURE_2D, ch.textureID);
 		// update content of textVBO memory
@@ -224,16 +229,21 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, ui
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 		pos.x += (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
-
-		// pos.x += glyphWidth != glyphWidth ? 0 : glyphWidth;
 	}
 
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+    dimensions.w = pos.x;
+
+    return dimensions;
 }
 
 // render line of text
-void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+// TODO: update to be consistent with above function.
+glm::vec4 renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
+
     int32_t pid = shaders[SHADER_TEXT].programId;
 
     glUseProgram(pid);
@@ -276,5 +286,7 @@ void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, u
 
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+    return dimensions;
 }
 

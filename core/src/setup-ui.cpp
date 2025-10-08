@@ -1,12 +1,14 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <stack>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "include/setup-ui.hpp"
+#include "GLFW/glfw3.h"
 #include "include/window-utils.hpp"
 #include "text.hpp"
 
@@ -21,6 +23,7 @@ GLFWwindow* window;
 UIElement rootContainer;
 bool minimized = false;
 bool focused = true;
+bool mouse1Down = false;
 
 UIElement elements[16];
 
@@ -28,6 +31,8 @@ uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
 float cursorX = 25000;
 float cursorY = 25000;
+float mouseDownX = 25000;
+float mouseDownY = 25000;
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -82,8 +87,68 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
 }
 
 void processInput(GLFWwindow * win) {
+    if (glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
+        mouse1Down = true;
+        mouseDownX = cursorX;
+        mouseDownY = cursorY;
+    }
+
+    if (mouse1Down && glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE) {
+        mouse1Down = false;
+
+        // Check if the cursor is above the exact same position as it was when
+        // mouse was down.
+        // TODO: check instead if the mouse down element and mouse release
+        // elements are the same.
+        if (mouseDownX == cursorX && mouseDownY == cursorY) {
+            stack<UIElement*> elemStack;
+
+            for (int8_t i=rootContainer.totalChildren-1; i >= 0; --i) {
+                elemStack.push(rootContainer.children[(int)i]);
+            }
+
+            UIElement* elem = elemStack.top();
+            elemStack.pop();
+
+            while (!elemStack.empty()) {
+                if (elem->type == UI_BUTTON) {
+                    if (
+                        cursorX > elem->left && cursorX < elem->left + elem->width
+                        && cursorY > elem->top && cursorY < elem->top + elem->height
+                    ) {
+                        elem->onClick(elem);
+                        break;
+                    }
+                }
+
+                if (elem->totalChildren) {
+                    for (uint8_t i=elem->totalChildren-1; i >= 0; --i) {
+                        elemStack.push(elem->children[i]);
+                    }
+                }
+
+                elem = elemStack.top();
+                elemStack.pop();
+            }
+        }
+    }
 }
 
+/**
+ * Just a function to test the button click behaviour.
+ *
+ * TODO: remove
+ */
+void testOnClick(UIElement* elem) {
+    elem->text += " (clicked)";
+    elements[5].text += " (who else?)";
+}
+
+/**
+ * Sets up the startup ui.
+ *
+ * **Note:** For now this contains test values. This will change.
+ */
 void setupUI(bool isDarkTheme) {
     initTextRendering(windowWidth, windowHeight);
 
@@ -95,24 +160,18 @@ void setupUI(bool isDarkTheme) {
     UIElement* newButton = &elements[1];
     UIElement* button2 = &elements[2];
     UIElement* button3 = &elements[3];
-    UIElement* label = &elements[4];
-    UIElement* label2 = &elements[5];
-    UIElement* label3 = &elements[6];
-    UIElement* label4 = &elements[7];
-    UIElement* label5 = &elements[8];
-    UIElement* label6 = &elements[9];
+    UIElement* label2 = &elements[4];
+    UIElement* label3 = &elements[5];
+    UIElement* button4 = &elements[6];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
     initElement(*button2, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
     initElement(*button3, UI_ICON_BUTTON, 8.0f, 120.0f, 48.0f, 48.0f);
-    initElement(*label, UI_LABEL, 80.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*button4, UI_BUTTON, 72.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label4, UI_LABEL, 180.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label5, UI_LABEL, 230.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label6, UI_LABEL, 290.0f, 8.0f, 48.0f, 48.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -134,31 +193,20 @@ void setupUI(bool isDarkTheme) {
     newButton->icon = ICON_PLUS;
     button2->icon = ICON_FILE;
     button2->text = "Button2";
-    label->text = "Test Label jxyz";
+    button4->text = "Test Button";
+    button4->onClick = testOnClick;
     label2->text = "Made by:";
     label2->fontSize = 32;
     label3->text = "Abhinav Gunwant";
     label3->fontSize = 48;
 
-    label4->text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    label4->fontSize = 48;
-
-    label5->text = "abcdefghijklmnopqrstuvwxyz";
-    label5->fontSize = 48;
-
-    label6->text = "0123456789";
-    label6->fontSize = 48;
-
     addChild(rootContainer, menuBar);
     addChild(rootContainer, newButton);
     addChild(rootContainer, button2);
     addChild(rootContainer, button3);
-    addChild(rootContainer, label);
+    addChild(rootContainer, button4);
     addChild(rootContainer, label2);
     addChild(rootContainer, label3);
-    addChild(rootContainer, label4);
-    addChild(rootContainer, label5);
-    addChild(rootContainer, label6);
 }
 
 void enterRenderLoop() {
