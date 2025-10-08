@@ -42,10 +42,21 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UI_LABEL:
+            backgroundColor = TRANSPARENT;
+            hoverColor = TRANSPARENT;
+
+            if (darkTheme) {
+                color = WHITE;
+            } else {
+                color = BLACK;
+            }
+            break;
+
         default:
-            backgroundColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            hoverColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.5f);
-            color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+            backgroundColor = TRANSPARENT;
+            hoverColor = TRANSPARENT;
+            color = BLACK;
     }
 
     elem = {
@@ -87,6 +98,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         UI_FIXED,
 
         ICON_NONE,
+
+        16,
     };
 }
 
@@ -95,10 +108,7 @@ void addChild(UIElement& parent, UIElement * child) {
         cerr << "\nError: child already has a parent";
     }
 
-    uint32_t oldChildrenCount = parent.totalChildren;
-    uint32_t oldCapacity = parent.capacity;
-
-    if (oldCapacity == 0) {
+    if (parent.capacity == 0) {
         parent.children = new UIElement*[INITIAL_PARENT_CAPACITY];
         parent.children[0] = child;
         ++parent.totalChildren;
@@ -107,7 +117,7 @@ void addChild(UIElement& parent, UIElement * child) {
         return;
     }
 
-    if (parent.totalChildren > parent.capacity) {
+    if (parent.totalChildren + 1 > parent.capacity) {
         if (parent.capacity > GROWTH_THRESHOLD) {
             parent.capacity += INCR_POST_GROWTH_THRESHOLD;
         } else {
@@ -116,7 +126,7 @@ void addChild(UIElement& parent, UIElement * child) {
 
         UIElement** newlist = new UIElement*[parent.capacity];
 
-        for (uint32_t i=0; i<oldChildrenCount; ++i) {
+        for (uint32_t i=0; i<parent.totalChildren; ++i) {
             newlist[i] = parent.children[i];
         }
 
@@ -234,12 +244,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_LABEL: {
-            renderText(elem.text, glm::vec2(elem.top, elem.left), resolution, elem.color);
+            renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
             break;
         }
 
         case UI_BUTTON: {
-            renderText(elem.text, glm::vec2(elem.top, elem.left), resolution, elem.color);
+            renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
             break;
         }
 

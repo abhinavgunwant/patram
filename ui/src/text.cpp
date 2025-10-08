@@ -1,5 +1,6 @@
 #include "include/text.hpp"
 
+#include <cctype>
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -12,6 +13,10 @@
 #include "include/shader.hpp"
 
 using namespace std;
+
+#ifdef DEBUG_TEXT
+bool debugTextFirstRenderPrint = true;
+#endif
 
 Character characters[MAX_CHARACTERS];
 Shader textShader;
@@ -42,12 +47,27 @@ void initCharGlyph(FT_Face& face, uint16_t c) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
+
+    #ifdef DEBUG_TEXT
+        if (debugTextFirstRenderPrint) {
+            if (c > 64 && c < 90 || c > 96 && c < 123) {
+                cout << "\nchar: " << (char)c << "; width: " << face->glyph->bitmap.width
+                << " height: " << face->glyph->bitmap.rows
+                << " bearingLeft: " << face->glyph->bitmap_left
+                << " bearingTop: " << face->glyph->bitmap_top
+                << " textureID: " << texture
+                << " advance: " << face->glyph->advance.x;
+            }
+        }
+    #endif
+
 	characters[c] = {
-		glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-		glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-		texture,
-		static_cast<unsigned int>(face->glyph->advance.x)
+        static_cast<uint8_t>(face->glyph->bitmap.width),
+		static_cast<uint8_t>(face->glyph->bitmap.rows),
+		static_cast<int8_t>(face->glyph->bitmap_left),
+        static_cast<uint8_t>(face->glyph->bitmap_top),
+		static_cast<uint16_t>(texture),
+		static_cast<uint16_t>(face->glyph->advance.x)
 	};
 }
 
@@ -71,7 +91,7 @@ void initFonts() {
 	FT_Select_Charmap(face, FT_ENCODING_UNICODE);
 
 	// set size to load glyphs as
-	FT_Set_Pixel_Sizes(face, 0, 48);
+	FT_Set_Pixel_Sizes(face, 0, DEFAULT_FONT_SIZE);
 
 	// disable byte-alignment restriction
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -120,7 +140,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
 }
 
 // render line of text
-void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
+void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
     int32_t pid = shaders[SHADER_TEXT].programId;
 
     glUseProgram(pid);
@@ -135,15 +155,55 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindVertexArray(textVAO);
 
+    #ifdef DEBUG_TEXT
+    if (debugTextFirstRenderPrint) {
+        cout << "\nRendering text: " << text;
+    }
+    #endif
+
 	// iterate through all characters
 	for (const char c : text) {
 		Character ch = characters[(int)c];
 
-		float xpos = pos.x + ch.bearing.x;
-		float ypos = pos.y - (ch.size.y - ch.bearing.y);
+        #ifdef DEBUG_TEXT
+        if (debugTextFirstRenderPrint) {
+            cout << "\n--> Rendering character: " << (char) c;
+        }
+        #endif
 
-		float xpos_plus_w = xpos + ch.size.x;
-		float ypos_plus_h = ypos - ch.size.y;
+        float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
+
+        float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+
+        float glyphHeight = static_cast<float>(ch.height) * fontHeightRatio;
+        float glyphWidth = glyphHeight * aspectRatio;
+
+        float widthRatio = glyphWidth / ch.width;
+        float heightRatio = glyphHeight / ch.height;
+
+        float bearingTop = ch.bearingTop * heightRatio;
+        float bearingLeft = ch.bearingLeft * widthRatio;
+
+		float xpos = pos.x + bearingLeft;
+		float ypos = pos.y + (glyphHeight - bearingTop) + fontSize;
+
+		// float xpos_plus_w = xpos + ch.width;
+		// float ypos_plus_h = ypos - ch.height; // ypos + h
+
+		float xpos_plus_w = xpos + glyphWidth;
+		float ypos_plus_h = ypos - glyphHeight; // ypos + h
+
+        #ifdef DEBUG_TEXT
+        if (debugTextFirstRenderPrint) {
+            cout << "; x: " << xpos << " y: " << ypos << " x + w: "
+                << xpos_plus_w << " y + h: " << ypos_plus_h
+                << " bearingLeft: " << bearingLeft
+                << " bearingTop: " << bearingTop
+                << " widthRatio: " << widthRatio
+                << " heightRatio: " << heightRatio;
+        }
+        #endif
+
 		// update textVBO for each character
 		float vertices[6][4] = {
 			{ xpos,         ypos_plus_h,    0.0f, 0.0f },
@@ -163,7 +223,9 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
 		// render quad
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-		pos.x += (ch.advance >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+		pos.x += (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+
+		// pos.x += glyphWidth != glyphWidth ? 0 : glyphWidth;
 	}
 
 	glBindVertexArray(0);
@@ -171,7 +233,7 @@ void renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
 }
 
 // render line of text
-void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
+void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
     int32_t pid = shaders[SHADER_TEXT].programId;
 
     glUseProgram(pid);
@@ -185,11 +247,11 @@ void renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color) {
 	for (const wchar_t c : text) {
 		Character ch = characters[(int)c];
 
-		float xpos = pos.x + ch.bearing.x;
-		float ypos = pos.y - (ch.size.y - ch.bearing.y);
+		float xpos = pos.x + ch.bearingLeft;
+		float ypos = pos.y - (ch.height - ch.bearingTop);
 
-		float xpos_plus_w = xpos - ch.size.x; // xpos + w
-		float ypos_plus_h = ypos + ch.size.y; // ypos + h
+		float xpos_plus_w = xpos - ch.width; // xpos + w
+		float ypos_plus_h = ypos + ch.height; // ypos + h
 		// update textVBO for each character
 		float vertices[6][4] = {
 			{ xpos,         ypos_plus_h,    0.0f, 0.0f },

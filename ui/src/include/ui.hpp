@@ -16,7 +16,8 @@
 
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
-#define BLACK               glm::vec4(0.0, 0.0, 0.0, 0.0)
+#define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
+#define TRANSPARENT         glm::vec4(0.0, 0.0, 0.0, 0.0)
 
 // Theme colors
 //// Light theme colors
@@ -109,6 +110,8 @@ struct UIElement {
     UISizePreference heightPreference;
 
     Icon icon;
+
+    uint8_t fontSize;
 };
 
 void defaultCallback(UIElement);

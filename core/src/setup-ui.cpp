@@ -95,12 +95,24 @@ void setupUI(bool isDarkTheme) {
     UIElement* newButton = &elements[1];
     UIElement* button2 = &elements[2];
     UIElement* button3 = &elements[3];
+    UIElement* label = &elements[4];
+    UIElement* label2 = &elements[5];
+    UIElement* label3 = &elements[6];
+    UIElement* label4 = &elements[7];
+    UIElement* label5 = &elements[8];
+    UIElement* label6 = &elements[9];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
     initElement(*button2, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
     initElement(*button3, UI_ICON_BUTTON, 8.0f, 120.0f, 48.0f, 48.0f);
+    initElement(*label, UI_LABEL, 80.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label4, UI_LABEL, 180.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label5, UI_LABEL, 230.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label6, UI_LABEL, 290.0f, 8.0f, 48.0f, 48.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -122,11 +134,31 @@ void setupUI(bool isDarkTheme) {
     newButton->icon = ICON_PLUS;
     button2->icon = ICON_FILE;
     button2->text = "Button2";
+    label->text = "Test Label jxyz";
+    label2->text = "Made by:";
+    label2->fontSize = 32;
+    label3->text = "Abhinav Gunwant";
+    label3->fontSize = 48;
+
+    label4->text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    label4->fontSize = 48;
+
+    label5->text = "abcdefghijklmnopqrstuvwxyz";
+    label5->fontSize = 48;
+
+    label6->text = "0123456789";
+    label6->fontSize = 48;
 
     addChild(rootContainer, menuBar);
     addChild(rootContainer, newButton);
     addChild(rootContainer, button2);
     addChild(rootContainer, button3);
+    addChild(rootContainer, label);
+    addChild(rootContainer, label2);
+    addChild(rootContainer, label3);
+    addChild(rootContainer, label4);
+    addChild(rootContainer, label5);
+    addChild(rootContainer, label6);
 }
 
 void enterRenderLoop() {
@@ -145,10 +177,13 @@ void enterRenderLoop() {
         glm::vec2 cursor(cursorX, cursorY);
 
         renderElement(rootContainer, resolution, cursor);
-        renderText("Abhinav Gunwant", glm::vec2(200, 200), resolution);
 
         glfwSwapBuffers(window);
 		glfwPollEvents();
+
+        #ifdef DEBUG_TEXT
+        debugTextFirstRenderPrint = false;
+        #endif
         // glfwSwapInterval(1);
     }
 }
