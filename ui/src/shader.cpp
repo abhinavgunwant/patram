@@ -127,12 +127,64 @@ string fragmentShaders[] = {
         "float radians = clamp(d_cursor_uv / (width * 0.9), 0, 1.5708);\n"
         "FragColor = mix(backgroundColor, hoverColor, cos(radians));\n"
     "}\0",
+
+    // Button rounded border shader
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+
+    "uniform vec4 backgroundColor;\n"
+    "uniform float borderRadius;\n"
+    "uniform vec2 topLeft;\n"
+    "uniform vec2 resolution;\n"
+    "uniform vec2 dimensions;\n" // width, height
+
+    "void main() {\n"
+        "vec2 uv = gl_FragCoord.xy;"
+        "uv.y = resolution.y - uv.y;\n"
+        "vec2 br = topLeft + dimensions;\n"
+
+        "if (uv.x < topLeft.x || uv.y < topLeft.y || uv.x > br.x || uv.y > br.y) {\n"
+            "FragColor = vec4(0);"
+            "return;\n"
+        "}\n"
+
+        "vec2 tl_plus_br = topLeft + borderRadius;\n"
+        "vec2 br_minus_br = br - borderRadius;\n"
+
+        // "if (tl_plus_br.x == topLeft.x + 10 && tl_plus_br.y == topLeft.y + 10) {"
+        //     "FragColor = vec4(0, 0, 1, 1);\n"
+        //     "return;\n"
+        // "}\n"
+
+        // "if (uv.y < tl_plus_br.y) {"
+        //     "FragColor = vec4(1, 0, 1, 1);\n"
+        //     "return;\n"
+        // "}\n"
+        // "if (uv.x < tl_plus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, tl_plus_br) <= borderRadius)) {"
+        //     "FragColor = vec4(0, 0, 1, 1);\n"
+        //     "return;\n"
+        // "}\n"
+        "if ("
+            "(uv.x >= tl_plus_br.x && uv.x <= br_minus_br.x)\n"
+            "|| (uv.y >= tl_plus_br.y && uv.y <= br_minus_br.y)\n"
+            "|| (uv.x < tl_plus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, tl_plus_br) <= borderRadius))\n"
+            "|| (uv.x > br_minus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, vec2(br_minus_br.x, tl_plus_br.y)) <= borderRadius))\n"
+            "|| (uv.x > br_minus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, br_minus_br) <= borderRadius))\n"
+            "|| (uv.x < tl_plus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, vec2(tl_plus_br.x, br_minus_br.y)) <= borderRadius))\n"
+        ") {\n"
+            "FragColor = backgroundColor;\n"
+            "return;\n"
+        "}\n"
+
+        "FragColor = vec4(0);\n"
+    "}\0"
 };
 
 Shader shaders[] = {
-    { 0, 0, 0 },
-    { 0, 1, 1 },
-    { 0, 2, 2 },
+    { 0, 0, 0 }, // SHADER_DEFAULT
+    { 0, 1, 1 }, // SHADER_TEXT
+    { 0, 2, 2 }, // SHADER_ICON_BUTTON
+    { 0, 0, 3 }, // SHADER_BUTTON
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {

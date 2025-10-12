@@ -126,6 +126,7 @@ struct UIElement {
     Icon icon;
 
     uint8_t fontSize;
+    uint8_t borderRadius;
 };
 
 void defaultCallback(UIElement* elem);

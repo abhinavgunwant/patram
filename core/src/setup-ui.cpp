@@ -195,6 +195,7 @@ void setupUI(bool isDarkTheme) {
     button2->text = "Button2";
     button4->text = "Test Button";
     button4->onClick = testOnClick;
+    button4->borderRadius = 10;
     label2->text = "Made by:";
     label2->fontSize = 32;
     label3->text = "Abhinav Gunwant";

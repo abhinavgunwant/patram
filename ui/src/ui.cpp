@@ -30,6 +30,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     glm::vec4 backgroundColor;
     glm::vec4 hoverColor;
     glm::vec4 color;
+    uint8_t borderRadius = 0;
 
     switch (type) {
         case UI_BUTTON: {
@@ -42,8 +43,11 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 hoverColor = BUTTON_HOVER_BG;
                 color = BUTTON_COLOR;
             }
+
+            borderRadius = 4;
             break;
         }
+
         case UI_ICON_BUTTON:
             if (darkTheme) {
                 backgroundColor = ICON_BUTTON_BG_DARK;
@@ -114,6 +118,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         ICON_NONE,
 
         16,
+        borderRadius,
     };
 }
 
@@ -300,22 +305,29 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             }
 
             glBindVertexArray(elem.vao);
-            glUseProgram(shaders[SHADER_DEFAULT].programId);
+            glUseProgram(shaders[SHADER_BUTTON].programId);
 
-            uint32_t resU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "resolution");
-            uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-            uint32_t timeU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "time");
+            uint32_t resU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "resolution");
+            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "backgroundColor");
+            uint32_t timeU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "time");
+            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "borderRadius");
+            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "topLeft");
+            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "dimensions");
 
             glUniform2f(resU, resolution.x, resolution.y);
             glUniform4f(
-                colorU,
+                backgroundColorU,
                 elem.backgroundColor.x,
                 elem.backgroundColor.y,
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
 
+            glUniform2f(topleftU, elem.left, elem.top);
+            glUniform2f(dimensionsU, elem.width, elem.height);
+
             glUniform1f(timeU, glfwGetTime());
+            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -333,6 +345,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.reDraw = true;
                 elem.width = textDimensions.w + BUTTON_PADDING;
                 elem.height = textDimensions.z + BUTTON_PADDING - elem.top;
+                cout << "\nRecalculating dimensions of button";
             }
 
             break;

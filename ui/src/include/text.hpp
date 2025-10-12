@@ -13,7 +13,7 @@
 
 #define MAX_CHARACTERS 65536
 #define DEFAULT_FONT_SIZE 48
-#define DEBUG_TEXT
+// #define DEBUG_TEXT
 
 #ifdef DEBUG_TEXT
 extern bool debugTextFirstRenderPrint;
