@@ -32,6 +32,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     glm::vec4 color;
     uint8_t borderRadius = 0;
 
+    UIPreferences* pref = nullptr;
+
     switch (type) {
         case UI_BUTTON: {
             if (darkTheme) {
@@ -71,6 +73,14 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UI_CONTAINER:
+            pref = initPreferences();
+
+            backgroundColor = TRANSPARENT;
+            hoverColor = TRANSPARENT;
+            color = BLACK;
+            break;
+
         default:
             backgroundColor = TRANSPARENT;
             hoverColor = TRANSPARENT;
@@ -88,7 +98,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         false,
         false,
         true,
-        true,
 
         defaultCallback,
         defaultCallback,
@@ -96,9 +105,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         "",
 
         nullptr,
-
-        UI_ALIGN_START,
-        UI_ALIGN_START,
 
         0,
         0,
@@ -112,14 +118,26 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         0,
         0,
 
-        UI_FIXED,
-        UI_FIXED,
-
         ICON_NONE,
 
         16,
         borderRadius,
+        pref,
     };
+}
+
+UIPreferences* initPreferences() {
+    UIPreferences* pref = new UIPreferences;
+
+    pref->maxWidth = -1;
+    pref->maxHeight = -1;
+    pref->direction = true;
+    pref->verticalAlign = UI_ALIGN_START;
+    pref->horizontalAlign = UI_ALIGN_START;
+    pref->heightPreference = UI_FIXED;
+    pref->widthPreference = UI_FIXED;
+
+    return pref;
 }
 
 void addChild(UIElement& parent, UIElement * child) {
@@ -163,23 +181,25 @@ void addChild(UIElement& parent, UIElement * child) {
 void recalculateLayout(UIElement * elem) {
     elem->reDraw = true;
 
-    switch (elem->widthPreference) {
-        case UI_FULL:
-            if (elem->parent != nullptr) {
-                cout << "\nparent element!";
-                elem->width = elem->parent->width;
-            }
-        default:
-            break;
-    }
+    if (elem->preferences != nullptr) {
+        switch (elem->preferences->widthPreference) {
+            case UI_FULL:
+                if (elem->parent != nullptr) {
+                    cout << "\nparent element!";
+                    elem->width = elem->parent->width;
+                }
+            default:
+                break;
+        }
 
-    switch (elem->heightPreference) {
-        case UI_FULL:
-            if (elem->parent != nullptr) {
-                elem->height = elem->parent->height;
-            }
-        default:
-            break;
+        switch (elem->preferences->heightPreference) {
+            case UI_FULL:
+                if (elem->parent != nullptr) {
+                    elem->height = elem->parent->height;
+                }
+            default:
+                break;
+        }
     }
 
     for (int i=0; i<elem->totalChildren; ++i) {
@@ -194,7 +214,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             if (elem.reDraw) {
                 // recalculateLayout(&elem);
 
-                cout << "\nRe-drawing";
+                cout << "\nRe-drawing Container";
                 if (elem.vao != 0) {
                     glDeleteVertexArrays(1, &elem.vao);
                 }
@@ -481,6 +501,22 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
             elem.reDraw = false;
+            break;
+        }
+
+        case UI_TEXT_AREA: {
+            break;
+        }
+
+        case UI_INPUT: {
+            break;
+        }
+
+        case UI_TAB_BAR: {
+            break;
+        }
+
+        case UI_TAB: {
             break;
         }
 

@@ -52,6 +52,10 @@ enum UIElementType {
     UI_BUTTON,
     UI_ICON_BUTTON,
     UI_CONTAINER,
+    UI_TEXT_AREA,
+    UI_INPUT,
+    UI_TAB_BAR,
+    UI_TAB,
 };
 
 enum UIAlignment {
@@ -75,6 +79,23 @@ enum Icon {
     ICON_FILE,
 };
 
+struct UIPreferences {
+    float maxHeight;
+    float maxWidth;
+
+    UIAlignment horizontalAlign;
+    UIAlignment verticalAlign;
+
+    UISizePreference widthPreference;
+    UISizePreference heightPreference;
+
+    /**
+     * `true` - row
+     * `false` - column
+     */
+    bool direction;
+};
+
 struct UIElement {
     UIElementType type;
 
@@ -89,12 +110,6 @@ struct UIElement {
     bool reDraw;
 
     /**
-     * `true` - row
-     * `false` - column
-     */
-    bool direction;
-
-    /**
      * Click behaviour for buttons.
      */
     void (*onClick)(UIElement*);
@@ -105,8 +120,6 @@ struct UIElement {
     UIElement* parent;
 
     // Properties for children (if any)
-    UIAlignment horizontalAlign;
-    UIAlignment verticalAlign;
     uint32_t totalChildren;
     uint32_t capacity;
     UIElement** children;
@@ -120,17 +133,17 @@ struct UIElement {
     uint32_t vbo;
     uint32_t texture;
 
-    UISizePreference widthPreference;
-    UISizePreference heightPreference;
-
     Icon icon;
 
     uint8_t fontSize;
     uint8_t borderRadius;
+
+    UIPreferences * preferences;
 };
 
 void defaultCallback(UIElement* elem);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
+UIPreferences* initPreferences();
 void addChild(UIElement& parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);

@@ -184,10 +184,11 @@ void setupUI(bool isDarkTheme) {
     }
 
     menuBar->text = "test";
-    menuBar->widthPreference = UI_FULL;
-    menuBar->heightPreference = UI_FIXED;
-    menuBar->verticalAlign = UI_ALIGN_CENTER;
-    menuBar->horizontalAlign = UI_ALIGN_CENTER;
+    
+    menuBar->preferences->widthPreference = UI_FULL;
+    menuBar->preferences->heightPreference = UI_FIXED;
+    menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
+    menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
 
     newButton->text = "New";
     newButton->icon = ICON_PLUS;
