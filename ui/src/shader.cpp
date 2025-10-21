@@ -133,10 +133,12 @@ string fragmentShaders[] = {
     "out vec4 FragColor;\n"
 
     "uniform vec4 backgroundColor;\n"
+    "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
     "uniform vec2 resolution;\n"
     "uniform vec2 dimensions;\n" // width, height
+    "uniform vec2 cursor;\n"
 
     "void main() {\n"
         "vec2 uv = gl_FragCoord.xy;"
@@ -172,6 +174,11 @@ string fragmentShaders[] = {
             "|| (uv.x > br_minus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, br_minus_br) <= borderRadius))\n"
             "|| (uv.x < tl_plus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, vec2(tl_plus_br.x, br_minus_br.y)) <= borderRadius))\n"
         ") {\n"
+            "if (cursor.x > topLeft.x && cursor.x < br.x && cursor.y > topLeft.y && cursor.y < br.y) {\n"
+                "FragColor = hoverColor;\n"
+                "return;\n"
+            "}\n"
+
             "FragColor = backgroundColor;\n"
             "return;\n"
         "}\n"

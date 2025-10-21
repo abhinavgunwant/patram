@@ -309,10 +309,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             uint32_t resU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "resolution");
             uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "backgroundColor");
+            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "hoverColor");
             uint32_t timeU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "time");
             uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "borderRadius");
             uint32_t topleftU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "topLeft");
             uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "dimensions");
+            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "cursor");
 
             glUniform2f(resU, resolution.x, resolution.y);
             glUniform4f(
@@ -322,12 +324,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
+            glUniform4f(
+                hoverColorU,
+                elem.hoverColor.x,
+                elem.hoverColor.y,
+                elem.hoverColor.z,
+                elem.hoverColor.w
+            );
 
             glUniform2f(topleftU, elem.left, elem.top);
             glUniform2f(dimensionsU, elem.width, elem.height);
 
             glUniform1f(timeU, glfwGetTime());
             glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
+            glUniform2f(cursorU, cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
