@@ -290,3 +290,69 @@ glm::vec4 renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 col
     return dimensions;
 }
 
+uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize) {
+    #ifdef DEBUG_TEXT
+    if (debugTextFirstRenderPrint) {
+     cout << "\nRendering glyph: " << c;
+    }
+    #endif
+
+    Character ch = characters[(int)c];
+
+    #ifdef DEBUG_TEXT
+    if (debugTextFirstRenderPrint) {
+     cout << "\n--> Rendering character: " << (char) c;
+    }
+    #endif
+
+    float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
+
+    float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+
+    float glyphHeight = static_cast<float>(ch.height) * fontHeightRatio;
+    float glyphWidth = glyphHeight * aspectRatio;
+
+    float widthRatio = glyphWidth / ch.width;
+    float heightRatio = glyphHeight / ch.height;
+
+    float bearingTop = ch.bearingTop * heightRatio;
+    float bearingLeft = ch.bearingLeft * widthRatio;
+
+    float xpos = x + bearingLeft;
+    // float ypos = y + (glyphHeight - bearingTop) + fontSize;
+    float ypos = y + glyphHeight - bearingTop + 0.75*fontSize;
+
+    float xpos_plus_w = xpos + glyphWidth;
+    float ypos_plus_h = ypos - glyphHeight; // ypos + h
+
+    #ifdef DEBUG_TEXT
+    if (debugTextFirstRenderPrint) {
+        cout << "; x: " << xpos << " y: " << ypos << " x + w: "
+            << xpos_plus_w << " y + h: " << ypos_plus_h
+            << " bearingLeft: " << bearingLeft
+            << " bearingTop: " << bearingTop
+            << " widthRatio: " << widthRatio
+            << " heightRatio: " << heightRatio;
+    }
+    #endif
+
+    // update textVBO for each character
+    float vertices[4][4] = {
+        { xpos,         ypos,           0.0f, 1.0f },
+        { xpos_plus_w,  ypos,           1.0f, 1.0f },
+        { xpos,         ypos_plus_h,    0.0f, 0.0f },
+        { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f },
+    };
+
+    // render glyph texture over quad
+    glBindTexture(GL_TEXTURE_2D, ch.textureID);
+    // update content of textVBO memory
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
+
+    // render quad
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+    return (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+}
+

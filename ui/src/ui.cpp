@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include "include/ui.hpp"
+#include "include/command.hpp"
 #include "include/shader.hpp"
 #include "include/text.hpp"
 #include "../lib/stb_image.h"
@@ -26,13 +27,430 @@ void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
 }
 
+void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
+    cout << "\nDefault callback executed!";
+}
+
+void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
+    bool alt = mod & GLFW_MOD_ALT;
+    bool shift = mod & GLFW_MOD_SHIFT;
+    bool ctrl = mod & GLFW_MOD_CONTROL;
+    bool capsLck = mod & GLFW_MOD_CAPS_LOCK;
+    bool numLck = mod & GLFW_MOD_NUM_LOCK;
+
+    // cout << "\n Key: ";
+
+    // if (alt) {
+    //     cout << "Alt + ";
+    // }
+
+    // if (shift) {
+    //     cout << "Shift + ";
+    // }
+
+    // if (ctrl) {
+    //     cout << "Control + ";
+    // }
+
+    // if (capsLck) {
+    //     cout << "Caps Lock + ";
+    // }
+
+    // if (numLck) {
+    //     cout << "Num Lock + ";
+    // }
+
+    // cout << key;
+
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        #define TYPE(c) processCommand(elem, initCommand(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition))
+        #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
+        #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
+        #define CUR_POS elem->extraData->textInputData.cursorPosition
+
+        switch (key) {
+            case GLFW_KEY_LEFT:
+                if (elem->extraData != nullptr && CUR_POS != 0) {
+                    // cout << "move cursor to left";
+                    DECR_CURSOR();
+                }
+                break;
+
+            case GLFW_KEY_RIGHT:
+                if (elem->extraData != nullptr && CUR_POS != elem->text.length()) {
+                    // cout << "move cursor to right";
+                    INCR_CURSOR();
+                }
+                break;
+
+            case GLFW_KEY_END:
+                CUR_POS = elem->text.length();
+                break;
+
+            case GLFW_KEY_HOME:
+                CUR_POS = 0;
+                break;
+
+            case GLFW_KEY_BACKSPACE: {
+                if (CUR_POS <= elem->text.length() && CUR_POS > 0) {
+                    string d{elem->text[CUR_POS-1]};
+                    processCommand(elem, initCommand(COMMAND_BACKSPACE, d, CUR_POS));
+                    DECR_CURSOR();
+                }
+
+                break;
+            }
+
+            case GLFW_KEY_DELETE: {
+                cout << "\nDelete 1, cursor pos:" << CUR_POS << " text length: " << elem->text.length() << " " << (CUR_POS > -1);
+                if (CUR_POS < elem->text.length() && CUR_POS >= 0) {
+                    cout << "\nDelete 2";
+                    string d{elem->text[CUR_POS]};
+                    processCommand(elem, initCommand(COMMAND_DELETE, d, CUR_POS));
+                }
+
+                break;
+            }
+
+            case GLFW_KEY_A:
+                if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_B:
+                if (capsLck || shift) { TYPE("B"); } else { TYPE("b"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_C:
+                if (capsLck || shift) { TYPE("C"); } else { TYPE("c"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_D:
+                if (capsLck || shift) { TYPE("D"); } else { TYPE("d"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_E:
+                if (capsLck || shift) { TYPE("E"); } else { TYPE("e"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_F:
+                if (capsLck || shift) { TYPE("F"); } else { TYPE("f"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_G:
+                if (capsLck || shift) { TYPE("G"); } else { TYPE("g"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_H:
+                if (capsLck || shift) { TYPE("H"); } else { TYPE("h"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_I:
+                if (capsLck || shift) { TYPE("I"); } else { TYPE("i"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_J:
+                if (capsLck || shift) { TYPE("J"); } else { TYPE("j"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_K:
+                if (capsLck || shift) { TYPE("K"); } else { TYPE("k"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_L:
+                if (capsLck || shift) { TYPE("L"); } else { TYPE("l"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_M:
+                if (capsLck || shift) { TYPE("M"); } else { TYPE("m"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_N:
+                if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_O:
+                if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_P:
+                if (capsLck || shift) { TYPE("P"); } else { TYPE("p"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_Q:
+                if (capsLck || shift) { TYPE("Q"); } else { TYPE("q"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_R:
+                if (capsLck || shift) { TYPE("R"); } else { TYPE("r"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_S:
+                if (capsLck || shift) { TYPE("S"); } else { TYPE("s"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_T:
+                if (capsLck || shift) { TYPE("T"); } else { TYPE("t"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_U:
+                if (capsLck || shift) { TYPE("U"); } else { TYPE("u"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_V:
+                if (capsLck || shift) { TYPE("V"); } else { TYPE("v"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_W:
+                if (capsLck || shift) { TYPE("W"); } else { TYPE("w"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_X:
+                if (capsLck || shift) { TYPE("X"); } else { TYPE("x"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_Y:
+                if (ctrl) {
+                    processCommand(elem, initCommand(COMMAND_REDO, "", CUR_POS));
+                } else if (capsLck || shift) {
+                    TYPE("Y");
+                    INCR_CURSOR();
+                } else {
+                    TYPE("y");
+                    INCR_CURSOR();
+                }
+                break;
+
+            case GLFW_KEY_Z:
+                if (ctrl) {
+                    processCommand(elem, initCommand(COMMAND_UNDO, "", CUR_POS));
+                } else if (capsLck || shift) {
+                    TYPE("Z");
+                    INCR_CURSOR();
+                } else {
+                    TYPE("z");
+                    INCR_CURSOR();
+                }
+                break;
+
+            case GLFW_KEY_0:
+                if (shift) { TYPE(")"); } else { TYPE("0"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_1:
+                if (shift) { TYPE("!"); } else { TYPE("1"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_2:
+                if (shift) { TYPE("@"); } else { TYPE("2"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_3:
+                if (shift) { TYPE("#"); } else { TYPE("3"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_4:
+                if (shift) { TYPE("$"); } else { TYPE("4"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_5:
+                if (shift) { TYPE("%"); } else { TYPE("5"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_6:
+                if (shift) { TYPE("^"); } else { TYPE("6"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_7:
+                if (shift) { TYPE("&"); } else { TYPE("7"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_8:
+                if (shift) { TYPE("*"); } else { TYPE("8"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_9:
+                if (shift) { TYPE("("); } else { TYPE("9"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_MINUS:
+                if (shift) { TYPE("_"); } else { TYPE("-"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_EQUAL:
+                if (shift) { TYPE("+"); } else { TYPE("="); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_PERIOD:
+                if (shift) { TYPE(">"); } else { TYPE("."); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_COMMA:
+                if (shift) { TYPE("<"); } else { TYPE(","); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_SLASH:
+                if (shift) { TYPE("?"); } else { TYPE("/"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_BACKSLASH:
+                if (shift) { TYPE("|"); } else { TYPE("\\"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_LEFT_BRACKET:
+                if (shift) { TYPE("{"); } else { TYPE("["); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_RIGHT_BRACKET:
+                if (shift) { TYPE("}"); } else { TYPE("]"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_SEMICOLON:
+                if (shift) { TYPE(":"); } else { TYPE(";"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_APOSTROPHE:
+                if (shift) { TYPE("\""); } else { TYPE("'"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_GRAVE_ACCENT:
+                if (shift) { TYPE("~"); } else { TYPE("`"); }
+                INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_KP_0:
+                if (numLck) { TYPE("0"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_1:
+                if (numLck) { TYPE("1"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_2:
+                if (numLck) { TYPE("2"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_3:
+                if (numLck) { TYPE("3"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_4:
+                if (numLck) { TYPE("4"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_5:
+                if (numLck) { TYPE("5"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_6:
+                if (numLck) { TYPE("6"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_7:
+                if (numLck) { TYPE("7"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_8:
+                if (numLck) { TYPE("8"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_9:
+                if (numLck) { TYPE("9"); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_DECIMAL:
+                if (numLck) { TYPE("."); INCR_CURSOR(); }
+                break;
+
+            case GLFW_KEY_KP_DIVIDE:
+                TYPE("/"); INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_KP_MULTIPLY:
+                TYPE("*"); INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_KP_SUBTRACT:
+                TYPE("-"); INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_KP_ADD:
+                TYPE("+"); INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_KP_EQUAL:
+                TYPE("="); INCR_CURSOR();
+                break;
+
+            case GLFW_KEY_SPACE:
+                TYPE(" "); INCR_CURSOR();
+                break;
+
+            default: {
+                // Nothing!
+            }
+        }
+        #undef TYPE
+        #undef INCR_CURSOR
+        #undef DECR_CURSOR
+        #undef CUR_POS
+    }
+}
+
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
+    UIExtraData * extraData = nullptr;
+
     glm::vec4 backgroundColor;
     glm::vec4 hoverColor;
     glm::vec4 color;
     uint8_t borderRadius = 0;
 
     UIPreferences* pref = nullptr;
+
+    void (*onKey)(UIElement*, int, int, int) = defaultKeyCallback;
 
     switch (type) {
         case UI_BUTTON: {
@@ -78,7 +496,36 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
             backgroundColor = TRANSPARENT;
             hoverColor = TRANSPARENT;
-            color = BLACK;
+
+            if (darkTheme) {
+                color = WHITE;
+            } else {
+                color = BLACK;
+            }
+            break;
+
+        case UI_TEXT_INPUT:
+            pref = initPreferences();
+
+            backgroundColor = TRANSPARENT;
+            hoverColor = TRANSPARENT;
+
+            if (darkTheme) {
+                color = WHITE;
+            } else {
+                color = BLACK;
+            }
+
+            extraData = new UIExtraData {
+                .textInputData = TextInputData {
+                    .cursorPosition = 0,
+                    .cursorVAO = 0,
+                    .cursorVBO = 0,
+                    .cmdList = initCommandList(),
+                }
+            };
+
+            onKey = textInputKeyCallback;
             break;
 
         default:
@@ -101,6 +548,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         defaultCallback,
         defaultCallback,
+        onKey,
 
         "",
 
@@ -123,6 +571,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         16,
         borderRadius,
         pref,
+        extraData,
     };
 }
 
@@ -504,11 +953,185 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_TEXT_AREA: {
+        case UI_TEXT_INPUT: {
+            if (elem.reDraw) {
+                cout << "\nRe-drawing Text Input";
+                if (elem.vao != 0) {
+                    glDeleteVertexArrays(1, &elem.vao);
+                }
+
+                if (elem.vbo != 0) {
+                    glDeleteBuffers(1, &elem.vbo);
+                }
+
+                float right = elem.left + elem.width;
+                float bottom = elem.top + elem.height;
+
+                float vertices[] = {
+                    right, bottom,
+                    right, elem.top,
+                    elem.left, bottom,
+                    elem.left, elem.top,
+                };
+
+                glGenVertexArrays(1, &elem.vao);
+                glBindVertexArray(elem.vao);
+                glGenBuffers(1, &elem.vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+                elem.reDraw = false;
+            }
+
+            glBindVertexArray(elem.vao);
+            glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
+
+            uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "resolution");
+            uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "color");
+            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "backgroundColor");
+            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "hoverColor");
+            uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "time");
+            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "borderRadius");
+            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "topLeft");
+            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "dimensions");
+            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "cursor");
+
+            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform4f(
+                colorU,
+                elem.color.x,
+                elem.color.y,
+                elem.color.z,
+                elem.color.w
+            );
+            glUniform4f(
+                backgroundColorU,
+                elem.backgroundColor.x,
+                elem.backgroundColor.y,
+                elem.backgroundColor.z,
+                elem.backgroundColor.w
+            );
+            glUniform4f(
+                hoverColorU,
+                elem.hoverColor.x,
+                elem.hoverColor.y,
+                elem.hoverColor.z,
+                elem.hoverColor.w
+            );
+
+            glUniform2f(topleftU, elem.left, elem.top);
+            glUniform2f(dimensionsU, elem.width, elem.height);
+
+            glUniform1f(timeU, glfwGetTime());
+            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
+            glUniform2f(cursorU, cursor.x, cursor.y);
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            // Render Text
+            // TODO: change BUTTON_PADDING if appropriate
+            // glm::vec4 textDimensions = renderText(
+            //     elem.text,
+            //     glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING),
+            //     resolution,
+            //     elem.color,
+            //     elem.fontSize
+            // );
+
+            int32_t pid = shaders[SHADER_TEXT].programId;
+
+            glUseProgram(pid);
+
+            glUniform3f(
+                glGetUniformLocation(pid, "textColor"),
+                elem.color.r,
+                elem.color.g,
+                elem.color.b
+            );
+            glUniform2f(glGetUniformLocation(pid, "resolution"), resolution.x, resolution.y);
+            glActiveTexture(GL_TEXTURE0);
+            glBindVertexArray(textVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+
+            uint32_t currentIndex = 0;
+            float x = elem.left + BUTTON_PADDING;
+            float y = elem.top + BUTTON_PADDING;
+
+            float cursorX = -1;
+            float cursorY = -1;
+
+            for (const char c: elem.text) {
+                if (currentIndex == elem.extraData->textInputData.cursorPosition) {
+                    cursorX = x;
+                    cursorY = y;
+                }
+
+                x += renderGlyph(c, x, y, resolution, elem.fontSize);
+
+                ++currentIndex;
+            }
+
+            if (elem.extraData->textInputData.cursorPosition == elem.text.length()) {
+                cursorX = x;
+                cursorY = y;
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            // if (elem.width == textDimensions.w + BUTTON_PADDING) {
+            //     elem.reDraw = false;
+            // } else {
+            //     elem.reDraw = true;
+            //     elem.width = textDimensions.w + BUTTON_PADDING;
+            //     elem.height = textDimensions.z + BUTTON_PADDING - elem.top;
+            //     cout << "\nRecalculating dimensions of Text Input";
+            // }
+
+            // When text input is active, draw the cursor.
+            if (elem.active) {
+                if (elem.extraData->textInputData.cursorVAO != 0) {
+                    glDeleteVertexArrays(1, &elem.extraData->textInputData.cursorVAO);
+                }
+
+                if (elem.extraData->textInputData.cursorVBO != 0) {
+                    glDeleteBuffers(1, &elem.extraData->textInputData.cursorVBO);
+                }
+
+                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
+                float vertices[] = {
+                    cursorX, cursorY + elem.fontSize,
+                    cursorX + 1, cursorY + elem.fontSize,
+                    cursorX, cursorY,
+                    cursorX + 1, cursorY,
+                };
+
+                glGenVertexArrays(1, &elem.extraData->textInputData.cursorVAO);
+                glBindVertexArray(elem.extraData->textInputData.cursorVAO);
+                glGenBuffers(1, &elem.extraData->textInputData.cursorVBO);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->textInputData.cursorVBO);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                uint32_t resU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "resolution");
+                glm::vec4 color = CURSOR_COLOR;
+
+                glUniform4f(colorU, color.x, color.y, color.z, color.w);
+                glUniform2f(resU, resolution.x, resolution.y);
+
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
+
             break;
         }
 
-        case UI_INPUT: {
+        case UI_TEXT_AREA: {
             break;
         }
 
@@ -524,6 +1147,145 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
     }
 }
 
+void processRedo(UIElement* element) {
+    #define CUR_CMD element->extraData->textInputData.cmdList.currentCommand
+    #define CUR_POS element->extraData->textInputData.cursorPosition
+
+    Command* cmd = CUR_CMD;
+
+    if (cmd == nullptr || cmd->next == nullptr) {
+        return;
+    }
+
+    moveToNextCommand(element->extraData->textInputData.cmdList);
+
+    cmd = CUR_CMD;
+
+    switch (cmd->type) {
+        case COMMAND_TYPE: {
+            // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
+            if (cmd->cursorPos == element->text.length()) {
+                // cout << "\nAppending at the end! " << cmd->data.length();
+                element->text += cmd->data;
+                // elem->extraData->textInputData.cursorPosition += cmd->data.length();
+                break;
+            }
+
+            element->text.insert(cmd->cursorPos, cmd->data);
+            CUR_POS = cmd->cursorPos + 1;
+            break;
+        }
+
+        case COMMAND_DELETE: {
+            element->text.erase(cmd->cursorPos, 1);
+            CUR_POS = cmd->cursorPos;
+            break;
+        }
+
+        case COMMAND_BACKSPACE: {
+            element->text.erase(cmd->cursorPos-1, 1);
+            CUR_POS = cmd->cursorPos - 1;
+            break;
+        }
+
+        default:
+            // Nothing!
+            break;
+    }
+
+    #undef CUR_CMD
+    #undef CUR_POS
+}
+
+void processUndo(UIElement* element) {
+    #define CUR_POS element->extraData->textInputData.cursorPosition
+
+    Command* currentCmd = element->extraData->textInputData.cmdList.currentCommand;
+
+    if (currentCmd == nullptr) {
+        return;
+    }
+
+    switch (currentCmd->type) {
+        case COMMAND_TYPE: {
+            element->text.erase(currentCmd->cursorPos, 1);
+            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
+            moveToPrevCommand(element->extraData->textInputData.cmdList);
+            CUR_POS = cmd->cursorPos;
+            break;
+        }
+        case COMMAND_BACKSPACE: {
+            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
+            element->text.insert(cmd->cursorPos-1, cmd->data);
+            moveToPrevCommand(element->extraData->textInputData.cmdList);
+            CUR_POS = cmd->cursorPos;
+            break;
+        }
+        case COMMAND_DELETE: {
+            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
+            element->text.insert(cmd->cursorPos, cmd->data);
+            moveToPrevCommand(element->extraData->textInputData.cmdList);
+            CUR_POS = cmd->cursorPos;
+            break;
+        }
+        default:
+            // Nothing!
+            break;
+    }
+    #undef CUR_POS
+}
+
+void processCommand(UIElement* elem, Command* cmd) {
+    #define CUR_POS elem->extraData->textInputData.cursorPosition
+    if (elem->type == UI_TEXT_INPUT && elem->extraData != nullptr) {
+        bool append = false;
+        switch(cmd->type) {
+            case COMMAND_NONE: break;
+            case COMMAND_TYPE: {
+                // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
+                if (CUR_POS == elem->text.length()) {
+                    // cout << "\nAppending at the end! " << cmd->data.length();
+                    elem->text += cmd->data;
+                    append = true;
+                    // elem->extraData->textInputData.cursorPosition += cmd->data.length();
+                    break;
+                }
+
+                elem->text.insert(CUR_POS, cmd->data);
+                append = true;
+                break;
+            }
+
+            case COMMAND_DELETE: {
+                elem->text.erase(CUR_POS, 1);
+                append = true;
+                break;
+            }
+
+            case COMMAND_BACKSPACE: {
+                elem->text.erase(CUR_POS-1, 1);
+                append = true;
+                break;
+            }
+
+            case COMMAND_UNDO:
+                processUndo(elem);
+                break;
+
+            case COMMAND_REDO:
+                processRedo(elem);
+                break;
+        }
+
+        if (append) {
+            appendCommand(elem->extraData->textInputData.cmdList, cmd);
+        }
+
+        printCommands(elem->extraData->textInputData.cmdList);
+    }
+    #undef CUR_POS
+}
+
 string getIconLocation(Icon icon) {
     string path = "assets/images/";
 
@@ -534,5 +1296,20 @@ string getIconLocation(Icon icon) {
     }
 
     return path;
+}
+
+string elementType(UIElement *elem) {
+    switch(elem->type) {
+        case UI_LABEL: return "\nUI Element Type: Label";
+        case UI_BUTTON: return "\nUI Element Type: Button";
+        case UI_ICON_BUTTON: return "\nUI Element Type: Icon Button";
+        case UI_CONTAINER: return "\nUI Element Type: Container";
+        case UI_TEXT_INPUT: return "\nUI Element Type: Text Input";
+        case UI_TEXT_AREA: return "\nUI Element Type: Text Area";
+        case UI_TAB_BAR: return "\nUI Element Type: Tab Bar";
+        case UI_TAB: return "\nUI Element Type: Tab";
+    }
+
+    return "UI Element Type: Unknown";
 }
 

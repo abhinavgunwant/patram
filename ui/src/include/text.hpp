@@ -59,5 +59,7 @@ glm::vec4 renderText(
     uint8_t fontSize = 16
 );
 
+uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
+
 #endif // PATRAM_TEXT
 

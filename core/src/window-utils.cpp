@@ -34,12 +34,15 @@ void showWindow() {
 
 	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
+    glfwSetKeyCallback(window, keyCallback);
     glfwSetFramebufferSizeCallback(window, resizeCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetWindowIconifyCallback(window, minimizedCallback);
     glfwSetWindowMaximizeCallback(window, maximizedCallback);
     glfwSetWindowFocusCallback(window, windowFocusCallback);
+
+    glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
 
 	glClearColor(0, 0, 0, 1.0);
 }

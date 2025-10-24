@@ -153,19 +153,63 @@ string fragmentShaders[] = {
         "vec2 tl_plus_br = topLeft + borderRadius;\n"
         "vec2 br_minus_br = br - borderRadius;\n"
 
-        // "if (tl_plus_br.x == topLeft.x + 10 && tl_plus_br.y == topLeft.y + 10) {"
-        //     "FragColor = vec4(0, 0, 1, 1);\n"
-        //     "return;\n"
-        // "}\n"
+        "if ("
+            "(uv.x >= tl_plus_br.x && uv.x <= br_minus_br.x)\n"
+            "|| (uv.y >= tl_plus_br.y && uv.y <= br_minus_br.y)\n"
+            "|| (uv.x < tl_plus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, tl_plus_br) <= borderRadius))\n"
+            "|| (uv.x > br_minus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, vec2(br_minus_br.x, tl_plus_br.y)) <= borderRadius))\n"
+            "|| (uv.x > br_minus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, br_minus_br) <= borderRadius))\n"
+            "|| (uv.x < tl_plus_br.x && uv.y > br_minus_br.y && (distance(uv.xy, vec2(tl_plus_br.x, br_minus_br.y)) <= borderRadius))\n"
+        ") {\n"
+            "if (cursor.x > topLeft.x && cursor.x < br.x && cursor.y > topLeft.y && cursor.y < br.y) {\n"
+                "FragColor = hoverColor;\n"
+                "return;\n"
+            "}\n"
 
-        // "if (uv.y < tl_plus_br.y) {"
-        //     "FragColor = vec4(1, 0, 1, 1);\n"
-        //     "return;\n"
-        // "}\n"
-        // "if (uv.x < tl_plus_br.x && uv.y < tl_plus_br.y && (distance(uv.xy, tl_plus_br) <= borderRadius)) {"
-        //     "FragColor = vec4(0, 0, 1, 1);\n"
-        //     "return;\n"
-        // "}\n"
+            "FragColor = backgroundColor;\n"
+            "return;\n"
+        "}\n"
+
+        "FragColor = vec4(0);\n"
+    "}\0",
+
+    // Text input shader
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+
+    "uniform vec4 color;\n"
+    "uniform vec4 backgroundColor;\n"
+    "uniform vec4 hoverColor;\n"
+    "uniform float borderRadius;\n"
+    "uniform vec2 topLeft;\n"
+    "uniform vec2 resolution;\n"
+    "uniform vec2 dimensions;\n" // width, height
+    "uniform vec2 cursor;\n"
+
+    "void main() {\n"
+        "vec2 uv = gl_FragCoord.xy;"
+        "uv.y = resolution.y - uv.y;\n"
+        "vec2 br = topLeft + dimensions;\n"
+
+        "if (uv.x < topLeft.x || uv.y < topLeft.y || uv.x > br.x || uv.y > br.y) {\n"
+            "FragColor = vec4(0);\n"
+            "return;\n"
+        "}\n"
+
+        "vec2 tl_plus_br = topLeft + borderRadius;\n"
+        "vec2 br_minus_br = br - borderRadius;\n"
+
+        // border colors
+        "if (\n"
+            "uv.x >= topLeft.x && uv.x <= topLeft.x + 1\n"
+            "|| uv.x <= br.x && uv.x >= br.x - 1\n"
+            "|| uv.y >= topLeft.y && uv.y <= topLeft.y + 1\n"
+            "|| uv.y <= br.y && uv.y >= br.y - 1\n"
+        ") {\n"
+            "FragColor = color;\n"
+            "return;\n"
+        "}\n"
+
         "if ("
             "(uv.x >= tl_plus_br.x && uv.x <= br_minus_br.x)\n"
             "|| (uv.y >= tl_plus_br.y && uv.y <= br_minus_br.y)\n"
@@ -192,6 +236,7 @@ Shader shaders[] = {
     { 0, 1, 1 }, // SHADER_TEXT
     { 0, 2, 2 }, // SHADER_ICON_BUTTON
     { 0, 0, 3 }, // SHADER_BUTTON
+    { 0, 0, 4 }, // SHADER_TEXT_INPUT
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {

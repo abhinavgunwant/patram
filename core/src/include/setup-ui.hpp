@@ -15,6 +15,7 @@ extern bool focused;
 extern uint16_t windowHeight;
 extern uint16_t windowWidth;
 
+void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos);
 void scrollCallback(GLFWwindow * window, double xoffset, double yoffset);

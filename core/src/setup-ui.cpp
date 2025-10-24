@@ -26,6 +26,7 @@ bool focused = true;
 bool mouse1Down = false;
 
 UIElement elements[16];
+UIElement* activeElement = nullptr;
 
 uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
@@ -33,6 +34,42 @@ float cursorX = 25000;
 float cursorY = 25000;
 float mouseDownX = 25000;
 float mouseDownY = 25000;
+
+void inputClickCallback(UIElement* elem) {
+    cout << "\nSetting text input as active!";
+    if (activeElement != nullptr) {
+        activeElement->active = false;
+    }
+
+    elem->active = true;
+    activeElement = elem;
+}
+
+void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
+    // cout << "\nKeyboard event. Key: " << key << ", Scan code:" << scanCode
+    //     << ", Action: " << action << ", Modifier Keys: " << mods;
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE: {
+                if (activeElement != nullptr) {
+                    activeElement->active = false;
+                    activeElement = nullptr;
+                }
+
+                break;
+            }
+
+            default: {
+                // Nothing!
+            }
+        }
+    }
+
+    if (activeElement != nullptr) {
+        activeElement->onKey(activeElement, key, action, mods);
+    }
+}
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -44,7 +81,10 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     recalculateLayout(&rootContainer);
 
-    renderElement(rootContainer, glm::vec2(width, height), glm::vec2(cursorX, cursorY));
+    glm::vec2 resolution = glm::vec2(width, height);
+    glm::vec2 cursor = glm::vec2(cursorX, cursorY);
+
+    renderElement(rootContainer, resolution, cursor);
     glfwSwapBuffers(window);
 }
 
@@ -57,11 +97,11 @@ void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
 }
 
 void minimizedCallback(GLFWwindow* window, int isMinimized) {
-    cout << "\n!!!! minimizedcallback";
+    // cout << "\n!!!! minimizedcallback";
     if (isMinimized) {
         minimized = true;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        cout << "\nMinimized!";
+        // cout << "\nMinimized!";
         return;
     }
 
@@ -69,7 +109,7 @@ void minimizedCallback(GLFWwindow* window, int isMinimized) {
 }
 
 void maximizedCallback(GLFWwindow* window, int maximized) {
-    cout << "\nMaximized!";
+    // cout << "\nMaximized!";
     if (maximized) {
         minimized = false;
         return;
@@ -78,11 +118,11 @@ void maximizedCallback(GLFWwindow* window, int maximized) {
 
 void windowFocusCallback(GLFWwindow *window, int isFocused) {
     if (isFocused) {
-        cout << "\nFocused";
+        // cout << "\nFocused";
         focused = true;
     } else {
         focused = false;
-        cout << "\nOut of focus";
+        // cout << "\nOut of focus";
     }
 }
 
@@ -107,15 +147,20 @@ void processInput(GLFWwindow * win) {
                 elemStack.push(rootContainer.children[(int)i]);
             }
 
-            UIElement* elem = elemStack.top();
+            UIElement* elem = nullptr;
             elemStack.pop();
 
+            bool foundElement = false;
+
             while (!elemStack.empty()) {
-                if (elem->type == UI_BUTTON) {
+                elem = elemStack.top();
+                
+                if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT) {
                     if (
                         cursorX > elem->left && cursorX < elem->left + elem->width
                         && cursorY > elem->top && cursorY < elem->top + elem->height
                     ) {
+                        foundElement = true;
                         elem->onClick(elem);
                         break;
                     }
@@ -127,8 +172,12 @@ void processInput(GLFWwindow * win) {
                     }
                 }
 
-                elem = elemStack.top();
                 elemStack.pop();
+            }
+
+            if (!foundElement && activeElement != nullptr) {
+                activeElement->active = false;
+                activeElement = nullptr;
             }
         }
     }
@@ -163,6 +212,7 @@ void setupUI(bool isDarkTheme) {
     UIElement* label2 = &elements[4];
     UIElement* label3 = &elements[5];
     UIElement* button4 = &elements[6];
+    UIElement* input = &elements[7];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -172,6 +222,7 @@ void setupUI(bool isDarkTheme) {
     initElement(*button4, UI_BUTTON, 72.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -201,6 +252,9 @@ void setupUI(bool isDarkTheme) {
     label2->fontSize = 32;
     label3->text = "Abhinav Gunwant";
     label3->fontSize = 48;
+    input->borderRadius = 10;
+    input->text = "Input Test";
+    input->onClick = inputClickCallback;
 
     addChild(rootContainer, menuBar);
     addChild(rootContainer, newButton);
@@ -209,6 +263,7 @@ void setupUI(bool isDarkTheme) {
     addChild(rootContainer, button4);
     addChild(rootContainer, label2);
     addChild(rootContainer, label3);
+    addChild(rootContainer, input);
 }
 
 void enterRenderLoop() {

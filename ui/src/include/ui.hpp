@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "command.hpp"
+
 #define INITIAL_PARENT_CAPACITY     8
 #define GROWTH_FACTOR               2
 #define GROWTH_THRESHOLD            1000
@@ -18,6 +20,7 @@
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
 #define TRANSPARENT         glm::vec4(0.0, 0.0, 0.0, 0.0)
+#define CURSOR_COLOR        glm::vec4(0.0, 0.93, 1.0, 1.0)
 
 // Theme colors
 //// Light theme colors
@@ -39,7 +42,6 @@
 #define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
 #define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
 
-
 #define BUTTON_PADDING              8
 
 using namespace std;
@@ -52,8 +54,8 @@ enum UIElementType {
     UI_BUTTON,
     UI_ICON_BUTTON,
     UI_CONTAINER,
+    UI_TEXT_INPUT,
     UI_TEXT_AREA,
-    UI_INPUT,
     UI_TAB_BAR,
     UI_TAB,
 };
@@ -96,6 +98,17 @@ struct UIPreferences {
     bool direction;
 };
 
+struct TextInputData {
+    uint32_t cursorPosition;
+    uint32_t cursorVAO;
+    uint32_t cursorVBO;
+    CommandList cmdList;
+};
+
+union UIExtraData {
+    TextInputData textInputData;
+};
+
 struct UIElement {
     UIElementType type;
 
@@ -114,6 +127,15 @@ struct UIElement {
      */
     void (*onClick)(UIElement*);
     void (*onHover)(UIElement*);
+
+    /**
+     *
+     * Params:
+     *  - UIElement* elem the element this event was called on
+     *  - int key the key code
+     *  - int mods the modifier keys
+     */
+    void (*onKey)(UIElement*, int, int, int);
 
     string text;
 
@@ -139,15 +161,22 @@ struct UIElement {
     uint8_t borderRadius;
 
     UIPreferences * preferences;
+    UIExtraData * extraData;
 };
 
 void defaultCallback(UIElement* elem);
+void defaultKeyCallback(UIElement*, int, int, int);
+void textInputKeyCallback(UIElement*, int, int, int);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 UIPreferences* initPreferences();
 void addChild(UIElement& parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
+
+/** Returns string representation of the element type. */
+string elementType(UIElement* elem);
 
 #endif // PATRAM_UI
 
