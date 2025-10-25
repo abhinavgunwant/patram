@@ -4,6 +4,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #define MENU_BAR 0;
 
 #include "ui.hpp"
@@ -14,6 +18,7 @@ extern bool minimized;
 extern bool focused;
 extern uint16_t windowHeight;
 extern uint16_t windowWidth;
+extern glm::vec2 resolution;
 
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);

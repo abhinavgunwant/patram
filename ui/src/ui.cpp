@@ -448,6 +448,50 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     }
 }
 
+void selectTextWithMouse(
+    UIElement* elem,
+    float mouseX,
+    float mouseY,
+    float mouseDownX,
+    float mouseDownY,
+    bool mouseUp,
+    glm::vec2& res
+) {
+    if (elem->extraData == nullptr) {
+        return;
+    }
+
+    TextInputData * tid = &elem->extraData->textInputData;
+
+    if (!tid->textSelected && mouseUp) {
+        uint32_t currentIndex = 0;
+        float x = elem->left + BUTTON_PADDING;
+        float y = elem->top + BUTTON_PADDING;
+
+        // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
+
+        for (const char c: elem->text) {
+            GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
+
+            // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
+            //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
+            //     << ", topY: " << gd.topY << "\nx: " << x;
+
+            uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
+
+            if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
+                break;
+            }
+
+            x += net_advance;
+
+            ++currentIndex;
+        }
+
+        tid->cursorPosition = currentIndex;
+    }
+}
+
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
     UIExtraData * extraData = nullptr;
 
@@ -529,6 +573,12 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .cursorPosition = 0,
                     .cursorVAO = 0,
                     .cursorVBO = 0,
+                    .textSelectStartRow = 0,
+                    .textSelectStartCol = 0,
+                    .textSelectEndRow = 0,
+                    .textSelectEndCol = 0,
+                    .textSelected = false,
+                    .lastActiveTime = 0.0f,
                     .cmdList = initCommandList(),
                 }
             };

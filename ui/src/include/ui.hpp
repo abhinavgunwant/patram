@@ -106,6 +106,13 @@ struct TextInputData {
     uint32_t cursorVAO;
     uint32_t cursorVBO;
 
+    uint32_t textSelectStartRow;
+    uint32_t textSelectStartCol;
+    uint32_t textSelectEndRow;
+    uint32_t textSelectEndCol;
+
+    bool textSelected;
+
     /** The glfwGetTime() when the cursor last moved. */
     float lastActiveTime;
 
@@ -174,6 +181,7 @@ struct UIElement {
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
+void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 UIPreferences* initPreferences();
 void addChild(UIElement& parent, UIElement* child);

@@ -31,6 +31,25 @@ struct Character {
 	uint16_t advance;   // Horizontal offset to advance to next glyph
 };
 
+struct GlyphDimensions {
+    /** x dimension of the left of glyph */
+    float leftX; // xpos
+
+    /** x dimension of the right of glyph */
+    float rightX; // xpos_plus_w
+
+    /** x dimension of the bottom of glyph */
+    float bottomY; // ypos
+
+    /** x dimension of the top of glyph */
+    float topY; // ypos_plus_h
+
+    float scale; // Font Height Ratio
+
+	uint16_t advance; // Same as in Character
+	uint16_t textureID; // Same as in Character
+};
+
 extern Character characters[MAX_CHARACTERS];
 extern unsigned int textVAO, textVBO;
 
@@ -59,6 +78,7 @@ glm::vec4 renderText(
     uint8_t fontSize = 16
 );
 
+GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 
 #endif // PATRAM_TEXT

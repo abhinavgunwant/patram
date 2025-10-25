@@ -3,10 +3,6 @@
 #include <chrono>
 #include <stack>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include "include/setup-ui.hpp"
 #include "GLFW/glfw3.h"
 #include "include/window-utils.hpp"
@@ -30,6 +26,7 @@ UIElement* activeElement = nullptr;
 
 uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
+glm::vec2 resolution;
 float cursorX = 25000;
 float cursorY = 25000;
 float mouseDownX = 25000;
@@ -43,6 +40,11 @@ void inputClickCallback(UIElement* elem) {
 
     elem->active = true;
     activeElement = elem;
+
+    if (elem->extraData != nullptr) {
+        elem->extraData->textInputData.lastActiveTime = glfwGetTime();
+        selectTextWithMouse(elem, cursorX, cursorY, mouseDownX, mouseDownY, true, resolution);
+    }
 }
 
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
@@ -81,7 +83,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     recalculateLayout(&rootContainer);
 
-    glm::vec2 resolution = glm::vec2(width, height);
+    resolution = glm::vec2(width, height);
     glm::vec2 cursor = glm::vec2(cursorX, cursorY);
 
     renderElement(rootContainer, resolution, cursor);
