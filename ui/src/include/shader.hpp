@@ -3,9 +3,9 @@
 
 #include <string>
 
-#define TOTAL_SHADERS 5
+#define TOTAL_SHADERS 6
 #define TOTAL_VERTEX_SHADERS 3
-#define TOTAL_FRAGMENT_SHADERS 5
+#define TOTAL_FRAGMENT_SHADERS 6
 
 using namespace std;
 
@@ -15,6 +15,7 @@ enum Shaders {
     SHADER_ICON_BUTTON,
     SHADER_BUTTON,
     SHADER_TEXT_INPUT,
+    SHADER_TEXT_CURSOR,
 };
 
 struct Shader {

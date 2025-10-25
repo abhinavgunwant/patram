@@ -63,16 +63,18 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     // cout << key;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCommand(elem, initCommand(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition))
+        #define TYPE(c) processCommand(elem, initCommand(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = glfwGetTime()
         #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
         #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
         #define CUR_POS elem->extraData->textInputData.cursorPosition
+        #define UPDATE_CURSOR_TIME() elem->extraData->textInputData.lastActiveTime = glfwGetTime()
 
         switch (key) {
             case GLFW_KEY_LEFT:
                 if (elem->extraData != nullptr && CUR_POS != 0) {
                     // cout << "move cursor to left";
                     DECR_CURSOR();
+                    UPDATE_CURSOR_TIME();
                 }
                 break;
 
@@ -80,15 +82,18 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 if (elem->extraData != nullptr && CUR_POS != elem->text.length()) {
                     // cout << "move cursor to right";
                     INCR_CURSOR();
+                    UPDATE_CURSOR_TIME();
                 }
                 break;
 
             case GLFW_KEY_END:
                 CUR_POS = elem->text.length();
+                UPDATE_CURSOR_TIME();
                 break;
 
             case GLFW_KEY_HOME:
                 CUR_POS = 0;
+                UPDATE_CURSOR_TIME();
                 break;
 
             case GLFW_KEY_BACKSPACE: {
@@ -96,6 +101,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     string d{elem->text[CUR_POS-1]};
                     processCommand(elem, initCommand(COMMAND_BACKSPACE, d, CUR_POS));
                     DECR_CURSOR();
+                    UPDATE_CURSOR_TIME();
                 }
 
                 break;
@@ -107,6 +113,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     cout << "\nDelete 2";
                     string d{elem->text[CUR_POS]};
                     processCommand(elem, initCommand(COMMAND_DELETE, d, CUR_POS));
+                    UPDATE_CURSOR_TIME();
                 }
 
                 break;
@@ -437,6 +444,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
         #undef INCR_CURSOR
         #undef DECR_CURSOR
         #undef CUR_POS
+        #undef UPDATE_CURSOR_TIME
     }
 }
 
@@ -1102,9 +1110,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
                 float vertices[] = {
-                    cursorX, cursorY + elem.fontSize,
+                    cursorX - 1, cursorY + elem.fontSize,
                     cursorX + 1, cursorY + elem.fontSize,
-                    cursorX, cursorY,
+                    cursorX - 1, cursorY,
                     cursorX + 1, cursorY,
                 };
 
@@ -1116,14 +1124,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
                 glEnableVertexAttribArray(0);
 
-                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-                uint32_t resU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "resolution");
+                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
+                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
+                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
+
                 glm::vec4 color = CURSOR_COLOR;
+
+                if (darkTheme) {
+                    color = CURSOR_COLOR_DARK;
+                }
 
                 glUniform4f(colorU, color.x, color.y, color.z, color.w);
                 glUniform2f(resU, resolution.x, resolution.y);
+                glUniform1f(timeU, glfwGetTime() - elem.extraData->textInputData.lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }

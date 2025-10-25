@@ -47,7 +47,6 @@ string fragmentShaders[] = {
     "#version 330 core\n"
     "out vec4 FragColor;\n"
     "uniform vec4 solidColor;\n"
-    "uniform float time;\n"
     "void main() {\n"
         "FragColor = solidColor;\n"
     "}\0",
@@ -228,7 +227,17 @@ string fragmentShaders[] = {
         "}\n"
 
         "FragColor = vec4(0);\n"
-    "}\0"
+    "}\0",
+
+    // Pulse Shader
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "uniform vec4 color;\n"
+    "uniform float time;\n"
+    "void main() {\n"
+        "FragColor = vec4(color.r, color.g, color.b, cos(time * 8) * color.a);\n"
+        // "FragColor = color;\n"
+    "}\0",
 };
 
 Shader shaders[] = {
@@ -237,6 +246,7 @@ Shader shaders[] = {
     { 0, 2, 2 }, // SHADER_ICON_BUTTON
     { 0, 0, 3 }, // SHADER_BUTTON
     { 0, 0, 4 }, // SHADER_TEXT_INPUT
+    { 0, 0, 5 }, // SHADER_TEXT_CURSOR
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
