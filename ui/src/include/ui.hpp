@@ -111,8 +111,25 @@ struct TextInputData {
     uint32_t textSelectEndRow;
     uint32_t textSelectEndCol;
 
-    bool textSelected;
+    uint32_t textSelectVAO;
+    uint32_t textSelectVBO;
 
+    /**
+     * Useful when selecting text, if it's same as cursorPosition, no text will
+     * be marked as "selected".
+     */
+    uint32_t initialCursorPosition;
+
+    bool textSelected;
+    bool mouseDown;
+
+    /**
+     * Used for draw calls for rendering text selection.
+     */
+    bool textSelectUpdated;
+
+    float mouseDownX;
+    float mouseDownY;
     /** The glfwGetTime() when the cursor last moved. */
     float lastActiveTime;
 
@@ -141,6 +158,7 @@ struct UIElement {
      */
     void (*onClick)(UIElement*);
     void (*onMouseDown)(UIElement*, float, float, glm::vec2);
+    void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
     void (*onMouseUp)(UIElement*, float, float, glm::vec2);
     void (*onHover)(UIElement*);
 
@@ -184,6 +202,10 @@ void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
 void textInputKeyCallback(UIElement*, int, int, int);
+void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 UIPreferences* initPreferences();

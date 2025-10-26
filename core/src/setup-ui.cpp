@@ -26,7 +26,7 @@ UIElement* activeElement = nullptr;
 
 uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
-glm::vec2 resolution;
+glm::vec2 resolution = glm::vec2(windowWidth, windowHeight);
 float mouseX = 25000;
 float mouseY = 25000;
 float mouseDownX = 25000;
@@ -63,6 +63,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
 
                 activeElement = elem;
+                elem->active = true;
 
                 elem->onMouseDown(elem, mouseX, mouseY, resolution);
             } else if (activeElement != nullptr) {
@@ -134,6 +135,13 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
+
+    if (
+        activeElement != nullptr
+        && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS
+    ) {
+        activeElement->onMouseDrag(activeElement, mouseX, mouseY, resolution);
+    }
 }
 
 void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
@@ -240,7 +248,7 @@ void setupUI(bool isDarkTheme) {
     label3->fontSize = 48;
     input->borderRadius = 10;
     input->text = "Input Test";
-    input->onClick = inputClickCallback;
+    // input->onClick = inputClickCallback;
 
     addChild(rootContainer, menuBar);
     addChild(rootContainer, newButton);
@@ -262,7 +270,6 @@ void enterRenderLoop() {
             glfwWaitEventsTimeout(80.0f);
         }
 
-        glm::vec2 resolution(windowWidth, windowHeight);
         glm::vec2 cursor(mouseX, mouseY);
 
         renderElement(rootContainer, resolution, cursor);

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <stack>
 
@@ -77,6 +78,36 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
         switch (key) {
             case GLFW_KEY_LEFT:
                 if (elem->extraData != nullptr && CUR_POS != 0) {
+                    TextInputData* tid = &elem->extraData->textInputData;
+
+                    if (shift) {
+                        if (tid->textSelected) {
+                            cout << "\nUpdate Selection!";
+                            if (tid->cursorPosition - 1 == tid->initialCursorPosition) {
+                                tid->textSelected = false;
+                                tid->textSelectStartCol = tid->cursorPosition;
+                                tid->textSelectEndCol = tid->cursorPosition;
+                            } else if (tid->cursorPosition > tid->initialCursorPosition) {
+                                tid->textSelectEndCol -= 1;
+                            } else {
+                                tid->textSelectStartCol -= 1;
+                            }
+                        } else {
+                            cout << "\nStart Selection!";
+                            tid->textSelected = true;
+                            tid->initialCursorPosition = tid->cursorPosition;
+                            tid->textSelectStartCol = tid->cursorPosition - 1;
+                            tid->textSelectEndCol = tid->cursorPosition;
+                        }
+
+                        tid->textSelectUpdated = true;
+                    } else {
+                        cout << "\nEnd Selection!";
+                        tid->textSelected = false;
+                        tid->textSelectStartCol = tid->cursorPosition;
+                        tid->textSelectEndCol = tid->cursorPosition;
+                    }
+
                     // cout << "move cursor to left";
                     DECR_CURSOR();
                     UPDATE_CURSOR_TIME();
@@ -85,6 +116,33 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_RIGHT:
                 if (elem->extraData != nullptr && CUR_POS != elem->text.length()) {
+                    TextInputData* tid = &elem->extraData->textInputData;
+
+                    if (shift) {
+                        if (tid->textSelected) {
+                            if (tid->cursorPosition + 1 == tid->initialCursorPosition) {
+                                tid->textSelected = false;
+                                tid->textSelectStartCol = tid->cursorPosition;
+                                tid->textSelectEndCol = tid->cursorPosition;
+                            } else if (tid->cursorPosition > tid->initialCursorPosition) {
+                                tid->textSelectEndCol += 1;
+                            } else {
+                                tid->textSelectStartCol += 1;
+                            }
+                        } else {
+                            tid->textSelected = true;
+                            tid->initialCursorPosition = tid->cursorPosition;
+                            tid->textSelectEndCol = tid->cursorPosition + 1;
+                            tid->textSelectStartCol = tid->cursorPosition;
+                        }
+
+                        tid->textSelectUpdated = true;
+                    } else {
+                        tid->textSelected = false;
+                        tid->textSelectStartCol = tid->cursorPosition;
+                        tid->textSelectEndCol = tid->cursorPosition;
+                    }
+
                     // cout << "move cursor to right";
                     INCR_CURSOR();
                     UPDATE_CURSOR_TIME();
@@ -125,7 +183,16 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             }
 
             case GLFW_KEY_A:
-                if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
+                if (ctrl) {
+                    cout << "\nSelect All!";
+                    TextInputData* tid = &elem->extraData->textInputData;
+                    tid->textSelected = true;
+                    tid->initialCursorPosition = tid->cursorPosition;
+                    tid->textSelectStartCol = 0;
+                    tid->textSelectEndCol = elem->text.length();
+                    tid->textSelectUpdated = true;
+                    tid->cursorPosition = elem->text.length();
+                } else if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
                 INCR_CURSOR();
                 break;
 
@@ -453,7 +520,111 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     }
 }
 
+
+uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    uint32_t currentIndex = 0;
+
+    float x = elem->left + BUTTON_PADDING;
+    float y = elem->top + BUTTON_PADDING;
+
+    // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
+
+    for (const char c: elem->text) {
+        GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
+
+        // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
+        //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
+        //     << ", topY: " << gd.topY << "\nx: " << x;
+
+        uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
+
+        if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
+            break;
+        }
+
+        x += net_advance;
+
+        ++currentIndex;
+    }
+
+    return currentIndex;
+}
+
 void textInputMouseDownCallback(
+    UIElement* elem,
+    float mouseX,
+    float mouseY,
+    glm::vec2 res
+) {
+    if (elem->extraData == nullptr) { return; }
+
+    TextInputData * tid = &elem->extraData->textInputData;
+
+    tid->cursorPosition = getTextIndexForScreenCoords(
+        elem,
+        mouseX,
+        mouseY,
+        res
+    );
+    tid->textSelected = false;
+    tid->mouseDown = true;
+    tid->mouseDownX = mouseX;
+    tid->mouseDownY = mouseY;
+    tid->lastActiveTime = glfwGetTime();
+}
+
+void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    if (elem->extraData == nullptr) { return; }
+
+    cout << "\nDrag Callback: ";
+
+    TextInputData* tid = &elem->extraData->textInputData;
+
+    if (!tid->mouseDown) {
+        cout << "Nothing!";
+        return;
+    }
+
+    // if (tid->mouseDown && tid->mouseDownX != mouseX && tid->mouseDownY != mouseY) {
+    uint32_t cursorPosition = getTextIndexForScreenCoords(elem, mouseX, mouseY, res);
+
+    if (!tid->textSelected && cursorPosition != tid->cursorPosition) {
+        tid->textSelected = true;
+        tid->initialCursorPosition = tid->cursorPosition;
+        tid->textSelectStartCol = min(cursorPosition, tid->cursorPosition);
+        tid->textSelectEndCol = max(cursorPosition, tid->cursorPosition);
+
+        tid->cursorPosition = cursorPosition;
+        tid->textSelectUpdated = true;
+        cout << "Text Selection 1: " << tid->textSelectStartCol << ", " << tid->textSelectEndCol;
+        // TODO: handle row in text area.
+    } else if (tid->textSelected) {
+        if (cursorPosition == tid->initialCursorPosition) {
+            tid->textSelected = false;
+            tid->textSelectStartCol = cursorPosition;
+            tid->textSelectEndCol = cursorPosition;
+            return;
+        }
+
+        if (cursorPosition < tid->initialCursorPosition) {
+            tid->textSelectStartCol = cursorPosition;
+        } else {
+            tid->textSelectEndCol = cursorPosition;
+        }
+
+        tid->cursorPosition = cursorPosition;
+        tid->textSelectUpdated = true;
+        cout << "Text Selection 2: " << tid->textSelectStartCol << ", " << tid->textSelectEndCol;
+    } else {
+        cout << "Marked selected to false";
+        tid->textSelected = false;
+    }
+
+    tid->lastActiveTime = glfwGetTime();
+    // }
+}
+
+void textInputMouseUpCallback(
     UIElement* elem,
     float mouseX,
     float mouseY,
@@ -465,32 +636,15 @@ void textInputMouseDownCallback(
 
     TextInputData * tid = &elem->extraData->textInputData;
 
-    if (!tid->textSelected) {
-        uint32_t currentIndex = 0;
-        float x = elem->left + BUTTON_PADDING;
-        float y = elem->top + BUTTON_PADDING;
+    tid->mouseDown = false;
 
-        // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
-
-        for (const char c: elem->text) {
-            GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
-
-            // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
-            //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
-            //     << ", topY: " << gd.topY << "\nx: " << x;
-
-            uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
-
-            if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
-                break;
-            }
-
-            x += net_advance;
-
-            ++currentIndex;
-        }
-
-        tid->cursorPosition = currentIndex;
+    if (
+        tid->textSelected
+        && tid->textSelectStartCol == tid->textSelectEndCol
+        && tid->textSelectStartCol == tid->cursorPosition
+    ) {
+        tid->textSelected = false;
+        cout << "\nMarked selected to false";
     }
 }
 
@@ -550,6 +704,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     void (*onKey)(UIElement*, int, int, int) = defaultKeyCallback;
     void (*onMouseDown)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
+    void (*onMouseDrag)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
     void (*onMouseUp)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
 
     switch (type) {
@@ -625,13 +780,20 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .textSelectStartCol = 0,
                     .textSelectEndRow = 0,
                     .textSelectEndCol = 0,
+                    .initialCursorPosition = 0,
                     .textSelected = false,
+                    .mouseDown = false,
+                    .textSelectUpdated = false,
+                    .mouseDownX = 0.0f,
+                    .mouseDownY = 0.0f,
                     .lastActiveTime = 0.0f,
                     .cmdList = initCommandList(),
                 }
             };
 
             onMouseDown = textInputMouseDownCallback;
+            onMouseDrag = textInputMouseDragCallback;
+            onMouseUp = textInputMouseUpCallback;
             onKey = textInputKeyCallback;
             break;
 
@@ -655,6 +817,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         defaultCallback,
         onMouseDown,
+        onMouseDrag,
         onMouseUp,
         defaultCallback,
         onKey,
@@ -1169,11 +1332,25 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             float cursorX = -1;
             float cursorY = -1;
+            float selectStartX = -1;
+            float selectEndX = -1;
+
+            TextInputData* tid = &elem.extraData->textInputData;
 
             for (const char c: elem.text) {
-                if (currentIndex == elem.extraData->textInputData.cursorPosition) {
+                if (currentIndex == tid->cursorPosition) {
                     cursorX = x;
                     cursorY = y;
+                }
+
+                if (tid->textSelected) {
+                    if (currentIndex == tid->textSelectStartCol) {
+                        selectStartX = x;
+                    }
+
+                    if (currentIndex == tid->textSelectEndCol) {
+                        selectEndX = x;
+                    }
                 }
 
                 x += renderGlyph(c, x, y, resolution, elem.fontSize);
@@ -1181,9 +1358,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 ++currentIndex;
             }
 
-            if (elem.extraData->textInputData.cursorPosition == elem.text.length()) {
+            if (tid->cursorPosition == elem.text.length()) {
                 cursorX = x;
                 cursorY = y;
+            }
+
+            if (tid->textSelected && tid->textSelectEndCol == elem.text.length()) {
+                cursorX = x;
+                cursorY = y;
+                selectEndX = x;
             }
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1201,15 +1384,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             // When text input is active, draw the cursor.
             if (elem.active) {
-                if (elem.extraData->textInputData.cursorVAO != 0) {
-                    glDeleteVertexArrays(1, &elem.extraData->textInputData.cursorVAO);
+                if (tid->cursorVAO != 0) {
+                    glDeleteVertexArrays(1, &tid->cursorVAO);
                 }
 
-                if (elem.extraData->textInputData.cursorVBO != 0) {
-                    glDeleteBuffers(1, &elem.extraData->textInputData.cursorVBO);
+                if (tid->cursorVBO != 0) {
+                    glDeleteBuffers(1, &tid->cursorVBO);
                 }
 
                 // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
+
                 float vertices[] = {
                     cursorX - 1, cursorY + elem.fontSize,
                     cursorX + 1, cursorY + elem.fontSize,
@@ -1217,10 +1401,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cursorX + 1, cursorY,
                 };
 
-                glGenVertexArrays(1, &elem.extraData->textInputData.cursorVAO);
-                glBindVertexArray(elem.extraData->textInputData.cursorVAO);
-                glGenBuffers(1, &elem.extraData->textInputData.cursorVBO);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->textInputData.cursorVBO);
+                glGenVertexArrays(1, &tid->cursorVAO);
+                glBindVertexArray(tid->cursorVAO);
+                glGenBuffers(1, &tid->cursorVBO);
+                glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
                 glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
                 glEnableVertexAttribArray(0);
@@ -1239,9 +1423,55 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 glUniform4f(colorU, color.x, color.y, color.z, color.w);
                 glUniform2f(resU, resolution.x, resolution.y);
-                glUniform1f(timeU, glfwGetTime() - elem.extraData->textInputData.lastActiveTime);
+                glUniform1f(timeU, glfwGetTime() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
+                    if (tid->textSelectUpdated) {
+                        if (tid->textSelectVAO != 0) {
+                            glDeleteVertexArrays(1, &tid->textSelectVAO);
+                        }
+
+                        if (tid->textSelectVBO != 0) {
+                            glDeleteBuffers(1, &tid->textSelectVBO);
+                        }
+
+                        float vertices[] = {
+                            selectStartX, cursorY + elem.fontSize,
+                            selectEndX, cursorY + elem.fontSize,
+                            selectStartX, cursorY,
+                            selectEndX, cursorY,
+                        };
+
+                        glGenVertexArrays(1, &tid->textSelectVAO);
+                        glBindVertexArray(tid->textSelectVAO);
+                        glGenBuffers(1, &tid->textSelectVBO);
+                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
+                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                        glEnableVertexAttribArray(0);
+
+                        tid->textSelectUpdated = false;
+                        cout << "\ncursorY: " << cursorY;
+                    }
+
+                    glBindVertexArray(tid->textSelectVAO);
+
+                    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+                    glm::vec4 color = CURSOR_COLOR;
+
+                    if (darkTheme) {
+                        color = CURSOR_COLOR_DARK;
+                    }
+
+                    glUniform4f(colorU, color.x, color.y, color.z, 0.25);
+
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                }
             }
 
             break;
