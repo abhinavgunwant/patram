@@ -27,8 +27,8 @@ UIElement* activeElement = nullptr;
 uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
 glm::vec2 resolution;
-float cursorX = 25000;
-float cursorY = 25000;
+float mouseX = 25000;
+float mouseY = 25000;
 float mouseDownX = 25000;
 float mouseDownY = 25000;
 
@@ -43,7 +43,48 @@ void inputClickCallback(UIElement* elem) {
 
     if (elem->extraData != nullptr) {
         elem->extraData->textInputData.lastActiveTime = glfwGetTime();
-        selectTextWithMouse(elem, cursorX, cursorY, mouseDownX, mouseDownY, true, resolution);
+        selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
+    }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_1) {
+        if (action == GLFW_PRESS) {
+            cout << "\nMouse button 1 pressed";
+            mouse1Down = true;
+            mouseDownX = mouseX;
+            mouseDownY = mouseY;
+
+            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                if (activeElement != nullptr) {
+                    activeElement->active = false;
+                }
+
+                activeElement = elem;
+
+                elem->onMouseDown(elem, mouseX, mouseY, resolution);
+            } else if (activeElement != nullptr) {
+                activeElement->active = false;
+                activeElement = nullptr;
+            }
+        } else if (action == GLFW_RELEASE) {
+            cout << "\nMouse button 1 released";
+            mouse1Down = false;
+
+            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                if (elem == activeElement) {
+                    elem->onMouseUp(elem, mouseX, mouseY, resolution);
+                }
+
+                if (mouseDownX == mouseX && mouseDownY == mouseY) {
+                    elem->onClick(elem);
+                }
+            }
+        }
     }
 }
 
@@ -84,15 +125,15 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     recalculateLayout(&rootContainer);
 
     resolution = glm::vec2(width, height);
-    glm::vec2 cursor = glm::vec2(cursorX, cursorY);
+    glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
     renderElement(rootContainer, resolution, cursor);
     glfwSwapBuffers(window);
 }
 
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
-    cursorX = xpos;
-    cursorY = ypos;
+    mouseX = xpos;
+    mouseY = ypos;
 }
 
 void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
@@ -125,63 +166,6 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
     } else {
         focused = false;
         // cout << "\nOut of focus";
-    }
-}
-
-void processInput(GLFWwindow * win) {
-    if (glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
-        mouse1Down = true;
-        mouseDownX = cursorX;
-        mouseDownY = cursorY;
-    }
-
-    if (mouse1Down && glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE) {
-        mouse1Down = false;
-
-        // Check if the cursor is above the exact same position as it was when
-        // mouse was down.
-        // TODO: check instead if the mouse down element and mouse release
-        // elements are the same.
-        if (mouseDownX == cursorX && mouseDownY == cursorY) {
-            stack<UIElement*> elemStack;
-
-            for (int8_t i=rootContainer.totalChildren-1; i >= 0; --i) {
-                elemStack.push(rootContainer.children[(int)i]);
-            }
-
-            UIElement* elem = nullptr;
-            elemStack.pop();
-
-            bool foundElement = false;
-
-            while (!elemStack.empty()) {
-                elem = elemStack.top();
-                
-                if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT) {
-                    if (
-                        cursorX > elem->left && cursorX < elem->left + elem->width
-                        && cursorY > elem->top && cursorY < elem->top + elem->height
-                    ) {
-                        foundElement = true;
-                        elem->onClick(elem);
-                        break;
-                    }
-                }
-
-                if (elem->totalChildren) {
-                    for (uint8_t i=elem->totalChildren-1; i >= 0; --i) {
-                        elemStack.push(elem->children[i]);
-                    }
-                }
-
-                elemStack.pop();
-            }
-
-            if (!foundElement && activeElement != nullptr) {
-                activeElement->active = false;
-                activeElement = nullptr;
-            }
-        }
     }
 }
 
@@ -278,10 +262,8 @@ void enterRenderLoop() {
             glfwWaitEventsTimeout(80.0f);
         }
 
-        processInput(window);
-
         glm::vec2 resolution(windowWidth, windowHeight);
-        glm::vec2 cursor(cursorX, cursorY);
+        glm::vec2 cursor(mouseX, mouseY);
 
         renderElement(rootContainer, resolution, cursor);
 

@@ -140,6 +140,8 @@ struct UIElement {
      * Click behaviour for buttons.
      */
     void (*onClick)(UIElement*);
+    void (*onMouseDown)(UIElement*, float, float, glm::vec2);
+    void (*onMouseUp)(UIElement*, float, float, glm::vec2);
     void (*onHover)(UIElement*);
 
     /**
@@ -180,6 +182,7 @@ struct UIElement {
 
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
+void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
 void textInputKeyCallback(UIElement*, int, int, int);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
@@ -187,6 +190,7 @@ UIPreferences* initPreferences();
 void addChild(UIElement& parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
 

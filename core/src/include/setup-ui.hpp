@@ -20,6 +20,7 @@ extern uint16_t windowHeight;
 extern uint16_t windowWidth;
 extern glm::vec2 resolution;
 
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos);

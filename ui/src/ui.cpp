@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stack>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -29,6 +30,10 @@ void defaultCallback(UIElement* _elem) {
 
 void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
     cout << "\nDefault callback executed!";
+}
+
+void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
+    cout << "\nDefault mouse up/down callback executed!";
 }
 
 void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
@@ -448,6 +453,47 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     }
 }
 
+void textInputMouseDownCallback(
+    UIElement* elem,
+    float mouseX,
+    float mouseY,
+    glm::vec2 res
+) {
+    if (elem->extraData == nullptr) {
+        return;
+    }
+
+    TextInputData * tid = &elem->extraData->textInputData;
+
+    if (!tid->textSelected) {
+        uint32_t currentIndex = 0;
+        float x = elem->left + BUTTON_PADDING;
+        float y = elem->top + BUTTON_PADDING;
+
+        // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
+
+        for (const char c: elem->text) {
+            GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
+
+            // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
+            //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
+            //     << ", topY: " << gd.topY << "\nx: " << x;
+
+            uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
+
+            if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
+                break;
+            }
+
+            x += net_advance;
+
+            ++currentIndex;
+        }
+
+        tid->cursorPosition = currentIndex;
+    }
+}
+
 void selectTextWithMouse(
     UIElement* elem,
     float mouseX,
@@ -503,6 +549,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     UIPreferences* pref = nullptr;
 
     void (*onKey)(UIElement*, int, int, int) = defaultKeyCallback;
+    void (*onMouseDown)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
+    void (*onMouseUp)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
 
     switch (type) {
         case UI_BUTTON: {
@@ -583,6 +631,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 }
             };
 
+            onMouseDown = textInputMouseDownCallback;
             onKey = textInputKeyCallback;
             break;
 
@@ -605,6 +654,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         true,
 
         defaultCallback,
+        onMouseDown,
+        onMouseUp,
         defaultCallback,
         onKey,
 
@@ -1298,6 +1349,51 @@ void processUndo(UIElement* element) {
             break;
     }
     #undef CUR_POS
+}
+
+UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
+    // Check if the cursor is above the exact same position as it was when
+    // mouse was down.
+    // TODO: check instead if the mouse down element and mouse release
+    // elements are the same.
+    stack<UIElement*> elemStack;
+
+    for (int8_t i=root->totalChildren-1; i >= 0; --i) {
+        elemStack.push(root->children[(int)i]);
+    }
+
+    UIElement* elem = nullptr;
+    elemStack.pop();
+
+    bool foundElement = false;
+
+    while (!elemStack.empty()) {
+        elem = elemStack.top();
+
+        if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT) {
+            if (
+                x > elem->left && x < elem->left + elem->width
+                && y > elem->top && y < elem->top + elem->height
+            ) {
+                foundElement = true;
+                break;
+            }
+        }
+
+        if (elem->totalChildren) {
+            for (uint8_t i=elem->totalChildren-1; i >= 0; --i) {
+                elemStack.push(elem->children[i]);
+            }
+        }
+
+        elemStack.pop();
+    }
+
+    if (foundElement) {
+        return elem;
+    }
+
+    return nullptr;
 }
 
 void processCommand(UIElement* elem, Command* cmd) {

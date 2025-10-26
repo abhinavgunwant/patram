@@ -35,6 +35,7 @@ void showWindow() {
 	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     glfwSetKeyCallback(window, keyCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetFramebufferSizeCallback(window, resizeCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
     glfwSetScrollCallback(window, scrollCallback);
