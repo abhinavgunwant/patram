@@ -11,6 +11,8 @@
 #include "include/text.hpp"
 #include "../lib/stb_image.h"
 
+#define TIME() static_cast<float>(glfwGetTime())
+
 using namespace std;
 
 float iconButtonVertices[16] = {
@@ -69,11 +71,11 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     // cout << key;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCommand(elem, new Command(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = glfwGetTime()
+        #define TYPE(c) processCommand(elem, new Command(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
         #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
         #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
         #define CUR_POS elem->extraData->textInputData.cursorPosition
-        #define UPDATE_CURSOR_TIME() elem->extraData->textInputData.lastActiveTime = glfwGetTime()
+        #define UPDATE_CURSOR_TIME() elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
 
         switch (key) {
             case GLFW_KEY_ESCAPE: {
@@ -156,7 +158,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_END:
-                CUR_POS = elem->text.length();
+                CUR_POS = static_cast<uint32_t>(elem->text.length());
                 UPDATE_CURSOR_TIME();
                 break;
 
@@ -219,12 +221,13 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             case GLFW_KEY_A:
                 if (ctrl) {
                     TextInputData* tid = &elem->extraData->textInputData;
+                    const uint32_t len = static_cast<uint32_t>(elem->text.length());
                     tid->textSelected = true;
                     tid->initialCursorPosition = tid->cursorPosition;
                     tid->textSelectStartCol = 0;
-                    tid->textSelectEndCol = elem->text.length();
+                    tid->textSelectEndCol = len;
                     tid->textSelectUpdated = true;
-                    tid->cursorPosition = elem->text.length();
+                    tid->cursorPosition = len;
                 } else if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
                 INCR_CURSOR();
                 break;
@@ -603,7 +606,7 @@ void textInputMouseDownCallback(
     tid->mouseDown = true;
     tid->mouseDownX = mouseX;
     tid->mouseDownY = mouseY;
-    tid->lastActiveTime = glfwGetTime();
+    tid->lastActiveTime = TIME();
 }
 
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -653,7 +656,7 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
         tid->textSelected = false;
     }
 
-    tid->lastActiveTime = glfwGetTime();
+    tid->lastActiveTime = TIME();
     // }
 }
 
@@ -966,7 +969,7 @@ void recalculateLayout(UIElement * elem) {
         }
     }
 
-    for (int i=0; i<elem->totalChildren; ++i) {
+    for (uint32_t i=0; i<elem->totalChildren; ++i) {
         recalculateLayout(elem->children[i]);
     }
 }
@@ -1031,12 +1034,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.backgroundColor.w
             );
 
-            glUniform1f(timeU, glfwGetTime());
+            glUniform1f(timeU, TIME());
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
             if (elem.totalChildren) {
-                for (int i=0; i<elem.totalChildren; ++i) {
+                for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
             }
@@ -1119,7 +1122,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glUniform2f(topleftU, elem.left, elem.top);
             glUniform2f(dimensionsU, elem.width, elem.height);
 
-            glUniform1f(timeU, glfwGetTime());
+            glUniform1f(timeU, TIME());
             glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
             glUniform2f(cursorU, cursor.x, cursor.y);
 
@@ -1224,7 +1227,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             );
             glUniform2f(topLeftU, elem.left, elem.top);
             glUniform2f(cursorU, cursor.x, cursor.y);
-            glUniform1f(timeU, glfwGetTime());
+            glUniform1f(timeU, TIME());
             glUniform1f(widthU, elem.width);
             glUniform1f(heightU, elem.height);
 
@@ -1338,7 +1341,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glUniform2f(topleftU, elem.left, elem.top);
             glUniform2f(dimensionsU, elem.width, elem.height);
 
-            glUniform1f(timeU, glfwGetTime());
+            glUniform1f(timeU, TIME());
             glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
             glUniform2f(cursorU, cursor.x, cursor.y);
 
@@ -1466,7 +1469,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 glUniform4f(colorU, color.x, color.y, color.z, color.w);
                 glUniform2f(resU, resolution.x, resolution.y);
-                glUniform1f(timeU, glfwGetTime() - tid->lastActiveTime);
+                glUniform1f(timeU, TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
