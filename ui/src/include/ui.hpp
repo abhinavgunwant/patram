@@ -134,10 +134,18 @@ struct TextInputData {
     float lastActiveTime;
 
     CommandList cmdList;
+
+    ~TextInputData() {
+        cmdList.~CommandList();
+    }
 };
 
 union UIExtraData {
     TextInputData textInputData;
+
+    ~UIExtraData() {
+        textInputData.~TextInputData();
+    }
 };
 
 struct UIElement {

@@ -4,22 +4,6 @@
 
 using namespace std;
 
-CommandList initCommandList() {
-    Command* first = initCommand(COMMAND_NONE, "", 0);
-    return CommandList { 1, first };
-}
-
-Command* initCommand(CommandType type, string data, uint32_t cursorPos) {
-    Command * c = new Command;
-    c->type = type;
-    c->data = data;
-    c->cursorPos = cursorPos;
-    c->next = nullptr;
-    c->prev = nullptr;
-
-    return c;
-}
-
 void appendCommand(CommandList &list, Command* newCommand) {
     if (list.currentCommand->next != nullptr) {
         Command * c = list.currentCommand;
@@ -78,16 +62,20 @@ string commandStr(Command* c) {
         case COMMAND_NONE:
             return "COMMAND_NONE";
         case COMMAND_TYPE:
-            return "COMMAND_TYPE \"" + c->data + "\", cursorPos: " + to_string(c->cursorPos);
+            return "COMMAND_TYPE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
         case COMMAND_UNDO:
             return "COMMAND_UNDO, cursorPos: " + to_string(c->cursorPos);
         case COMMAND_REDO:
             return "COMMAND_REDO, cursorPos: " + to_string(c->cursorPos);
         case COMMAND_DELETE:
-            return "COMMAND_DELETE \"" + c->data + "\", cursorPos: " + to_string(c->cursorPos);
+            return "COMMAND_DELETE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
         case COMMAND_BACKSPACE:
-            return "COMMAND_BACKSPACE \"" + c->data + "\", cursorPos: " + to_string(c->cursorPos);
+            return "COMMAND_BACKSPACE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case COMMAND_REPLACE:
+            return "COMMAND_REPLACE \"" + c->replace.prevString + "\" -> \"" + c->replace.newString + "\"";
     }
+
+    return "ERR: NO_COMMAND";
 }
 
 void printCommands(CommandList& list) {

@@ -69,7 +69,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     // cout << key;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCommand(elem, initCommand(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = glfwGetTime()
+        #define TYPE(c) processCommand(elem, new Command(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = glfwGetTime()
         #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
         #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
         #define CUR_POS elem->extraData->textInputData.cursorPosition
@@ -162,7 +162,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             case GLFW_KEY_BACKSPACE: {
                 if (CUR_POS <= elem->text.length() && CUR_POS > 0) {
                     string d{elem->text[CUR_POS-1]};
-                    processCommand(elem, initCommand(COMMAND_BACKSPACE, d, CUR_POS));
+                    processCommand(elem, new Command(COMMAND_BACKSPACE, d, CUR_POS));
                     DECR_CURSOR();
                     UPDATE_CURSOR_TIME();
                 }
@@ -175,7 +175,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 if (CUR_POS < elem->text.length() && CUR_POS >= 0) {
                     cout << "\nDelete 2";
                     string d{elem->text[CUR_POS]};
-                    processCommand(elem, initCommand(COMMAND_DELETE, d, CUR_POS));
+                    processCommand(elem, new Command(COMMAND_DELETE, d, CUR_POS));
                     UPDATE_CURSOR_TIME();
                 }
 
@@ -313,7 +313,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_Y:
                 if (ctrl) {
-                    processCommand(elem, initCommand(COMMAND_REDO, "", CUR_POS));
+                    processCommand(elem, new Command(COMMAND_REDO, "", CUR_POS));
                 } else if (capsLck || shift) {
                     TYPE("Y");
                     INCR_CURSOR();
@@ -325,7 +325,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_Z:
                 if (ctrl) {
-                    processCommand(elem, initCommand(COMMAND_UNDO, "", CUR_POS));
+                    processCommand(elem, new Command(COMMAND_UNDO, "", CUR_POS));
                 } else if (capsLck || shift) {
                     TYPE("Z");
                     INCR_CURSOR();
@@ -787,7 +787,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .mouseDownX = 0.0f,
                     .mouseDownY = 0.0f,
                     .lastActiveTime = 0.0f,
-                    .cmdList = initCommandList(),
+                    .cmdList = CommandList(),
                 }
             };
 
@@ -1511,13 +1511,13 @@ void processRedo(UIElement* element) {
         case COMMAND_TYPE: {
             // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
             if (cmd->cursorPos == element->text.length()) {
-                // cout << "\nAppending at the end! " << cmd->data.length();
-                element->text += cmd->data;
-                // elem->extraData->textInputData.cursorPosition += cmd->data.length();
+                // cout << "\nAppending at the end! " << cmd->str.length();
+                element->text += cmd->str;
+                // elem->extraData->textInputData.cursorPosition += cmd->str.length();
                 break;
             }
 
-            element->text.insert(cmd->cursorPos, cmd->data);
+            element->text.insert(cmd->cursorPos, cmd->str);
             CUR_POS = cmd->cursorPos + 1;
             break;
         }
@@ -1562,14 +1562,14 @@ void processUndo(UIElement* element) {
         }
         case COMMAND_BACKSPACE: {
             Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
-            element->text.insert(cmd->cursorPos-1, cmd->data);
+            element->text.insert(cmd->cursorPos-1, cmd->str);
             moveToPrevCommand(element->extraData->textInputData.cmdList);
             CUR_POS = cmd->cursorPos;
             break;
         }
         case COMMAND_DELETE: {
             Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
-            element->text.insert(cmd->cursorPos, cmd->data);
+            element->text.insert(cmd->cursorPos, cmd->str);
             moveToPrevCommand(element->extraData->textInputData.cmdList);
             CUR_POS = cmd->cursorPos;
             break;
@@ -1633,17 +1633,47 @@ void processCommand(UIElement* elem, Command* cmd) {
         switch(cmd->type) {
             case COMMAND_NONE: break;
             case COMMAND_TYPE: {
-                // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
-                if (CUR_POS == elem->text.length()) {
-                    // cout << "\nAppending at the end! " << cmd->data.length();
-                    elem->text += cmd->data;
-                    append = true;
-                    // elem->extraData->textInputData.cursorPosition += cmd->data.length();
-                    break;
-                }
+                TextInputData * tid = &elem->extraData->textInputData;
 
-                elem->text.insert(CUR_POS, cmd->data);
-                append = true;
+                if (tid->textSelected) {
+                    cout << "\nReplacing text!!!!";
+                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
+
+                    Command *newCmd = new Command(
+                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
+                        cmd->str,
+                        elem->text.substr(
+                            tid->textSelectStartCol,
+                            len
+                        ),
+                        cmd->cursorPos
+                    );
+
+                    elem->text.erase(tid->textSelectStartCol, len);
+                    elem->text.insert(tid->textSelectStartCol, cmd->str);
+
+                    deleteCommand(cmd);
+                    cmd = newCmd;
+                    append = true;
+
+                    tid->textSelected = false;
+                    tid->cursorPosition = tid->textSelectStartCol;
+                    tid->textSelectStartCol = tid->textSelectStartCol;
+                    tid->textSelectEndCol = tid->textSelectStartCol;
+                    tid->initialCursorPosition = tid->textSelectStartCol;
+                } else {
+                    // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
+                    if (CUR_POS == elem->text.length()) {
+                        // cout << "\nAppending at the end! " << cmd->str.length();
+                        elem->text += cmd->str;
+                        append = true;
+                        // elem->extraData->textInputData.cursorPosition += cmd->str.length();
+                        break;
+                    }
+
+                    elem->text.insert(CUR_POS, cmd->str);
+                    append = true;
+                }
                 break;
             }
 
@@ -1665,6 +1695,10 @@ void processCommand(UIElement* elem, Command* cmd) {
 
             case COMMAND_REDO:
                 processRedo(elem);
+                break;
+
+            default:
+                // Nothing!
                 break;
         }
 
