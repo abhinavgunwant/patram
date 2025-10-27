@@ -76,13 +76,23 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
         #define UPDATE_CURSOR_TIME() elem->extraData->textInputData.lastActiveTime = glfwGetTime()
 
         switch (key) {
+            case GLFW_KEY_ESCAPE: {
+                TextInputData* tid = &elem->extraData->textInputData;
+
+                if (tid->textSelected) {
+                    textInputUnselect(tid);
+                } else {
+                    elem->active = false;
+                }
+                break;
+            }
+
             case GLFW_KEY_LEFT:
                 if (elem->extraData != nullptr && CUR_POS != 0) {
                     TextInputData* tid = &elem->extraData->textInputData;
 
                     if (shift) {
                         if (tid->textSelected) {
-                            cout << "\nUpdate Selection!";
                             if (tid->cursorPosition - 1 == tid->initialCursorPosition) {
                                 tid->textSelected = false;
                                 tid->textSelectStartCol = tid->cursorPosition;
@@ -93,7 +103,6 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                                 tid->textSelectStartCol -= 1;
                             }
                         } else {
-                            cout << "\nStart Selection!";
                             tid->textSelected = true;
                             tid->initialCursorPosition = tid->cursorPosition;
                             tid->textSelectStartCol = tid->cursorPosition - 1;
@@ -102,13 +111,11 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                         tid->textSelectUpdated = true;
                     } else {
-                        cout << "\nEnd Selection!";
                         tid->textSelected = false;
                         tid->textSelectStartCol = tid->cursorPosition;
                         tid->textSelectEndCol = tid->cursorPosition;
                     }
 
-                    // cout << "move cursor to left";
                     DECR_CURSOR();
                     UPDATE_CURSOR_TIME();
                 }
@@ -143,7 +150,6 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                         tid->textSelectEndCol = tid->cursorPosition;
                     }
 
-                    // cout << "move cursor to right";
                     INCR_CURSOR();
                     UPDATE_CURSOR_TIME();
                 }
@@ -160,10 +166,28 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_BACKSPACE: {
-                if (CUR_POS <= elem->text.length() && CUR_POS > 0) {
-                    string d{elem->text[CUR_POS-1]};
+                TextInputData * tid = &elem->extraData->textInputData;
+
+                if (
+                    CUR_POS <= elem->text.length() && CUR_POS > 0
+                    || tid->textSelected
+                ) {
+                    string d;
+
+                    if (tid->textSelected){
+                        d = "";
+                    } else {
+                        d = elem->text[CUR_POS-1];
+                    }
+
+                    bool shouldDecrementCursor = !tid->textSelected;
+
                     processCommand(elem, new Command(COMMAND_BACKSPACE, d, CUR_POS));
-                    DECR_CURSOR();
+
+                    if (shouldDecrementCursor && CUR_POS != 0) {
+                        DECR_CURSOR();
+                    }
+
                     UPDATE_CURSOR_TIME();
                 }
 
@@ -171,10 +195,20 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             }
 
             case GLFW_KEY_DELETE: {
-                cout << "\nDelete 1, cursor pos:" << CUR_POS << " text length: " << elem->text.length() << " " << (CUR_POS > -1);
-                if (CUR_POS < elem->text.length() && CUR_POS >= 0) {
-                    cout << "\nDelete 2";
-                    string d{elem->text[CUR_POS]};
+                TextInputData * tid = &elem->extraData->textInputData;
+
+                if (
+                    CUR_POS < elem->text.length() && CUR_POS >= 0
+                    || tid->textSelected
+                ) {
+                    string d;
+
+                    if (tid->textSelected) {
+                        d = "";
+                    } else {
+                        d = elem->text[CUR_POS];
+                    }
+
                     processCommand(elem, new Command(COMMAND_DELETE, d, CUR_POS));
                     UPDATE_CURSOR_TIME();
                 }
@@ -184,7 +218,6 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_A:
                 if (ctrl) {
-                    cout << "\nSelect All!";
                     TextInputData* tid = &elem->extraData->textInputData;
                     tid->textSelected = true;
                     tid->initialCursorPosition = tid->cursorPosition;
@@ -646,6 +679,16 @@ void textInputMouseUpCallback(
         tid->textSelected = false;
         cout << "\nMarked selected to false";
     }
+}
+
+void textInputUnselect(TextInputData * tid) {
+    if (tid == nullptr) { return; }
+
+    tid->textSelected = false;
+    tid->cursorPosition = tid->textSelectStartCol;
+    tid->textSelectStartCol = tid->textSelectStartCol;
+    tid->textSelectEndCol = tid->textSelectStartCol;
+    tid->initialCursorPosition = tid->textSelectStartCol;
 }
 
 void selectTextWithMouse(
@@ -1534,6 +1577,18 @@ void processRedo(UIElement* element) {
             break;
         }
 
+        case COMMAND_REPLACE: {
+            TextInputData* tid = &element->extraData->textInputData;
+            element->text.erase(tid->textSelectStartCol, cmd->replace.prevString.length());
+
+            if (!cmd->replace.newString.empty()) {
+                element->text.insert(tid->textSelectStartCol, cmd->replace.newString);
+            }
+
+            CUR_POS = cmd->cursorPos;
+            break;
+        }
+
         default:
             // Nothing!
             break;
@@ -1546,34 +1601,44 @@ void processRedo(UIElement* element) {
 void processUndo(UIElement* element) {
     #define CUR_POS element->extraData->textInputData.cursorPosition
 
-    Command* currentCmd = element->extraData->textInputData.cmdList.currentCommand;
+    TextInputData* tid = &element->extraData->textInputData;
 
-    if (currentCmd == nullptr) {
-        return;
-    }
+    if (tid == nullptr) { return; }
+
+    Command* currentCmd = tid->cmdList.currentCommand;
+
+    if (currentCmd == nullptr) { return; }
+
+    textInputUnselect(tid);
 
     switch (currentCmd->type) {
         case COMMAND_TYPE: {
             element->text.erase(currentCmd->cursorPos, 1);
-            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
-            moveToPrevCommand(element->extraData->textInputData.cmdList);
-            CUR_POS = cmd->cursorPos;
+            moveToPrevCommand(tid->cmdList);
+            CUR_POS = currentCmd->cursorPos;
             break;
         }
         case COMMAND_BACKSPACE: {
-            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
-            element->text.insert(cmd->cursorPos-1, cmd->str);
-            moveToPrevCommand(element->extraData->textInputData.cmdList);
-            CUR_POS = cmd->cursorPos;
+            element->text.insert(currentCmd->cursorPos-1, currentCmd->str);
+            moveToPrevCommand(tid->cmdList);
+            CUR_POS = currentCmd->cursorPos;
             break;
         }
         case COMMAND_DELETE: {
-            Command* cmd = element->extraData->textInputData.cmdList.currentCommand;
-            element->text.insert(cmd->cursorPos, cmd->str);
-            moveToPrevCommand(element->extraData->textInputData.cmdList);
-            CUR_POS = cmd->cursorPos;
+            element->text.insert(currentCmd->cursorPos, currentCmd->str);
+            moveToPrevCommand(tid->cmdList);
+            CUR_POS = currentCmd->cursorPos;
             break;
         }
+
+        case COMMAND_REPLACE: {
+            element->text.erase(currentCmd->replace.selectColStart, currentCmd->replace.newString.length());
+            element->text.insert(currentCmd->replace.selectColStart, currentCmd->replace.prevString);
+            moveToPrevCommand(tid->cmdList);
+            CUR_POS = currentCmd->cursorPos;
+            break;
+        }
+
         default:
             // Nothing!
             break;
@@ -1630,13 +1695,13 @@ void processCommand(UIElement* elem, Command* cmd) {
     #define CUR_POS elem->extraData->textInputData.cursorPosition
     if (elem->type == UI_TEXT_INPUT && elem->extraData != nullptr) {
         bool append = false;
+
+        TextInputData * tid = &elem->extraData->textInputData;
+
         switch(cmd->type) {
             case COMMAND_NONE: break;
             case COMMAND_TYPE: {
-                TextInputData * tid = &elem->extraData->textInputData;
-
                 if (tid->textSelected) {
-                    cout << "\nReplacing text!!!!";
                     uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
 
                     Command *newCmd = new Command(
@@ -1654,13 +1719,8 @@ void processCommand(UIElement* elem, Command* cmd) {
 
                     deleteCommand(cmd);
                     cmd = newCmd;
-                    append = true;
 
-                    tid->textSelected = false;
-                    tid->cursorPosition = tid->textSelectStartCol;
-                    tid->textSelectStartCol = tid->textSelectStartCol;
-                    tid->textSelectEndCol = tid->textSelectStartCol;
-                    tid->initialCursorPosition = tid->textSelectStartCol;
+                    textInputUnselect(tid);
                 } else {
                     // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
                     if (CUR_POS == elem->text.length()) {
@@ -1672,19 +1732,61 @@ void processCommand(UIElement* elem, Command* cmd) {
                     }
 
                     elem->text.insert(CUR_POS, cmd->str);
-                    append = true;
                 }
+                append = true;
                 break;
             }
 
             case COMMAND_DELETE: {
-                elem->text.erase(CUR_POS, 1);
+                if (tid->textSelected) {
+                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
+
+                    Command *newCmd = new Command(
+                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
+                        "",
+                        elem->text.substr(
+                            tid->textSelectStartCol,
+                            len
+                        ),
+                        cmd->cursorPos
+                    );
+
+                    elem->text.erase(tid->textSelectStartCol, len);
+
+                    deleteCommand(cmd);
+                    cmd = newCmd;
+
+                    textInputUnselect(tid);
+                } else {
+                    elem->text.erase(CUR_POS, 1);
+                }
                 append = true;
                 break;
             }
 
             case COMMAND_BACKSPACE: {
-                elem->text.erase(CUR_POS-1, 1);
+                if (tid->textSelected) {
+                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
+
+                    Command *newCmd = new Command(
+                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
+                        "",
+                        elem->text.substr(
+                            tid->textSelectStartCol,
+                            len
+                        ),
+                        cmd->cursorPos
+                    );
+
+                    elem->text.erase(tid->textSelectStartCol, len);
+
+                    deleteCommand(cmd);
+                    cmd = newCmd;
+
+                    textInputUnselect(tid);
+                } else {
+                    elem->text.erase(CUR_POS-1, 1);
+                }
                 append = true;
                 break;
             }

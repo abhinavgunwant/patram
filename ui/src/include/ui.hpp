@@ -213,6 +213,7 @@ void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void textInputUnselect(TextInputData * tid);
 uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);

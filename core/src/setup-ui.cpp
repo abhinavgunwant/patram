@@ -96,7 +96,7 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
     if (action == GLFW_PRESS) {
         switch (key) {
             case GLFW_KEY_ESCAPE: {
-                if (activeElement != nullptr) {
+                if (activeElement != nullptr && activeElement->type != UI_TEXT_INPUT) {
                     activeElement->active = false;
                     activeElement = nullptr;
                 }
@@ -112,6 +112,10 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 
     if (activeElement != nullptr) {
         activeElement->onKey(activeElement, key, action, mods);
+
+        if (!activeElement->active) {
+            activeElement = nullptr;
+        }
     }
 }
 
