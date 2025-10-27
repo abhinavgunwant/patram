@@ -214,6 +214,8 @@ void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputUnselect(TextInputData * tid);
+/** Creates a command to replace the selected text in a text input. */
+Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);

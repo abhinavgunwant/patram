@@ -556,6 +556,27 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     }
 }
 
+Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
+    TextInputData* tid = &elem->extraData->textInputData;
+
+    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
+
+    Command * newCommand = new Command(
+        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
+        oldCommand->str,
+        elem->text.substr(tid->textSelectStartCol, len),
+        oldCommand->cursorPos
+    );
+
+    elem->text.erase(tid->textSelectStartCol, len);
+    elem->text.insert(tid->textSelectStartCol, oldCommand->str);
+
+    deleteCommand(oldCommand);
+
+    textInputUnselect(tid);
+
+    return newCommand;
+}
 
 uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     uint32_t currentIndex = 0;
@@ -1705,32 +1726,11 @@ void processCommand(UIElement* elem, Command* cmd) {
             case COMMAND_NONE: break;
             case COMMAND_TYPE: {
                 if (tid->textSelected) {
-                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
-
-                    Command *newCmd = new Command(
-                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
-                        cmd->str,
-                        elem->text.substr(
-                            tid->textSelectStartCol,
-                            len
-                        ),
-                        cmd->cursorPos
-                    );
-
-                    elem->text.erase(tid->textSelectStartCol, len);
-                    elem->text.insert(tid->textSelectStartCol, cmd->str);
-
-                    deleteCommand(cmd);
-                    cmd = newCmd;
-
-                    textInputUnselect(tid);
+                    cmd = replaceSelectedText(elem, cmd);
                 } else {
-                    // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
                     if (CUR_POS == elem->text.length()) {
-                        // cout << "\nAppending at the end! " << cmd->str.length();
                         elem->text += cmd->str;
                         append = true;
-                        // elem->extraData->textInputData.cursorPosition += cmd->str.length();
                         break;
                     }
 
@@ -1742,24 +1742,7 @@ void processCommand(UIElement* elem, Command* cmd) {
 
             case COMMAND_DELETE: {
                 if (tid->textSelected) {
-                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
-
-                    Command *newCmd = new Command(
-                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
-                        "",
-                        elem->text.substr(
-                            tid->textSelectStartCol,
-                            len
-                        ),
-                        cmd->cursorPos
-                    );
-
-                    elem->text.erase(tid->textSelectStartCol, len);
-
-                    deleteCommand(cmd);
-                    cmd = newCmd;
-
-                    textInputUnselect(tid);
+                    cmd = replaceSelectedText(elem, cmd);
                 } else {
                     elem->text.erase(CUR_POS, 1);
                 }
@@ -1769,24 +1752,7 @@ void processCommand(UIElement* elem, Command* cmd) {
 
             case COMMAND_BACKSPACE: {
                 if (tid->textSelected) {
-                    uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
-
-                    Command *newCmd = new Command(
-                        0, 0, tid->textSelectStartCol, tid->textSelectEndCol,
-                        "",
-                        elem->text.substr(
-                            tid->textSelectStartCol,
-                            len
-                        ),
-                        cmd->cursorPos
-                    );
-
-                    elem->text.erase(tid->textSelectStartCol, len);
-
-                    deleteCommand(cmd);
-                    cmd = newCmd;
-
-                    textInputUnselect(tid);
+                    cmd = replaceSelectedText(elem, cmd);
                 } else {
                     elem->text.erase(CUR_POS-1, 1);
                 }
