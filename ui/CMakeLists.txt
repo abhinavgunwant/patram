@@ -1,6 +1,16 @@
 project(ui)
 
-add_library(ui src/ui.cpp src/render.cpp src/shader.cpp src/text.cpp lib/stb_image.cpp src/command.cpp)
+add_executable(rope src/rope.cpp)
+
+add_library(ui
+    lib/stb_image.cpp
+    src/ui.cpp
+    src/render.cpp
+    src/shader.cpp
+    src/text.cpp
+    src/command.cpp
+    src/rope.cpp
+)
 
 target_include_directories(ui
     PUBLIC
