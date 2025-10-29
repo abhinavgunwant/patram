@@ -1,6 +1,6 @@
 project(ui)
 
-add_executable(rope src/rope.cpp)
+add_executable(rope src/test_rope.cpp src/rope.cpp)
 
 add_library(ui
     lib/stb_image.cpp
