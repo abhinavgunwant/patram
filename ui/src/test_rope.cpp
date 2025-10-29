@@ -37,6 +37,12 @@ bool passed = true;
     cout << "\nAssertion at line " << __LINE__ << " failed. Expected: " << y << ", Got: " << x;\
     }
 
+#define ASSERT_NULL(x) if (x != nullptr) {\
+    allPassed = false;\
+    passed = false;\
+    cout << "\nAssertion at line " << __LINE__ << " failed. Expected NULL " << ", Got: " << x;\
+    }
+
 TEST_START(basicTest, "Basic Test")
     Rope a("Say ");
     Rope b("hello ");
@@ -89,11 +95,37 @@ TEST_START(testPrepend, "Prepend test")
     ASSERT_EQ(hello.getString(), "Today's an awesome day!");
 TEST_END
 
+TEST_START(testClear, "Clear test")
+    Rope a("Say ");
+    Rope b("hello ");
+    Rope c("to");
+    Rope d(" the");
+    Rope e(" beautiful");
+    Rope f(" world!");
+
+    Rope g(&b, &c);
+    Rope h(&a, &g);
+    Rope i(&d, &e);
+    Rope j(&i, &f);
+
+    Rope k(&h, &j);
+
+    ASSERT_EQ(k.getString(), "Say hello to the beautiful world!");
+
+    k.clear();
+
+    ASSERT_EQ(k.getString(), "");
+    ASSERT_EQ(k.length(), 0);
+    ASSERT_NULL(k.left);
+    ASSERT_NULL(k.right);
+TEST_END
+
 int main() {
     cout << "Testing " << __FILE__ << "\n";
     RUN_TEST(basicTest);
     RUN_TEST(testInsert);
     RUN_TEST(testPrepend);
+    RUN_TEST(testClear);
 
     if (allPassed) {
         cout << "\n\nAll tests passed!";
