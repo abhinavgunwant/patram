@@ -110,7 +110,7 @@ tuple<Rope*, uint32_t> Rope::findLeafForIndex(uint32_t i) {
         return {this, i};
     }
 
-    if (lenLeft < i) {
+    if (lenLeft <= i) {
         return right->findLeafForIndex(i - lenLeft);
     }
 
