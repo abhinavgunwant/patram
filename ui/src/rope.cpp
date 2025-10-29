@@ -1,6 +1,4 @@
-#include <iostream>
 #include <sstream>
-#include <cassert>
 
 #include "include/rope.hpp"
 
@@ -178,7 +176,7 @@ void Rope::prepend(string s) {
     while (node->left != nullptr) { node = node->left; }
 
     Rope* newLeft = new Rope(s);
-    Rope* newRight = new Rope(text);
+    Rope* newRight = new Rope(node->text);
     text = "";
     lenLeft = s.length();
     node->left = newLeft;
@@ -238,45 +236,5 @@ uint32_t Rope::length() {
     }
 
     return len;
-}
-
-int main() {
-    Rope a("Say ");
-    Rope b("hello ");
-    Rope c("to");
-    Rope d(" the");
-    Rope e(" beautiful");
-    Rope f(" world!");
-
-    Rope g(&b, &c);
-    Rope h(&a, &g);
-    Rope i(&d, &e);
-    Rope j(&i, &f);
-
-    Rope final(&h, &j);
-
-    assert(final.getString() == "Say hello to the beautiful world!");
-    assert(final[8] == 'o');
-    assert(final[20] == 'u');
-
-    Rope hello("world!");
-
-    assert(hello.getString() == "world!");
-
-    hello.insert(0, "Hello ");
-
-    assert(hello.getString() == "Hello world!");
-
-    hello.insert(6, "beautiful ");
-
-    assert(hello.getString() == "Hello beautiful world!");
-
-
-    //
-    // ---------------
-    //
-    cout << "PASSED!";
-
-    return 0;
 }
 
