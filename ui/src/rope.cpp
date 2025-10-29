@@ -238,3 +238,18 @@ uint32_t Rope::length() {
     return len;
 }
 
+void Rope::clear() {
+    text = "";
+    lenLeft = 0;
+
+    if (left != nullptr) {
+        left->~Rope();
+        left = nullptr;
+    }
+
+    if (right != nullptr) {
+        right->~Rope();
+        right = nullptr;
+    }
+}
+

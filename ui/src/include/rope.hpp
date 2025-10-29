@@ -36,6 +36,7 @@ class Rope {
         uint32_t length();
         void append(string s);
         void prepend(string s);
+        void clear();
 };
 
 struct TraversalNode {
