@@ -25,6 +25,8 @@ class Rope {
         inline bool isLeaf();
         string getString();
         char operator[](uint32_t i);
+        void recalculateLenLeft();
+
         void startTraversing();
         bool hasNext();
         Rope* next();
@@ -36,6 +38,7 @@ class Rope {
         uint32_t length();
         void append(string s);
         void prepend(string s);
+        void remove(uint32_t startIndex, uint32_t length);
         void clear();
 };
 

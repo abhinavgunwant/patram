@@ -53,6 +53,7 @@ string Rope::getString() {
 
         if (node->isLeaf()) {
             ss << node->text;
+            continue;
         }
 
         if (node->right != nullptr) {
@@ -96,6 +97,34 @@ Rope* Rope::next() {
     }
 
     return nullptr;
+}
+
+void Rope::recalculateLenLeft() {
+    if (left != nullptr) {
+        lenLeft = 0;
+
+        stack<Rope*> s;
+
+        s.push(left);
+
+        while (!s.empty()) {
+            Rope* node = s.top();
+            s.pop();
+
+            if (node->isLeaf()) {
+                lenLeft += node->text.length();
+                continue;
+            }
+
+            if (node->right != nullptr) {
+                s.push(node->right);
+            }
+
+            if (node->left != nullptr) {
+                s.push(node->left);
+            }
+        }
+    }
 }
 
 char Rope::operator[](uint32_t i) {
@@ -224,6 +253,64 @@ void Rope::insert(uint32_t i, string s) {
 
     oldLeaf->text = "";
     oldLeaf->lenLeft = newLeft->text.length();
+}
+
+void Rope::remove(uint32_t startIndex, uint32_t length) {
+    if (isLeaf()) {
+        if (startIndex + length < text.length()) {
+            text.erase(startIndex, length);
+        }
+
+        return;
+    }
+
+    stack<Rope*> parentStack;
+    Rope* parent = nullptr;
+    Rope* node = this;
+    uint32_t index = startIndex;
+    bool rightOfRoot = false;
+
+    while (node != nullptr) {
+        if (node->lenLeft <= index) {
+            index -= node->lenLeft;
+
+            if (node->right == nullptr) {
+                break;
+            }
+
+            parent = node;
+            parentStack.push(node);
+            node = node->right;
+            rightOfRoot = true;
+        } else {
+            if (node->left == nullptr) {
+                break;
+            }
+
+            parent = node;
+            parentStack.push(node);
+            node = node->left;
+        }
+    }
+
+    if (node != nullptr) {
+        if (length == node->text.length()) {
+            if (parent->right == node) {
+                parent->right = nullptr;
+            } else {
+                parent->left = nullptr;
+            }
+
+            node->~Rope();
+
+            if (rightOfRoot) {
+                right->recalculateLenLeft();
+                return;
+            }
+
+            recalculateLenLeft();
+        }
+    }
 }
 
 uint32_t Rope::length() {
