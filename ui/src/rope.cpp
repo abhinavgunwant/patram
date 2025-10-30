@@ -92,37 +92,6 @@ string Rope::getString() {
     return ss.str();
 }
 
-void Rope::startTraversing() {
-    while (!traverseStack.empty()) {
-        traverseStack.pop();
-    }
-
-    traverseStack.push(this);
-}
-
-inline bool Rope::hasNext() { return !traverseStack.empty(); }
-
-Rope* Rope::next() {
-    while (!traverseStack.empty()) {
-        Rope* node = traverseStack.top();
-        traverseStack.pop();
-
-        if (node->isLeaf()) {
-            return node;
-        }
-
-        if (node->right != nullptr) {
-            traverseStack.push(node->right);
-        }
-
-        if (node->left != nullptr) {
-            traverseStack.push(node->left);
-        }
-    }
-
-    return nullptr;
-}
-
 void Rope::recalculateLenLeft() {
     if (left != nullptr) {
         lenLeft = 0;
@@ -442,10 +411,11 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
 
 uint32_t Rope::length() {
     uint32_t len = 0;
-    startTraversing();
 
-    while (hasNext()) {
-        Rope* node = next();
+    RopeTraverser rt(this);
+
+    while (rt.hasNext()) {
+        Rope* node = rt.next();
         len += node->text.length();
     }
 
@@ -488,6 +458,65 @@ void Rope::propagateLenLeft(Rope* node, int64_t change) {
 
     if (node->parent == this && node == left) {
         lenLeft += change;
+    }
+}
+
+RopeTraverser::RopeTraverser(Rope* root) {
+    this->root = root;
+    reset();
+}
+
+inline bool RopeTraverser::hasNext() { return nextInQueue != nullptr; }
+
+Rope* RopeTraverser::next() {
+    current = nextInQueue;
+    nextInQueue = nullptr;
+
+    Rope* node = root->rightSiblingOrAncestor(current);
+
+    while (node != nullptr && node != root) {
+        if (node->isLeaf()) {
+            nextInQueue = node;
+            break;
+        }
+
+        if (node->left != nullptr) {
+            node = node->left;
+            continue;
+        }
+
+        if (node->right != nullptr) {
+            node = node->right;
+        }
+    }
+
+    return current;
+}
+
+void RopeTraverser::reset() {
+    current = root;
+
+    if (current->isLeaf()) {
+        nextInQueue = current;
+        return;
+    }
+
+    Rope* node = current;
+
+    while (node != nullptr) {
+        if (node->isLeaf()) {
+            nextInQueue = node;
+            return;
+        }
+
+        if (node->left != nullptr) {
+            node = node->left;
+            continue;
+        }
+
+        if (node->right != nullptr) {
+            node = node->right;
+        }
     }
 }
 

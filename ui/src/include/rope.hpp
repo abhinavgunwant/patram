@@ -10,7 +10,6 @@ using namespace std;
 class Rope {
     private:
         stack<Rope*> traverseStack;
-        Rope* rightSiblingOrAncestor(Rope* node);
         void propagateLenLeft(Rope* node, int64_t change);
 
     public:
@@ -31,9 +30,7 @@ class Rope {
         char operator[](uint32_t i);
         void recalculateLenLeft();
 
-        void startTraversing();
-        bool hasNext();
-        Rope* next();
+        Rope* rightSiblingOrAncestor(Rope* node);
         /**
          * Returns the leaf node and the relative index to that node.
          */
@@ -46,11 +43,17 @@ class Rope {
         void clear();
 };
 
-struct TraversalNode {
-    Rope* node;
-    bool visited;
+class RopeTraverser {
+    private:
+        Rope* root;
+        Rope* current;
+        Rope* nextInQueue;
 
-    TraversalNode(Rope* node): node(node), visited(false) {}
+    public:
+        RopeTraverser(Rope* root);
+        bool hasNext();
+        Rope* next();
+        void reset();
 };
 
 #endif // PATRAM_UI_ROPE

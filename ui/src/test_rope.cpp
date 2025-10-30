@@ -62,6 +62,11 @@ TEST_START(basicTest, "Basic Test")
     ASSERT_EQ(k[8], 'o');
     ASSERT_EQ(k[16], ' ');
     ASSERT_EQ(k[20], 'u');
+    ASSERT_EQ(k.length(), 33);
+
+    Rope testLen("Let's say this is a string with length 42.");
+
+    ASSERT_EQ(testLen.length(), 42);
 TEST_END
 
 TEST_START(testInsert, "Insert test")
