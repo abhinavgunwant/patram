@@ -117,6 +117,18 @@ TEST_START(testRemove, "Remove test")
 
     ASSERT_EQ(k[17], 'w');
     ASSERT_EQ(k.getString(), "Say hello to the world!");
+
+    k.remove(18, 3);
+
+    ASSERT_EQ(k.getString(), "Say hello to the wd!");
+
+    k.remove(8, 3);
+
+    ASSERT_EQ(k.getString(), "Say hello the wd!");
+
+    k.remove(7, 8);
+
+    ASSERT_EQ(k.getString(), "Say held!");
 TEST_END
 
 TEST_START(testClear, "Clear test")

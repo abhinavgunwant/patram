@@ -10,10 +10,14 @@ using namespace std;
 class Rope {
     private:
         stack<Rope*> traverseStack;
+        Rope* rightSiblingOrAncestor(Rope* node);
+        void propagateLenLeft(Rope* node, int64_t change);
 
     public:
         string text;
         uint32_t lenLeft;
+
+        Rope* parent;
         Rope* left;
         Rope* right;
 
