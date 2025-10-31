@@ -24,6 +24,7 @@ class Rope {
         Rope();
         Rope(string);
         Rope(Rope* r1, Rope* r2);
+        Rope(Rope r1, Rope r2);
 
         inline bool isLeaf();
         string getString();
@@ -41,6 +42,10 @@ class Rope {
         void prepend(string s);
         void remove(uint32_t startIndex, uint32_t length);
         void clear();
+        void balance();
+        Rope* clone();
+        Rope* cloneLeaf();
+        void print(uint32_t depth = 0);
 };
 
 class RopeTraverser {

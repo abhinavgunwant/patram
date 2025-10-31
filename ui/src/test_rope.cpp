@@ -161,6 +161,53 @@ TEST_START(testClear, "Clear test")
     ASSERT_NULL(k.right);
 TEST_END
 
+TEST_START(testBalance, "Balance test")
+    Rope* a = new Rope("Lorem ");
+    Rope* b = new Rope("ipsum ");
+    Rope* c = new Rope("dolor ");
+    Rope* d = new Rope("sit ");
+    Rope* e = new Rope("amet, ");
+    Rope* f = new Rope("consectetur ");
+    Rope* g = new Rope("adipiscing ");
+    Rope* h = new Rope("elit, ");
+    Rope* i = new Rope("sed ");
+    Rope* j = new Rope("do ");
+    Rope* k = new Rope("eiusmod ");
+    Rope* l = new Rope("tempor ");
+    Rope* m = new Rope("incididunt ");
+    Rope* n = new Rope("ut ");
+    Rope* o = new Rope("labore ");
+    Rope* p = new Rope("et ");
+    Rope* q = new Rope("dolore ");
+    Rope* r = new Rope("magna ");
+    Rope* s = new Rope("aliqua.");
+
+    Rope* t = new Rope(a, b);
+    Rope* u = new Rope(t, c);
+    Rope* v = new Rope(u, d);
+    Rope* w = new Rope(v, e);
+    Rope* x = new Rope(w, f);
+    Rope* y = new Rope(x, g);
+    Rope* z = new Rope(y, h);
+    Rope* aa = new Rope(z, i);
+    Rope* ab = new Rope(aa, j);
+    Rope* ac = new Rope(ab, k);
+    Rope* ad = new Rope(ac, l);
+    Rope* ae = new Rope(ad, m);
+    Rope* af = new Rope(ae, n);
+    Rope* ag = new Rope(af, o);
+    Rope* ah = new Rope(ag, p);
+    Rope* ai = new Rope(ah, q);
+    Rope* aj = new Rope(ai, r);
+    Rope* ak = new Rope(aj, s);
+
+    ASSERT_EQ(ak->getString(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+
+    ak->balance();
+
+    ASSERT_EQ(ak->getString(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+TEST_END
+
 int main() {
     cout << "Testing " << __FILE__ << "\n";
     RUN_TEST(basicTest);
@@ -168,6 +215,7 @@ int main() {
     RUN_TEST(testPrepend);
     RUN_TEST(testRemove);
     RUN_TEST(testClear);
+    RUN_TEST(testBalance);
 
     if (allPassed) {
         cout << "\n\nAll tests passed!";

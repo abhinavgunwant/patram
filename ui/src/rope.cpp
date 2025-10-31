@@ -1,5 +1,7 @@
 #include <iostream>
 #include <sstream>
+#include <list>
+#include <vector>
 
 #include "include/rope.hpp"
 
@@ -23,11 +25,32 @@ Rope::Rope(string text) {
 
 Rope::Rope(Rope* r1, Rope* r2) {
     this->text = "";
+    parent = nullptr;
     left = r1;
     right = r2;
     left->parent = this;
     right->parent = this;
-    recalculateLenLeft();
+
+    if (left->isLeaf()) {
+        lenLeft = left->text.length();
+    } else {
+        recalculateLenLeft();
+    }
+}
+
+Rope::Rope(Rope r1, Rope r2) {
+    this->text = "";
+    parent = nullptr;
+    left = r1.clone();
+    right = r2.clone();
+    left->parent = this;
+    right->parent = this;
+
+    if (left->isLeaf()) {
+        lenLeft = left->text.length();
+    } else {
+        recalculateLenLeft();
+    }
 }
 
 Rope::~Rope() {
@@ -60,7 +83,7 @@ Rope* Rope::rightSiblingOrAncestor(Rope* node) {
         node = node->parent;
     }
 
-    if (node == nullptr || node == this || node == this->right) {
+    if (node == nullptr || node == this || node == this->right || node->parent == nullptr) {
         return nullptr;
     }
 
@@ -459,6 +482,123 @@ void Rope::propagateLenLeft(Rope* node, int64_t change) {
     if (node->parent == this && node == left) {
         lenLeft += change;
     }
+}
+
+void Rope::balance() {
+    list<Rope*> ropeList;
+    vector<Rope*> toDelete;
+
+    toDelete.reserve(128);
+
+    Rope* node = this;
+    Rope* leftNode = nullptr;
+
+    while (node != nullptr) {
+        if (node->isLeaf()) {
+            Rope* nextNode = rightSiblingOrAncestor(node);
+            ropeList.push_back(node);
+            leftNode = nullptr;
+
+            if (nextNode == nullptr) {
+                break;
+            }
+
+            node = nextNode;
+        } else {
+            if (node != this && node != nullptr) {
+                toDelete.push_back(node);
+            }
+        }
+
+        if (node->left != nullptr) {
+            node = node->left;
+            continue;
+        }
+
+        if (node->right != nullptr) {
+            node = node->right;
+        }
+    }
+
+    list<Rope*>::iterator leftItr;
+
+    uint32_t count = 0;
+
+    while (ropeList.size() > 1) {
+        Rope* leftNode = nullptr;
+
+        for (list<Rope*>::iterator itr = ropeList.begin(); itr != ropeList.end(); ++itr) {
+            if (leftNode == nullptr) {
+                leftNode = *itr;
+                leftItr = itr;
+
+                continue;
+            }
+
+            Rope* rightNode = *itr;
+
+            Rope* newNode = new Rope(leftNode, rightNode);
+            *itr = newNode;
+
+            ropeList.erase(leftItr, itr);
+
+            leftNode = nullptr;
+        }
+    }
+
+    node = ropeList.front();
+
+    left = node->left;
+    right = node->right;
+    lenLeft = node->lenLeft;
+    left->parent = this;
+    right->parent = this;
+
+    node->left = nullptr;
+    node->right = nullptr;
+    node->~Rope();
+
+    for (Rope* node: toDelete) {
+        if (node != nullptr) {
+            node->right = nullptr;
+            node->left = nullptr;
+            node->parent = nullptr;
+            node->~Rope();
+        }
+    }
+}
+
+inline Rope* Rope::clone() { return new Rope(left, right); }
+inline Rope* Rope::cloneLeaf() { return new Rope(text); }
+
+void Rope::print(uint32_t depth) {
+    #define INDENT() for (int i=0; i<depth; ++i) { cout << "    "; }
+
+    Rope* node = this;
+
+    if (depth == 0) {
+        cout << "\n==[ROPE]==";
+    }
+
+    cout << "\n";
+    INDENT();
+    cout << "text: \"" << text << "\"";
+
+    if (left != nullptr) {
+        cout << "\n";
+        INDENT();
+        cout << "left: ";
+        left->print(depth + 1);
+    }
+
+    if (right != nullptr) {
+        cout << "\n";
+        INDENT();
+        cout << "right: ";
+        right->print(depth + 1);
+    }
+
+    #undef INDENT
 }
 
 RopeTraverser::RopeTraverser(Rope* root) {
