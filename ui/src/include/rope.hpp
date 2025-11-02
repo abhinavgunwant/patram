@@ -9,7 +9,6 @@ using namespace std;
 
 class Rope {
     private:
-        stack<Rope*> traverseStack;
         void propagateLenLeft(Rope* node, int64_t change);
 
     public:
