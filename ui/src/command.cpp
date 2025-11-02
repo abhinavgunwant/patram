@@ -35,13 +35,15 @@ void appendCommand(CommandList &list, Command* newCommand) {
 void moveToPrevCommand(CommandList &list) {
     if (list.currentCommand != nullptr && list.currentCommand->prev != nullptr) {
         list.currentCommand = list.currentCommand->prev;
-        cout << "\nMoved to previous command!";
+        #ifdef DEBUG_COMMANDS
+            cout << "\nMoved to previous command!";
     } else {
-        if (list.currentCommand != nullptr) {
-            cout << "\nCurrent command is null!";
-        } else {
-            cout << "\nPrevious command is null!";
-        }
+            if (list.currentCommand != nullptr) {
+                cout << "\nCurrent command is null!";
+            } else {
+                cout << "\nPrevious command is null!";
+            }
+        #endif
     }
 }
 
@@ -81,10 +83,14 @@ string commandStr(Command* c) {
 }
 
 void printCommands(CommandList& list) {
-    cout << "\nCommands (" << (int)list.length << "):";
+    #ifdef DEBUG_COMMANDS
+        cout << "\nCommands (" << (int)list.length << "):";
+    #endif
 
     if (list.currentCommand == nullptr) {
-        cout << " empty!";
+        #ifdef DEBUG_COMMANDS
+            cout << " empty!";
+        #endif
         return;
     }
 
@@ -103,13 +109,15 @@ void printCommands(CommandList& list) {
     uint8_t i = 0;
 
     while (head != nullptr) {
-        if (head == list.currentCommand) {
-            cout << "\n -> ";
-        } else {
-            cout << "\n    ";
-        }
+        #ifdef DEBUG_COMMANDS
+            if (head == list.currentCommand) {
+                cout << "\n -> ";
+            } else {
+                cout << "\n    ";
+            }
 
-        cout << (int)i << " " << commandStr(head);
+            cout << (int)i << " " << commandStr(head);
+        #endif
 
         head = head->next;
         ++i;
