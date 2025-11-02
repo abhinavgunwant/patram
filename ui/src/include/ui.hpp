@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "command.hpp"
+#include "rope.hpp"
 
 #define INITIAL_PARENT_CAPACITY     8
 #define GROWTH_FACTOR               2
@@ -46,6 +47,8 @@
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
 
 #define BUTTON_PADDING              8
+#define LINE_GAP                    3
+
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
@@ -135,6 +138,8 @@ struct TextInputData {
     float mouseDownY;
     /** The glfwGetTime() when the cursor last moved. */
     float lastActiveTime;
+
+    Rope* rope;
 
     CommandList cmdList;
 

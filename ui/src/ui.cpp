@@ -157,6 +157,22 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 }
                 break;
 
+            case GLFW_KEY_UP:
+                if (elem->type == UI_TEXT_AREA) {
+                }
+                break;
+
+            case GLFW_KEY_DOWN:
+                break;
+
+            case GLFW_KEY_ENTER:
+                cout << "\nEnter pressed";
+                if (shift && elem->type == UI_TEXT_AREA) {
+                    TYPE("\n");
+                    INCR_CURSOR();
+                }
+                break;
+
             case GLFW_KEY_END:
                 CUR_POS = static_cast<uint32_t>(elem->text.length());
                 UPDATE_CURSOR_TIME();
@@ -761,6 +777,7 @@ void selectTextWithMouse(
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
     UIExtraData * extraData = nullptr;
+    Rope* rope = nullptr;
 
     glm::vec4 backgroundColor;
     glm::vec4 hoverColor;
@@ -826,10 +843,13 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UI_TEXT_AREA:
+            rope = new Rope();
         case UI_TEXT_INPUT:
             pref = initPreferences();
 
-            backgroundColor = TRANSPARENT;
+            // backgroundColor = TRANSPARENT;
+            backgroundColor = glm::vec4(0.9, 0.9, 0.9, 1.0);
             hoverColor = TRANSPARENT;
 
             if (darkTheme) {
@@ -854,6 +874,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .mouseDownX = 0.0f,
                     .mouseDownY = 0.0f,
                     .lastActiveTime = 0.0f,
+                    .rope = rope,
                     .cmdList = CommandList(),
                 }
             };
@@ -1368,16 +1389,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            // Render Text
-            // TODO: change BUTTON_PADDING if appropriate
-            // glm::vec4 textDimensions = renderText(
-            //     elem.text,
-            //     glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING),
-            //     resolution,
-            //     elem.color,
-            //     elem.fontSize
-            // );
-
             int32_t pid = shaders[SHADER_TEXT].programId;
 
             glUseProgram(pid);
@@ -1439,15 +1450,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
             glBindTexture(GL_TEXTURE_2D, 0);
-
-            // if (elem.width == textDimensions.w + BUTTON_PADDING) {
-            //     elem.reDraw = false;
-            // } else {
-            //     elem.reDraw = true;
-            //     elem.width = textDimensions.w + BUTTON_PADDING;
-            //     elem.height = textDimensions.z + BUTTON_PADDING - elem.top;
-            //     cout << "\nRecalculating dimensions of Text Input";
-            // }
 
             // When text input is active, draw the cursor.
             if (elem.active) {
@@ -1545,6 +1547,250 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_TEXT_AREA: {
+            if (elem.reDraw) {
+                cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
+                if (elem.vao != 0) {
+                    glDeleteVertexArrays(1, &elem.vao);
+                }
+
+                if (elem.vbo != 0) {
+                    glDeleteBuffers(1, &elem.vbo);
+                }
+
+                float right = elem.left + elem.width;
+                float bottom = elem.top + elem.height;
+
+                float vertices[] = {
+                    right, bottom,
+                    right, elem.top,
+                    elem.left, bottom,
+                    elem.left, elem.top,
+                };
+
+                glGenVertexArrays(1, &elem.vao);
+                glBindVertexArray(elem.vao);
+                glGenBuffers(1, &elem.vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+                elem.reDraw = false;
+            }
+
+            glBindVertexArray(elem.vao);
+            glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
+
+            uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "resolution");
+            uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "color");
+            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "backgroundColor");
+            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "hoverColor");
+            uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "time");
+            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "borderRadius");
+            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "topLeft");
+            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "dimensions");
+            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "cursor");
+
+            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform4f(
+                colorU,
+                elem.color.x,
+                elem.color.y,
+                elem.color.z,
+                elem.color.w
+            );
+            glUniform4f(
+                backgroundColorU,
+                elem.backgroundColor.x,
+                elem.backgroundColor.y,
+                elem.backgroundColor.z,
+                elem.backgroundColor.w
+            );
+            glUniform4f(
+                hoverColorU,
+                elem.hoverColor.x,
+                elem.hoverColor.y,
+                elem.hoverColor.z,
+                elem.hoverColor.w
+            );
+
+            glUniform2f(topleftU, elem.left, elem.top);
+            glUniform2f(dimensionsU, elem.width, elem.height);
+
+            glUniform1f(timeU, TIME());
+            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
+            glUniform2f(cursorU, cursor.x, cursor.y);
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            int32_t pid = shaders[SHADER_TEXT].programId;
+
+            glUseProgram(pid);
+
+            glUniform3f(
+                glGetUniformLocation(pid, "textColor"),
+                elem.color.r,
+                elem.color.g,
+                elem.color.b
+            );
+            glUniform2f(glGetUniformLocation(pid, "resolution"), resolution.x, resolution.y);
+            glActiveTexture(GL_TEXTURE0);
+            glBindVertexArray(textVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+
+            uint32_t currentIndex = 0;
+            const float xStart = elem.left + BUTTON_PADDING; 
+            float x = xStart;
+            float y = elem.top + BUTTON_PADDING;
+
+            float cursorX = -1;
+            float cursorY = -1;
+            float selectStartX = -1;
+            float selectStartY = -1;
+            float selectEndX = -1;
+            float selectEndY = -1;
+
+            TextInputData* tid = &elem.extraData->textInputData;
+
+            const float newLineSize = static_cast<float>(elem.fontSize)
+                + static_cast<float>(BUTTON_PADDING);
+
+            for (const char c: elem.text) {
+                if (c == '\n') {
+                    float heightIncrement = static_cast<float>(elem.fontSize + LINE_GAP);
+                    y += heightIncrement;
+                    x = xStart;
+                    continue;
+                }
+
+                if (currentIndex == tid->cursorPosition) {
+                    cursorX = x;
+                    cursorY = y;
+                }
+
+                if (tid->textSelected) {
+                    if (currentIndex == tid->textSelectStartCol) {
+                        selectStartX = x;
+                        selectStartY = y;
+                    }
+
+                    if (currentIndex == tid->textSelectEndCol) {
+                        selectEndX = x;
+                        selectEndY = y;
+                    }
+                }
+
+                x += renderGlyph(c, x, y, resolution, elem.fontSize);
+
+                ++currentIndex;
+            }
+
+            if (tid->cursorPosition == elem.text.length()) {
+                cursorX = x;
+                cursorY = y;
+            }
+
+            if (tid->textSelected && tid->textSelectEndCol == elem.text.length()) {
+                cursorX = x;
+                cursorY = y;
+                selectEndX = x;
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            // When text input is active, draw the cursor.
+            if (elem.active) {
+                if (tid->cursorVAO != 0) {
+                    glDeleteVertexArrays(1, &tid->cursorVAO);
+                }
+
+                if (tid->cursorVBO != 0) {
+                    glDeleteBuffers(1, &tid->cursorVBO);
+                }
+
+                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
+
+                float vertices[] = {
+                    cursorX - 1, cursorY + elem.fontSize,
+                    cursorX + 1, cursorY + elem.fontSize,
+                    cursorX - 1, cursorY,
+                    cursorX + 1, cursorY,
+                };
+
+                glGenVertexArrays(1, &tid->cursorVAO);
+                glBindVertexArray(tid->cursorVAO);
+                glGenBuffers(1, &tid->cursorVBO);
+                glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+
+                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+
+                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
+                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
+                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
+
+                glm::vec4 color = CURSOR_COLOR;
+
+                if (darkTheme) {
+                    color = CURSOR_COLOR_DARK;
+                }
+
+                glUniform4f(colorU, color.x, color.y, color.z, color.w);
+                glUniform2f(resU, resolution.x, resolution.y);
+                glUniform1f(timeU, TIME() - tid->lastActiveTime);
+
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
+                    if (tid->textSelectUpdated) {
+                        if (tid->textSelectVAO != 0) {
+                            glDeleteVertexArrays(1, &tid->textSelectVAO);
+                        }
+
+                        if (tid->textSelectVBO != 0) {
+                            glDeleteBuffers(1, &tid->textSelectVBO);
+                        }
+
+                        float vertices[] = {
+                            selectStartX, cursorY + elem.fontSize,
+                            selectEndX, cursorY + elem.fontSize,
+                            selectStartX, cursorY,
+                            selectEndX, cursorY,
+                        };
+
+                        glGenVertexArrays(1, &tid->textSelectVAO);
+                        glBindVertexArray(tid->textSelectVAO);
+                        glGenBuffers(1, &tid->textSelectVBO);
+                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
+                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                        glEnableVertexAttribArray(0);
+
+                        tid->textSelectUpdated = false;
+                        cout << "\ncursorY: " << cursorY;
+                    }
+
+                    glBindVertexArray(tid->textSelectVAO);
+
+                    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+                    glm::vec4 color = CURSOR_COLOR;
+
+                    if (darkTheme) {
+                        color = CURSOR_COLOR_DARK;
+                    }
+
+                    glUniform4f(colorU, color.x, color.y, color.z, 0.25);
+
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                }
+            }
+
             break;
         }
 
@@ -1640,6 +1886,17 @@ void processUndo(UIElement* element) {
             element->text.erase(currentCmd->cursorPos, 1);
             moveToPrevCommand(tid->cmdList);
             CUR_POS = currentCmd->cursorPos;
+
+            uint32_t newLines = 0;
+
+            for (char c: currentCmd->str) {
+                if (c == '\n') { ++newLines; }
+            }
+
+            if (newLines > 0) {
+                element->height -= static_cast<float>(element->fontSize + LINE_GAP);
+                element->reDraw = true;
+            }
             break;
         }
         case COMMAND_BACKSPACE: {
@@ -1677,30 +1934,26 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     // elements are the same.
     stack<UIElement*> elemStack;
 
-    for (int8_t i=root->totalChildren-1; i >= 0; --i) {
+    for (uint8_t i=0; i<root->totalChildren; ++i) {
         elemStack.push(root->children[(int)i]);
     }
 
     UIElement* elem = nullptr;
-    elemStack.pop();
-
-    bool foundElement = false;
 
     while (!elemStack.empty()) {
         elem = elemStack.top();
 
-        if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT) {
+        if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT || elem->type == UI_TEXT_AREA) {
             if (
                 x > elem->left && x < elem->left + elem->width
                 && y > elem->top && y < elem->top + elem->height
             ) {
-                foundElement = true;
-                break;
+                return elem;
             }
         }
 
-        if (elem->totalChildren) {
-            for (uint8_t i=elem->totalChildren-1; i >= 0; --i) {
+        if (elem->totalChildren > 0) {
+            for (uint8_t i=0; i<elem->totalChildren; ++i) {
                 elemStack.push(elem->children[i]);
             }
         }
@@ -1708,16 +1961,15 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         elemStack.pop();
     }
 
-    if (foundElement) {
-        return elem;
-    }
-
     return nullptr;
 }
 
 void processCommand(UIElement* elem, Command* cmd) {
     #define CUR_POS elem->extraData->textInputData.cursorPosition
-    if (elem->type == UI_TEXT_INPUT && elem->extraData != nullptr) {
+    if (
+        (elem->type == UI_TEXT_INPUT || elem->type == UI_TEXT_AREA)
+        && elem->extraData != nullptr
+    ) {
         bool append = false;
 
         TextInputData * tid = &elem->extraData->textInputData;
@@ -1736,6 +1988,12 @@ void processCommand(UIElement* elem, Command* cmd) {
                         for (char c: cmd->str) {
                             if (c == '\n') { ++newLines; }
                         }
+
+                        if (newLines > 0) {
+                            elem->height += static_cast<float>(elem->fontSize + LINE_GAP);
+                            elem->reDraw = true;
+                        }
+
                         break;
                     }
 
@@ -1757,6 +2015,12 @@ void processCommand(UIElement* elem, Command* cmd) {
                 } else {
                     elem->text.erase(CUR_POS, 1);
                 }
+
+
+                if (newLines > 0 && elem->height > 32.0) {
+                    elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
+                    elem->reDraw = true;
+                }
                 append = true;
                 break;
             }
@@ -1773,7 +2037,13 @@ void processCommand(UIElement* elem, Command* cmd) {
                 } else {
                     elem->text.erase(CUR_POS-1, 1);
                 }
+
                 append = true;
+
+                if (newLines > 0 && elem->height > 32.0) {
+                    elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
+                    elem->reDraw = true;
+                }
                 break;
             }
 
