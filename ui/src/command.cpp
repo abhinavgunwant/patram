@@ -27,7 +27,9 @@ void appendCommand(CommandList &list, Command* newCommand) {
     list.currentCommand = newCommand;
     list.length++;
 
-    cout << "\nAppended command " << commandStr(newCommand);
+    #ifdef DEBUG_COMMANDS
+        cout << "\nAppended command " << commandStr(newCommand);
+    #endif
 }
 
 void moveToPrevCommand(CommandList &list) {

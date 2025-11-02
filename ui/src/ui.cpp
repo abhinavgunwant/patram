@@ -2064,7 +2064,9 @@ void processCommand(UIElement* elem, Command* cmd) {
             appendCommand(elem->extraData->textInputData.cmdList, cmd);
         }
 
-        printCommands(elem->extraData->textInputData.cmdList);
+        #ifdef DEBUG_COMMANDS
+            printCommands(elem->extraData->textInputData.cmdList);
+        #endif
     }
     #undef CUR_POS
 }

@@ -5,6 +5,7 @@
 #include <iostream>
 
 #define MAX_COMMANDS 16
+// #define DEBUG_COMMANDS
 
 using namespace std;
 
