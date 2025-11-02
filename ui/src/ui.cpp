@@ -1731,6 +1731,11 @@ void processCommand(UIElement* elem, Command* cmd) {
                     if (CUR_POS == elem->text.length()) {
                         elem->text += cmd->str;
                         append = true;
+                        uint32_t newLines = 0;
+
+                        for (char c: cmd->str) {
+                            if (c == '\n') { ++newLines; }
+                        }
                         break;
                     }
 
@@ -1741,6 +1746,12 @@ void processCommand(UIElement* elem, Command* cmd) {
             }
 
             case COMMAND_DELETE: {
+                uint32_t newLines = 0;
+
+                for (char c: cmd->str) {
+                    if (c == '\n') { ++newLines; }
+                }
+
                 if (tid->textSelected) {
                     cmd = replaceSelectedText(elem, cmd);
                 } else {
@@ -1751,6 +1762,12 @@ void processCommand(UIElement* elem, Command* cmd) {
             }
 
             case COMMAND_BACKSPACE: {
+                uint32_t newLines = 0;
+
+                for (char c: cmd->str) {
+                    if (c == '\n') { ++newLines; }
+                }
+
                 if (tid->textSelected) {
                     cmd = replaceSelectedText(elem, cmd);
                 } else {

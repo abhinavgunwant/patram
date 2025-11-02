@@ -46,6 +46,9 @@
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
 
 #define BUTTON_PADDING              8
+#define THROTTLE_FAST               0.1
+// #define THROTTLE_NORMAL             0.18
+// #define THROTTLE_SLOW               0.25
 
 using namespace std;
 
