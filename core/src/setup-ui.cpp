@@ -20,6 +20,9 @@ UIElement rootContainer;
 bool minimized = false;
 bool focused = true;
 bool mouse1Down = false;
+bool cursorShouldUpdate = false;
+
+GLFWcursor* textCursor;
 
 UIElement elements[16];
 UIElement* activeElement = nullptr;
@@ -31,6 +34,33 @@ float mouseX = 25000;
 float mouseY = 25000;
 float mouseDownX = 25000;
 float mouseDownY = 25000;
+float cursorUpdateTime = 0.0;
+
+void updateCursorShape() {
+    if (cursorShouldUpdate) {
+        cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
+
+        while (glfwGetTime() < cursorUpdateTime) {}
+
+        UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+        if (elem != nullptr && (elem->type == UI_TEXT_AREA || elem->type == UI_TEXT_INPUT)) {
+            glfwSetCursor(window, textCursor);
+        } else {
+            glfwSetCursor(window, nullptr);
+        }
+
+        cursorShouldUpdate = false;
+    }
+}
+
+void throttleUpdateCursorShape() {
+    if (!cursorShouldUpdate) {
+        cursorShouldUpdate = true;
+        thread t(updateCursorShape);
+        t.detach();
+    }
+}
 
 void inputClickCallback(UIElement* elem) {
     cout << "\nSetting text input as active!";
@@ -58,6 +88,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
             if (elem != nullptr) {
+                cout << " for " << elementType(elem);
                 if (activeElement != nullptr) {
                     activeElement->active = false;
                 }
@@ -146,6 +177,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     ) {
         activeElement->onMouseDrag(activeElement, mouseX, mouseY, resolution);
     }
+
+    throttleUpdateCursorShape();
 }
 
 void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
@@ -211,6 +244,7 @@ void setupUI(bool isDarkTheme) {
     UIElement* label3 = &elements[5];
     UIElement* button4 = &elements[6];
     UIElement* input = &elements[7];
+    UIElement* inputArea = &elements[8];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -221,6 +255,7 @@ void setupUI(bool isDarkTheme) {
     initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
     initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
+    initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 32.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -252,6 +287,7 @@ void setupUI(bool isDarkTheme) {
     label3->fontSize = 48;
     input->borderRadius = 10;
     input->text = "Input Test";
+    inputArea->text = "Input Area";
     // input->onClick = inputClickCallback;
 
     addChild(rootContainer, menuBar);
@@ -262,6 +298,9 @@ void setupUI(bool isDarkTheme) {
     addChild(rootContainer, label2);
     addChild(rootContainer, label3);
     addChild(rootContainer, input);
+    addChild(rootContainer, inputArea);
+
+    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 }
 
 void enterRenderLoop() {
