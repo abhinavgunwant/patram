@@ -594,15 +594,22 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
     return newCommand;
 }
 
-uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     uint32_t currentIndex = 0;
+    uint32_t row = 0;
+    uint32_t col = 0;
 
-    float x = elem->left + BUTTON_PADDING;
+    const float xStart = elem->left + BUTTON_PADDING;
+
+    float x = xStart;
     float y = elem->top + BUTTON_PADDING;
 
     // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
+    const float Y_ADVANCE = static_cast<float>(elem->fontSize + LINE_GAP);
+    bool shouldYAdvance = false;
 
     for (const char c: elem->text) {
+        shouldYAdvance = c == '\n';
         GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
 
         // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
@@ -611,16 +618,37 @@ uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY
 
         uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
 
-        if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
+        if (
+            x + static_cast<float>(net_advance)/2 > mouseX
+            && (
+                // !shouldYAdvance
+                // || shouldYAdvance &&
+                y + Y_ADVANCE > mouseY
+            )
+        ) {
+            #ifdef DEBUG_TEXT_SELECTION
+                cout << "\nx: " << x << ", y: " << y << ", shouldYAdvance: " << shouldYAdvance << " ";
+            #endif
             break;
         }
 
-        x += net_advance;
-
-        ++currentIndex;
+        if (shouldYAdvance) {
+            x = xStart;
+            y += Y_ADVANCE;
+            col = 0;
+            ++row;
+        } else {
+            ++col;
+            x += net_advance;
+            ++currentIndex;
+        }
     }
 
-    return currentIndex;
+    return {
+        .cursorPosition = currentIndex,
+        .row = row,
+        .col = col,
+    };
 }
 
 void textInputMouseDownCallback(
@@ -633,13 +661,19 @@ void textInputMouseDownCallback(
 
     TextInputData * tid = &elem->extraData->textInputData;
 
-    tid->cursorPosition = getTextIndexForScreenCoords(
+    SelectionData sd = getTextIndexForScreenCoords(
         elem,
         mouseX,
         mouseY,
         res
     );
+
+    tid->cursorPosition = sd.cursorPosition;
     tid->textSelected = false;
+    tid->textSelectStartCol = sd.col;
+    tid->textSelectEndCol = sd.col;
+    tid->textSelectStartRow = sd.row;
+    tid->textSelectEndRow = sd.row;
     tid->mouseDown = true;
     tid->mouseDownX = mouseX;
     tid->mouseDownY = mouseY;
@@ -649,52 +683,70 @@ void textInputMouseDownCallback(
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     if (elem->extraData == nullptr) { return; }
 
-    cout << "\nDrag Callback: ";
+    #ifdef DEBUG_TEXT_SELECTION
+        cout << "\nDrag Callback: ";
+    #endif
 
     TextInputData* tid = &elem->extraData->textInputData;
 
     if (!tid->mouseDown) {
-        cout << "Nothing!";
+        #ifdef DEBUG_TEXT_SELECTION
+            cout << "Nothing!";
+        #endif
         return;
     }
 
-    // if (tid->mouseDown && tid->mouseDownX != mouseX && tid->mouseDownY != mouseY) {
-    uint32_t cursorPosition = getTextIndexForScreenCoords(elem, mouseX, mouseY, res);
+    SelectionData sd = getTextIndexForScreenCoords(elem, mouseX, mouseY, res);
 
-    if (!tid->textSelected && cursorPosition != tid->cursorPosition) {
+    if (!tid->textSelected && sd.cursorPosition != tid->cursorPosition) {
         tid->textSelected = true;
         tid->initialCursorPosition = tid->cursorPosition;
-        tid->textSelectStartCol = min(cursorPosition, tid->cursorPosition);
-        tid->textSelectEndCol = max(cursorPosition, tid->cursorPosition);
+        tid->textSelectStartCol = min(sd.cursorPosition, tid->cursorPosition);
+        tid->textSelectEndCol = max(sd.cursorPosition, tid->cursorPosition);
+        tid->textSelectStartRow = sd.row;
+        tid->textSelectEndRow = sd.row;
 
-        tid->cursorPosition = cursorPosition;
+        tid->cursorPosition = sd.cursorPosition;
         tid->textSelectUpdated = true;
-        cout << "Text Selection 1: " << tid->textSelectStartCol << ", " << tid->textSelectEndCol;
+
+        #ifdef DEBUG_TEXT_SELECTION
+            printTextInputData(tid, "Text Selection 1");
+        #endif
         // TODO: handle row in text area.
     } else if (tid->textSelected) {
-        if (cursorPosition == tid->initialCursorPosition) {
+        if (sd.cursorPosition == tid->initialCursorPosition) {
             tid->textSelected = false;
-            tid->textSelectStartCol = cursorPosition;
-            tid->textSelectEndCol = cursorPosition;
+            tid->textSelectStartCol = sd.col;
+            tid->textSelectEndCol = sd.col;
             return;
         }
 
-        if (cursorPosition < tid->initialCursorPosition) {
-            tid->textSelectStartCol = cursorPosition;
+        if (sd.cursorPosition < tid->initialCursorPosition) {
+            tid->textSelectStartCol = sd.col;
         } else {
-            tid->textSelectEndCol = cursorPosition;
+            tid->textSelectEndCol = sd.col;
         }
 
-        tid->cursorPosition = cursorPosition;
+        if (sd.row < tid->textSelectStartRow) {
+            tid->textSelectStartRow = sd.row;
+        } else {
+            tid->textSelectEndRow = sd.row;
+        }
+
+        tid->cursorPosition = sd.cursorPosition;
         tid->textSelectUpdated = true;
-        cout << "Text Selection 2: " << tid->textSelectStartCol << ", " << tid->textSelectEndCol;
+
+        #ifdef DEBUG_TEXT_SELECTION
+            printTextInputData(tid, "Text Selection 2");
+        #endif
     } else {
-        cout << "Marked selected to false";
+        #ifdef DEBUG_TEXT_SELECTION
+            cout << "\nMarked selected to false";
+        #endif
         tid->textSelected = false;
     }
 
     tid->lastActiveTime = TIME();
-    // }
 }
 
 void textInputMouseUpCallback(
@@ -731,6 +783,7 @@ void textInputUnselect(TextInputData * tid) {
     tid->initialCursorPosition = tid->textSelectStartCol;
 }
 
+// TODO: delete
 void selectTextWithMouse(
     UIElement* elem,
     float mouseX,
@@ -874,7 +927,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .mouseDownX = 0.0f,
                     .mouseDownY = 0.0f,
                     .lastActiveTime = 0.0f,
-                    .rope = rope,
                     .cmdList = CommandList(),
                 }
             };
@@ -911,6 +963,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         onKey,
 
         "",
+        nullptr,
 
         nullptr,
 
@@ -1638,6 +1691,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindBuffer(GL_ARRAY_BUFFER, textVBO);
 
             uint32_t currentIndex = 0;
+            uint32_t row = 0;
+            uint32_t col = 0;
             const float xStart = elem.left + BUTTON_PADDING; 
             float x = xStart;
             float y = elem.top + BUTTON_PADDING;
@@ -1649,16 +1704,49 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             float selectEndX = -1;
             float selectEndY = -1;
 
+            bool selectStarted = false;
+            bool selectEnded = false;
+
             TextInputData* tid = &elem.extraData->textInputData;
+
+            vector<float> selectionVertices;
+            selectionVertices.reserve(18);
 
             const float newLineSize = static_cast<float>(elem.fontSize)
                 + static_cast<float>(BUTTON_PADDING);
 
+            const float heightIncrement = static_cast<float>(elem.fontSize + LINE_GAP);
+
             for (const char c: elem.text) {
                 if (c == '\n') {
-                    float heightIncrement = static_cast<float>(elem.fontSize + LINE_GAP);
+                    if (tid->textSelected && selectStarted && !selectEnded) {
+                        const float y1 = y + elem.fontSize;
+
+                        selectEndX = x;
+                        selectEndY = y;
+
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y);
+
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y);
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y);
+                    }
+
                     y += heightIncrement;
                     x = xStart;
+                    col = 0;
+                    ++row;
+
+                    selectStartX = x;
+                    selectStartY = y;
                     continue;
                 }
 
@@ -1667,19 +1755,38 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cursorY = y;
                 }
 
-                if (tid->textSelected) {
-                    if (currentIndex == tid->textSelectStartCol) {
+                if (tid->textSelected && !selectEnded) {
+                    if (col == tid->textSelectStartCol && row == tid->textSelectStartRow) {
                         selectStartX = x;
                         selectStartY = y;
+                        selectStarted = true;
                     }
 
-                    if (currentIndex == tid->textSelectEndCol) {
+                    if (col == tid->textSelectEndCol && row == tid->textSelectEndRow) {
                         selectEndX = x;
                         selectEndY = y;
+                        selectEnded = true;
+
+                        const float y1 = y + elem.fontSize;
+
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y);
+
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y1);
+                        selectionVertices.push_back(selectStartX);
+                        selectionVertices.push_back(y);
+                        selectionVertices.push_back(selectEndX);
+                        selectionVertices.push_back(y);
                     }
                 }
 
                 x += renderGlyph(c, x, y, resolution, elem.fontSize);
+                ++col;
 
                 ++currentIndex;
             }
@@ -1693,7 +1800,28 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 cursorX = x;
                 cursorY = y;
                 selectEndX = x;
+
+                const float y1 = y + elem.fontSize;
+                selectionVertices.push_back(selectStartX);
+                selectionVertices.push_back(y1);
+                selectionVertices.push_back(selectEndX);
+                selectionVertices.push_back(y1);
+                selectionVertices.push_back(selectStartX);
+                selectionVertices.push_back(y);
+
+                selectionVertices.push_back(selectEndX);
+                selectionVertices.push_back(y1);
+                selectionVertices.push_back(selectStartX);
+                selectionVertices.push_back(y);
+                selectionVertices.push_back(selectEndX);
+                selectionVertices.push_back(y);
             }
+
+            #ifdef DEBUG_TEXT_SELECTION
+                if (tid->textSelected) {
+                    printTextSelectionVertices(selectionVertices);
+                }
+            #endif
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
@@ -1745,7 +1873,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
                 if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
-                    if (tid->textSelectUpdated) {
+                    if (tid->textSelectUpdated && !selectionVertices.empty()) {
                         if (tid->textSelectVAO != 0) {
                             glDeleteVertexArrays(1, &tid->textSelectVAO);
                         }
@@ -1754,18 +1882,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                             glDeleteBuffers(1, &tid->textSelectVBO);
                         }
 
-                        float vertices[] = {
-                            selectStartX, cursorY + elem.fontSize,
-                            selectEndX, cursorY + elem.fontSize,
-                            selectStartX, cursorY,
-                            selectEndX, cursorY,
-                        };
+                        // float vertices[] = {
+                        //     selectStartX, cursorY + elem.fontSize,
+                        //     selectEndX, cursorY + elem.fontSize,
+                        //     selectStartX, cursorY,
+                        //     selectEndX, cursorY,
+                        // };
 
                         glGenVertexArrays(1, &tid->textSelectVAO);
                         glBindVertexArray(tid->textSelectVAO);
                         glGenBuffers(1, &tid->textSelectVBO);
                         glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                        glBufferData(GL_ARRAY_BUFFER, selectionVertices.size() * sizeof(float), &selectionVertices[0], GL_STATIC_DRAW);
                         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
                         glEnableVertexAttribArray(0);
 
@@ -1787,7 +1915,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                     glUniform4f(colorU, color.x, color.y, color.z, 0.25);
 
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    glDrawArrays(GL_TRIANGLES, 0, selectionVertices.size() / 2);
                 }
             }
 
@@ -2097,4 +2225,51 @@ string elementType(UIElement *elem) {
 
     return "UI Element Type: Unknown";
 }
+
+#ifdef DEBUG_TEXT_SELECTION
+    float debug_lastTextSelTime = 0;
+    float debug_lastTid = 0;
+
+    void printTextSelectionVertices(vector<float> &fvec) {
+        if (!(debug_lastTextSelTime + 1.0 < glfwGetTime() || debug_lastTextSelTime == 0)) {
+            return;
+        }
+
+        bool pair = false;
+
+        cout << "\nSelection vertices: ";
+
+        for (float c: fvec) {
+            if (pair) {
+                cout << ", " << c << "), ";
+            } else {
+                cout << "(" << c;
+            }
+
+            pair = !pair;
+        }
+
+        debug_lastTextSelTime = glfwGetTime();
+    }
+
+    void printTextInputData(TextInputData* tid, string token) {
+        if (!(debug_lastTid + 1.0 < glfwGetTime() || debug_lastTid == 0)) {
+            return;
+        }
+
+        if (token.empty()) {
+            cout << "\nText Input Data:";
+        } else {
+            cout << "\nText Input Data(" << token << "):";
+        }
+
+        cout << "\n  Selection Start Row: "
+            << tid->textSelectStartRow << ", Selection End Row: "
+            << tid->textSelectEndRow << "\n  Selection Start Col: "
+            << tid->textSelectStartCol << ", Selection End Col: "
+            << tid->textSelectEndCol;
+
+        debug_lastTid = glfwGetTime();
+    }
+#endif
 

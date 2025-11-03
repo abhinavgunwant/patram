@@ -2,6 +2,7 @@
 #define PATRAM_UI
 
 #include <string>
+#include <vector>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -52,6 +53,8 @@
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
+
+#define DEBUG_TEXT_SELECTION
 
 using namespace std;
 
@@ -139,13 +142,17 @@ struct TextInputData {
     /** The glfwGetTime() when the cursor last moved. */
     float lastActiveTime;
 
-    Rope* rope;
-
     CommandList cmdList;
 
     ~TextInputData() {
         cmdList.~CommandList();
     }
+};
+
+struct SelectionData {
+    uint32_t cursorPosition;
+    uint32_t row;
+    uint32_t col;
 };
 
 union UIExtraData {
@@ -189,6 +196,8 @@ struct UIElement {
 
     string text;
 
+    Rope* rope;
+
     UIElement* parent;
 
     // Properties for children (if any)
@@ -224,7 +233,7 @@ void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::
 void textInputUnselect(TextInputData * tid);
 /** Creates a command to replace the selected text in a text input. */
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
-uint32_t getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 UIPreferences* initPreferences();
@@ -237,6 +246,11 @@ string getIconLocation(Icon icon);
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
+
+#ifdef DEBUG_TEXT_SELECTION
+void printTextSelectionVertices(vector<float> &fvec);
+void printTextInputData(TextInputData* tid, string token = "");
+#endif
 
 #endif // PATRAM_UI
 

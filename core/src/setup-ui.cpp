@@ -63,8 +63,10 @@ void throttleUpdateCursorShape() {
 }
 
 void inputClickCallback(UIElement* elem) {
-    cout << "\nSetting text input as active!";
     if (activeElement != nullptr) {
+        #ifdef DEBUG_TEXT_SELECTION
+            cout << "\nSetting text input as active!";
+        #endif
         activeElement->active = false;
     }
 
@@ -73,7 +75,7 @@ void inputClickCallback(UIElement* elem) {
 
     if (elem->extraData != nullptr) {
         elem->extraData->textInputData.lastActiveTime = glfwGetTime();
-        selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
+        // selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
     }
 }
 
@@ -255,7 +257,7 @@ void setupUI(bool isDarkTheme) {
     initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
     initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
-    initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 32.0f);
+    initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 108.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -287,7 +289,7 @@ void setupUI(bool isDarkTheme) {
     label3->fontSize = 48;
     input->borderRadius = 10;
     input->text = "Input Test";
-    inputArea->text = "Input Area";
+    inputArea->text = "Input Area\nTest line 1\nTest line 2\nTest line 3\nTest line 4";
     // input->onClick = inputClickCallback;
 
     addChild(rootContainer, menuBar);
