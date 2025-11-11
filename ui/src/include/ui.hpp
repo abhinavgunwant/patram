@@ -55,6 +55,7 @@
 // #define THROTTLE_SLOW               0.25
 
 #define DEBUG_TEXT_SELECTION
+#define DEBUG_MOUSE_BUTTON
 
 using namespace std;
 

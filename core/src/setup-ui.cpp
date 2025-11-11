@@ -82,7 +82,9 @@ void inputClickCallback(UIElement* elem) {
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     if (button == GLFW_MOUSE_BUTTON_1) {
         if (action == GLFW_PRESS) {
-            cout << "\nMouse button 1 pressed";
+            #ifdef DEBUG_MOUSE_BUTTON
+                cout << "\nMouse button 1 pressed";
+            #endif
             mouse1Down = true;
             mouseDownX = mouseX;
             mouseDownY = mouseY;
@@ -90,7 +92,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
             if (elem != nullptr) {
-                cout << " for " << elementType(elem);
+                #ifdef DEBUG_MOUSE_BUTTON
+                    cout << " for " << elementType(elem);
+                #endif
                 if (activeElement != nullptr) {
                     activeElement->active = false;
                 }
@@ -104,7 +108,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 activeElement = nullptr;
             }
         } else if (action == GLFW_RELEASE) {
-            cout << "\nMouse button 1 released";
+            #ifdef DEBUG_MOUSE_BUTTON
+                cout << "\nMouse button 1 released";
+            #endif
             mouse1Down = false;
 
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
