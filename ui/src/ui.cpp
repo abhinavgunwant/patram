@@ -96,9 +96,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     if (shift) {
                         if (tid->textSelected) {
                             if (tid->cursorPosition - 1 == tid->initialCursorPosition) {
-                                tid->textSelected = false;
-                                tid->textSelectStartCol = tid->cursorPosition;
-                                tid->textSelectEndCol = tid->cursorPosition;
+                                textInputUnselect(tid);
                             } else if (tid->cursorPosition > tid->initialCursorPosition) {
                                 tid->textSelectEndCol -= 1;
                             } else {
@@ -113,9 +111,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                         tid->textSelectUpdated = true;
                     } else {
-                        tid->textSelected = false;
-                        tid->textSelectStartCol = tid->cursorPosition;
-                        tid->textSelectEndCol = tid->cursorPosition;
+                        textInputUnselect(tid);
                     }
 
                     DECR_CURSOR();
@@ -130,9 +126,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     if (shift) {
                         if (tid->textSelected) {
                             if (tid->cursorPosition + 1 == tid->initialCursorPosition) {
-                                tid->textSelected = false;
-                                tid->textSelectStartCol = tid->cursorPosition;
-                                tid->textSelectEndCol = tid->cursorPosition;
+                                textInputUnselect(tid);
                             } else if (tid->cursorPosition > tid->initialCursorPosition) {
                                 tid->textSelectEndCol += 1;
                             } else {
@@ -147,9 +141,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                         tid->textSelectUpdated = true;
                     } else {
-                        tid->textSelected = false;
-                        tid->textSelectStartCol = tid->cursorPosition;
-                        tid->textSelectEndCol = tid->cursorPosition;
+                        textInputUnselect(tid);
                     }
 
                     INCR_CURSOR();
@@ -669,11 +661,13 @@ void textInputMouseDownCallback(
     );
 
     tid->cursorPosition = sd.cursorPosition;
-    tid->textSelected = false;
-    tid->textSelectStartCol = sd.col;
-    tid->textSelectEndCol = sd.col;
-    tid->textSelectStartRow = sd.row;
-    tid->textSelectEndRow = sd.row;
+
+    if (tid->textSelected) {
+        tid->textSelectStartCol = sd.col;
+        tid->textSelectStartRow = sd.row;
+        textInputUnselect(tid, "Text Input Mouse Down callback");
+    }
+
     tid->mouseDown = true;
     tid->mouseDownX = mouseX;
     tid->mouseDownY = mouseY;
@@ -698,13 +692,17 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
 
     SelectionData sd = getTextIndexForScreenCoords(elem, mouseX, mouseY, res);
 
-    if (!tid->textSelected && sd.cursorPosition != tid->cursorPosition) {
+    // cout << "\nsd.cursorPosition: " << sd.cursorPosition << ", sd.col: " << sd.col << ", sd.row: " << sd.row;
+
+    if (!tid->textSelected) {
         tid->textSelected = true;
         tid->initialCursorPosition = tid->cursorPosition;
-        tid->textSelectStartCol = min(sd.cursorPosition, tid->cursorPosition);
-        tid->textSelectEndCol = max(sd.cursorPosition, tid->cursorPosition);
+        tid->textSelectStartCol = sd.col;
+        tid->textSelectEndCol = sd.col;
         tid->textSelectStartRow = sd.row;
         tid->textSelectEndRow = sd.row;
+        tid->initialRow = sd.row;
+        tid->initialCol = sd.col;
 
         tid->cursorPosition = sd.cursorPosition;
         tid->textSelectUpdated = true;
@@ -712,27 +710,64 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
         #ifdef DEBUG_TEXT_SELECTION
             printTextInputData(tid, "Text Selection 1");
         #endif
-        // TODO: handle row in text area.
     } else if (tid->textSelected) {
-        if (sd.cursorPosition == tid->initialCursorPosition) {
-            tid->textSelected = false;
-            tid->textSelectStartCol = sd.col;
-            tid->textSelectEndCol = sd.col;
-            return;
-        }
-
-        if (sd.cursorPosition < tid->initialCursorPosition) {
-            tid->textSelectStartCol = sd.col;
-        } else {
-            tid->textSelectEndCol = sd.col;
-        }
-
-        if (sd.row < tid->textSelectStartRow) {
+        if (sd.row == tid->initialRow) {
+            tid->textSelectStartRow = sd.row;
+            tid->textSelectEndRow = sd.row;
+        } else if (sd.row < tid->initialRow) {
             tid->textSelectStartRow = sd.row;
         } else {
             tid->textSelectEndRow = sd.row;
         }
 
+        if (
+            sd.row == tid->textSelectStartRow
+            && sd.row == tid->textSelectEndRow
+            && sd.row == tid->initialRow
+        ) {
+            if (sd.col == tid->initialCol) {
+                tid->textSelectStartCol = sd.col;
+                tid->textSelectEndCol = sd.col;
+            } else if (sd.col < tid->initialCol) {
+                if (tid->textSelectStartCol > tid->textSelectEndCol) {
+                    if (tid->textSelectStartRow > tid->prevRow) {
+                        tid->textSelectEndCol = tid->textSelectStartCol;
+                        tid->textSelectStartCol = sd.col;
+                    } else if (tid->textSelectStartRow < tid->prevRow) {
+                        tid->textSelectEndCol = tid->textSelectStartCol;
+                        tid->textSelectStartCol = sd.col;
+                    }
+                } else {
+                    tid->textSelectStartCol = sd.col;
+                }
+            } else {
+                if (tid->textSelectStartCol > tid->textSelectEndCol) {
+                    if (tid->textSelectStartRow > tid->prevRow) {
+                        tid->textSelectStartCol = tid->textSelectEndCol;
+                        tid->textSelectEndCol = sd.col;
+                    } else if (tid->textSelectStartRow < tid->prevRow) {
+                        tid->textSelectEndCol = tid->textSelectStartCol;
+                        tid->textSelectStartCol = sd.col;
+                    }
+                } else {
+                    tid->textSelectEndCol = sd.col;
+                }
+            }
+        } else if (sd.row == tid->textSelectStartRow) {
+            if (tid->prevRow != tid->textSelectStartRow && tid->textSelectStartCol < sd.col) {
+                tid->textSelectEndCol = tid->textSelectStartCol;
+            }
+
+            tid->textSelectStartCol = sd.col;
+        } else {
+            if (tid->prevRow == tid->textSelectStartRow && tid->textSelectEndCol > sd.col) {
+                tid->textSelectStartCol = tid->textSelectEndCol;
+            }
+
+            tid->textSelectEndCol = sd.col;
+        }
+
+        tid->prevRow = sd.row;
         tid->cursorPosition = sd.cursorPosition;
         tid->textSelectUpdated = true;
 
@@ -743,7 +778,7 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
         #ifdef DEBUG_TEXT_SELECTION
             cout << "\nMarked selected to false";
         #endif
-        tid->textSelected = false;
+        textInputUnselect(tid, "Text Input Mouse Drag Callback 2");
     }
 
     tid->lastActiveTime = TIME();
@@ -766,21 +801,28 @@ void textInputMouseUpCallback(
     if (
         tid->textSelected
         && tid->textSelectStartCol == tid->textSelectEndCol
-        && tid->textSelectStartCol == tid->cursorPosition
+        && tid->textSelectStartRow == tid->textSelectEndRow
     ) {
-        tid->textSelected = false;
-        cout << "\nMarked selected to false";
+        textInputUnselect(tid, "Text Input Mouse Up Callback");
     }
 }
 
-void textInputUnselect(TextInputData * tid) {
+void textInputUnselect(TextInputData * tid, string token) {
     if (tid == nullptr) { return; }
 
+    #ifdef DEBUG_TEXT_SELECTION
+        cout << "\nMarked selected to false";
+        if (!token.empty()) {
+            cout << " (" << token << ")";
+        }
+    #endif
+
     tid->textSelected = false;
-    tid->cursorPosition = tid->textSelectStartCol;
-    tid->textSelectStartCol = tid->textSelectStartCol;
+    // tid->cursorPosition = tid->textSelectStartCol;
+    // tid->textSelectStartCol = tid->textSelectStartCol;
     tid->textSelectEndCol = tid->textSelectStartCol;
     tid->initialCursorPosition = tid->textSelectStartCol;
+    tid->textSelectEndRow = tid->textSelectStartRow;
 }
 
 // TODO: delete
@@ -921,6 +963,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .textSelectEndRow = 0,
                     .textSelectEndCol = 0,
                     .initialCursorPosition = 0,
+                    .initialRow = 0,
+                    .initialCol = 0,
+                    .prevRow = 0,
                     .textSelected = false,
                     .mouseDown = false,
                     .textSelectUpdated = false,
@@ -1575,7 +1620,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         glEnableVertexAttribArray(0);
 
                         tid->textSelectUpdated = false;
-                        cout << "\ncursorY: " << cursorY;
+                        #ifdef DEBUG_TEXT_SELECTION
+                            cout << "\ncursorY: " << cursorY;
+                        #endif
                     }
 
                     glBindVertexArray(tid->textSelectVAO);
@@ -1898,7 +1945,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         glEnableVertexAttribArray(0);
 
                         tid->textSelectUpdated = false;
-                        cout << "\ncursorY: " << cursorY;
+                        #ifdef DEBUG_TEXT_SELECTION
+                            cout << "\ncursorY: " << cursorY;
+                        #endif
                     }
 
                     glBindVertexArray(tid->textSelectVAO);
@@ -2253,9 +2302,9 @@ string elementType(UIElement *elem) {
     }
 
     void printTextInputData(TextInputData* tid, string token) {
-        if (!(debug_lastTid + 1.0 < glfwGetTime() || debug_lastTid == 0)) {
-            return;
-        }
+        // if (!(debug_lastTid + 1.0 < glfwGetTime() || debug_lastTid == 0)) {
+        //     return;
+        // }
 
         if (token.empty()) {
             cout << "\nText Input Data:";
@@ -2263,11 +2312,9 @@ string elementType(UIElement *elem) {
             cout << "\nText Input Data(" << token << "):";
         }
 
-        cout << "\n  Selection Start Row: "
-            << tid->textSelectStartRow << ", Selection End Row: "
-            << tid->textSelectEndRow << "\n  Selection Start Col: "
-            << tid->textSelectStartCol << ", Selection End Col: "
-            << tid->textSelectEndCol;
+        cout << " Selection Start: (" << tid->textSelectStartRow << ", "
+            << tid->textSelectStartCol << ") Selection End: ("
+            << tid->textSelectEndRow << ", " << tid->textSelectEndCol << ")";
 
         debug_lastTid = glfwGetTime();
     }

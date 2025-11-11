@@ -129,6 +129,9 @@ struct TextInputData {
      * be marked as "selected".
      */
     uint32_t initialCursorPosition;
+    uint32_t initialRow;
+    uint32_t initialCol;
+    uint32_t prevRow;
 
     bool textSelected;
     bool mouseDown;
@@ -231,7 +234,7 @@ void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
-void textInputUnselect(TextInputData * tid);
+void textInputUnselect(TextInputData * tid, string token = "");
 /** Creates a command to replace the selected text in a text input. */
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
