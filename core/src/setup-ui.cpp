@@ -253,6 +253,10 @@ void setupUI(bool isDarkTheme) {
     UIElement* button4 = &elements[6];
     UIElement* input = &elements[7];
     UIElement* inputArea = &elements[8];
+    UIElement* scrollArea = &elements[9];
+    UIElement* label4 = &elements[10];
+    UIElement* label5 = &elements[11];
+    UIElement* label6 = &elements[12];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -264,6 +268,10 @@ void setupUI(bool isDarkTheme) {
     initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
     initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
     initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 108.0f);
+    initElement(*label4, UI_LABEL, 10.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label5, UI_LABEL, 70.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*label6, UI_LABEL, 140.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*scrollArea, UI_SCROLL_AREA, 370.0f, 8.0f, 256.0f, 256.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -289,24 +297,42 @@ void setupUI(bool isDarkTheme) {
     button4->text = "Test Button";
     button4->onClick = testOnClick;
     button4->borderRadius = 10;
+
     label2->text = "Made by:";
     label2->fontSize = 32;
     label3->text = "Abhinav Gunwant";
     label3->fontSize = 48;
+    label4->text = "This is test label for scroll Area";
+    label4->fontSize = 48;
+    label4->positioning = UI_POSITIONING_RELATIVE;
+    label5->text = "This is another test label for scroll Area";
+    label5->fontSize = 32;
+    label5->positioning = UI_POSITIONING_RELATIVE;
+    label6->text = "This is yet another test label for scroll area!";
+    label6->fontSize = 16;
+    label6->positioning = UI_POSITIONING_RELATIVE;
+
     input->borderRadius = 10;
     input->text = "Input Test";
     inputArea->text = "Input Area\nTest line 1\nTest line 2\nTest line 3\nTest line 4";
     // input->onClick = inputClickCallback;
 
-    addChild(rootContainer, menuBar);
-    addChild(rootContainer, newButton);
-    addChild(rootContainer, button2);
-    addChild(rootContainer, button3);
-    addChild(rootContainer, button4);
-    addChild(rootContainer, label2);
-    addChild(rootContainer, label3);
-    addChild(rootContainer, input);
-    addChild(rootContainer, inputArea);
+    scrollArea->extraData->scrollData.yOffset = 50;
+
+    addChild(&rootContainer, menuBar);
+    addChild(&rootContainer, newButton);
+    addChild(&rootContainer, button2);
+    addChild(&rootContainer, button3);
+    addChild(&rootContainer, button4);
+    addChild(&rootContainer, label2);
+    addChild(&rootContainer, label3);
+    addChild(&rootContainer, input);
+    addChild(&rootContainer, inputArea);
+
+    addChild(scrollArea, label4);
+    addChild(scrollArea, label5);
+    addChild(scrollArea, label6);
+    addChild(&rootContainer, scrollArea);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 }

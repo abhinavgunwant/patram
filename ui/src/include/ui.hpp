@@ -65,6 +65,7 @@ extern bool darkTheme;
 enum UIElementType {
     UI_LABEL,
     UI_BUTTON,
+    UI_SCROLL_AREA,
     UI_ICON_BUTTON,
     UI_CONTAINER,
     UI_TEXT_INPUT,
@@ -92,6 +93,11 @@ enum Icon {
     ICON_NONE,
     ICON_PLUS,
     ICON_FILE,
+};
+
+enum UIPositioning {
+    UI_POSITIONING_ABSOLUTE,
+    UI_POSITIONING_RELATIVE,
 };
 
 struct UIPreferences {
@@ -159,8 +165,14 @@ struct SelectionData {
     uint32_t col;
 };
 
+struct ScrollData {
+    float xOffset;
+    float yOffset;
+};
+
 union UIExtraData {
     TextInputData textInputData;
+    ScrollData scrollData;
 
     ~UIExtraData() {
         textInputData.~TextInputData();
@@ -223,6 +235,8 @@ struct UIElement {
     uint8_t fontSize;
     uint8_t borderRadius;
 
+    UIPositioning positioning;
+
     UIPreferences * preferences;
     UIExtraData * extraData;
 };
@@ -241,7 +255,9 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
 UIPreferences* initPreferences();
-void addChild(UIElement& parent, UIElement* child);
+void initializeCapacity(UIElement* parent, int capacity);
+void growCapacity(UIElement* parent);
+void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);

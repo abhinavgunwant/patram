@@ -938,6 +938,21 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UI_SCROLL_AREA:
+            extraData = new UIExtraData {
+                .scrollData = ScrollData { 0.0, 0.0 }
+            };
+
+            backgroundColor = TRANSPARENT;
+            hoverColor = TRANSPARENT;
+
+            if (darkTheme) {
+                color = WHITE;
+            } else {
+                color = BLACK;
+            }
+            break;
+
         case UI_TEXT_AREA:
             rope = new Rope();
         case UI_TEXT_INPUT:
@@ -1028,6 +1043,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         16,
         borderRadius,
+        UI_POSITIONING_ABSOLUTE,
         pref,
         extraData,
     };
@@ -1047,42 +1063,46 @@ UIPreferences* initPreferences() {
     return pref;
 }
 
-void addChild(UIElement& parent, UIElement * child) {
+void initializeCapacity(UIElement* parent, int capacity) {
+    if (parent->children == nullptr) {
+        parent->children = new UIElement*[capacity];
+        parent->capacity = capacity;
+    }
+}
+
+void growCapacity(UIElement* parent) {
+    if (parent->capacity > GROWTH_THRESHOLD) {
+        parent->capacity += INCR_POST_GROWTH_THRESHOLD;
+    } else {
+        parent->capacity *= GROWTH_FACTOR;
+    }
+
+    UIElement** newlist = new UIElement*[parent->capacity];
+
+    for (uint32_t i=0; i<parent->totalChildren; ++i) {
+        newlist[i] = parent->children[i];
+    }
+
+    delete [] parent->children;
+
+    parent->children = newlist;
+}
+
+void addChild(UIElement* parent, UIElement * child) {
     if (child->parent != nullptr) {
         cerr << "\nError: child already has a parent";
     }
 
-    if (parent.capacity == 0) {
-        parent.children = new UIElement*[INITIAL_PARENT_CAPACITY];
-        parent.children[0] = child;
-        ++parent.totalChildren;
-        parent.capacity = INITIAL_PARENT_CAPACITY;
-        child->parent = &parent;
-        return;
+    if (parent->capacity == 0) {
+        initializeCapacity(parent, INITIAL_PARENT_CAPACITY);
+    } else if (parent->totalChildren + 1 > parent->capacity) {
+        growCapacity(parent);
     }
 
-    if (parent.totalChildren + 1 > parent.capacity) {
-        if (parent.capacity > GROWTH_THRESHOLD) {
-            parent.capacity += INCR_POST_GROWTH_THRESHOLD;
-        } else {
-            parent.capacity *= GROWTH_FACTOR;
-        }
+    parent->children[parent->totalChildren] = child;
+    child->parent = parent;
 
-        UIElement** newlist = new UIElement*[parent.capacity];
-
-        for (uint32_t i=0; i<parent.totalChildren; ++i) {
-            newlist[i] = parent.children[i];
-        }
-
-        delete [] parent.children;
-
-        parent.children = newlist;
-    }
-
-    parent.children[parent.totalChildren] = child;
-    child->parent = &parent;
-
-    ++parent.totalChildren;
+    ++parent->totalChildren;
 }
 
 void recalculateLayout(UIElement * elem) {
@@ -1190,6 +1210,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_LABEL: {
+            if (elem.positioning == UI_POSITIONING_RELATIVE) {
+                float top = elem.parent->top + elem.top;
+                float left = elem.parent->left + elem.left;
+
+                if (elem.parent->type == UI_SCROLL_AREA) {
+                    top -= elem.parent->extraData->scrollData.yOffset;
+                    left -= elem.parent->extraData->scrollData.xOffset;
+                }
+
+                if (top + elem.height >= elem.parent->top) {
+                    renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
+                }
+                break;
+            }
+
             renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
             break;
         }
@@ -1285,6 +1320,26 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 cout << "\nRecalculating dimensions of button";
             }
 
+            break;
+        }
+
+        case UI_SCROLL_AREA: {
+            // TODO: Render the rectangle with background colors. If borders
+            // are set, then render borders.
+            // Clip the content that is not completely inside the defined
+            // dimensions. Don't render anything outside the bounding box.
+
+            if (elem.totalChildren) {
+                // glScissor(elem.left, resolution.y - elem.top + elem.height, elem.width, elem.height);
+                glScissor(elem.left, resolution.y - elem.top - elem.height, elem.width, elem.height);
+                glEnable(GL_SCISSOR_TEST);
+
+                for (uint32_t i=0; i<elem.totalChildren; ++i) {
+                    renderElement(*elem.children[i], resolution, cursor);
+                }
+
+                glDisable(GL_SCISSOR_TEST);
+            }
             break;
         }
 
@@ -2129,13 +2184,13 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
             }
         }
 
+        elemStack.pop();
+
         if (elem->totalChildren > 0) {
             for (uint8_t i=0; i<elem->totalChildren; ++i) {
                 elemStack.push(elem->children[i]);
             }
         }
-
-        elemStack.pop();
     }
 
     return nullptr;
