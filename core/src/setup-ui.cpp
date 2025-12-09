@@ -189,7 +189,54 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     throttleUpdateCursorShape();
 }
 
-void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
+void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
+    #define Y_OFFSET elem->extraData->scrollData.yOffset
+    #define X_OFFSET elem->extraData->scrollData.xOffset
+
+    cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
+
+    UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+    bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+        || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+
+    bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
+    bool verticalScroll = !shiftPressed && yOffset != 0;
+
+    if (elem != nullptr && elem->type == UI_SCROLL_AREA) {
+        if (verticalScroll && elem->height + Y_OFFSET < elem->extraData->scrollData.height) {
+            if (yOffset < 0) {
+                Y_OFFSET += SCROLL_AMOUNT;
+            } else if (yOffset > 0) {
+                Y_OFFSET -= SCROLL_AMOUNT;
+            }
+
+            if (Y_OFFSET < 0) {
+                Y_OFFSET = 0;
+            }
+        }
+
+            cout << " horizontal scroll!";
+            if (
+                horizontalScroll
+                && elem->width + X_OFFSET < elem->extraData->scrollData.width
+                && (!shiftPressed && xOffset < 0 || yOffset < 0)
+            ) {
+                X_OFFSET += SCROLL_AMOUNT;
+            } else if (
+                horizontalScroll && X_OFFSET > 0 && !shiftPressed
+                && xOffset > 0 || yOffset > 0
+            ) {
+                X_OFFSET -= SCROLL_AMOUNT;
+            }
+
+            if (X_OFFSET < 0) {
+                X_OFFSET = 0;
+            }
+    }
+
+    #undef Y_OFFSET
+    #undef X_OFFSET
 }
 
 void minimizedCallback(GLFWwindow* window, int isMinimized) {
@@ -317,7 +364,9 @@ void setupUI(bool isDarkTheme) {
     inputArea->text = "Input Area\nTest line 1\nTest line 2\nTest line 3\nTest line 4";
     // input->onClick = inputClickCallback;
 
-    scrollArea->extraData->scrollData.yOffset = 50;
+    // scrollArea->extraData->scrollData.yOffset = 50;
+    scrollArea->extraData->scrollData.width = 300;
+    scrollArea->extraData->scrollData.height = 156;
 
     addChild(&rootContainer, menuBar);
     addChild(&rootContainer, newButton);
@@ -335,6 +384,8 @@ void setupUI(bool isDarkTheme) {
     addChild(&rootContainer, scrollArea);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+
+    cout << "\nInside setup UI " << elementType(label5->parent);
 }
 
 void enterRenderLoop() {

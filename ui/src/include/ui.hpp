@@ -87,6 +87,7 @@ enum UISizePreference {
     UI_PERCENT,
     UI_STRETCH,
     UI_FULL,
+    UI_GROW,
 };
 
 enum Icon {
@@ -168,6 +169,8 @@ struct SelectionData {
 struct ScrollData {
     float xOffset;
     float yOffset;
+    float width;
+    float height;
 };
 
 union UIExtraData {

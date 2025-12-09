@@ -9,6 +9,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define MENU_BAR 0;
+#define SCROLL_AMOUNT 72
 
 #include "ui.hpp"
 

@@ -915,6 +915,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             break;
 
         case UI_LABEL:
+            pref = initPreferences();
+            pref->widthPreference = UI_GROW;
+
             backgroundColor = TRANSPARENT;
             hoverColor = TRANSPARENT;
 
@@ -940,7 +943,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         case UI_SCROLL_AREA:
             extraData = new UIExtraData {
-                .scrollData = ScrollData { 0.0, 0.0 }
+                .scrollData = ScrollData { 0.0, 0.0, 0.0, 0.0 }
             };
 
             backgroundColor = TRANSPARENT;
@@ -1210,6 +1213,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_LABEL: {
+            glm::vec4 dim;
+
+            if (elem.parent->type == UI_SCROLL_AREA) {
+                cout << "\nDEBUG: reDraw: " << elem.reDraw << ", widthPreference: "
+                    << elem.preferences->widthPreference << ", parent type: "
+                    << elementType(elem.parent);
+            }
+
             if (elem.positioning == UI_POSITIONING_RELATIVE) {
                 float top = elem.parent->top + elem.top;
                 float left = elem.parent->left + elem.left;
@@ -1220,12 +1231,32 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 }
 
                 if (top + elem.height >= elem.parent->top) {
-                    renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
+                    dim = renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
+                }
+
+                if (
+                    elem.reDraw
+                    && elem.preferences->widthPreference == UI_GROW
+                    && elem.parent->type == UI_SCROLL_AREA
+                    && elem.parent->extraData->scrollData.width < dim.w
+                ) {
+                    elem.parent->extraData->scrollData.width = dim.w;
+                    elem.reDraw = false;
                 }
                 break;
             }
 
-            renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
+            dim = renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
+
+            if (
+                elem.reDraw
+                && elem.preferences->widthPreference == UI_GROW
+                && elem.parent->type == UI_SCROLL_AREA
+                && elem.parent->extraData->scrollData.width < dim.w
+            ) {
+                elem.parent->extraData->scrollData.width = dim.w;
+                elem.reDraw = false;
+            }
             break;
         }
 
@@ -2175,7 +2206,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     while (!elemStack.empty()) {
         elem = elemStack.top();
 
-        if (elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT || elem->type == UI_TEXT_AREA) {
+        if (
+            elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT
+            || elem->type == UI_TEXT_AREA || elem->type == UI_SCROLL_AREA
+        ) {
             if (
                 x > elem->left && x < elem->left + elem->width
                 && y > elem->top && y < elem->top + elem->height
@@ -2317,14 +2351,15 @@ string getIconLocation(Icon icon) {
 
 string elementType(UIElement *elem) {
     switch(elem->type) {
-        case UI_LABEL: return "\nUI Element Type: Label";
-        case UI_BUTTON: return "\nUI Element Type: Button";
-        case UI_ICON_BUTTON: return "\nUI Element Type: Icon Button";
-        case UI_CONTAINER: return "\nUI Element Type: Container";
-        case UI_TEXT_INPUT: return "\nUI Element Type: Text Input";
-        case UI_TEXT_AREA: return "\nUI Element Type: Text Area";
-        case UI_TAB_BAR: return "\nUI Element Type: Tab Bar";
-        case UI_TAB: return "\nUI Element Type: Tab";
+        case UI_LABEL: return "UI Element Type: Label";
+        case UI_BUTTON: return "UI Element Type: Button";
+        case UI_ICON_BUTTON: return "UI Element Type: Icon Button";
+        case UI_CONTAINER: return "UI Element Type: Container";
+        case UI_TEXT_INPUT: return "UI Element Type: Text Input";
+        case UI_TEXT_AREA: return "UI Element Type: Text Area";
+        case UI_TAB_BAR: return "UI Element Type: Tab Bar";
+        case UI_TAB: return "UI Element Type: Tab";
+        case UI_SCROLL_AREA: return "UI Element Type: Scroll Area";
     }
 
     return "UI Element Type: Unknown";
