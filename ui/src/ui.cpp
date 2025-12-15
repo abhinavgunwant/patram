@@ -943,7 +943,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         case UI_SCROLL_AREA:
             extraData = new UIExtraData {
-                .scrollData = ScrollData { 0.0, 0.0, 0.0, 0.0 }
+                .scrollData = ScrollData {
+                    0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0, 0, 0, 0
+                }
             };
 
             backgroundColor = TRANSPARENT;
@@ -1353,6 +1355,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             // dimensions. Don't render anything outside the bounding box.
 
             if (elem.totalChildren) {
+                if (elem.reDraw) {
+                    elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
+                    elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+                }
+
                 // glScissor(elem.left, resolution.y - elem.top + elem.height, elem.width, elem.height);
                 glScissor(elem.left, resolution.y - elem.top - elem.height, elem.width, elem.height);
                 glEnable(GL_SCISSOR_TEST);
@@ -1361,7 +1368,92 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
 
+                elem.reDraw = false;
+
                 glDisable(GL_SCISSOR_TEST);
+
+                if (elem.extraData->scrollData.showVerticalScrollbar) {
+                    if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
+                        float right = elem.left + elem.width;
+                        float left = right - 10.0f;
+                        float bottom = elem.top + elem.height;
+
+                        float vertices[] = {
+                            right, bottom,
+                            right, elem.top,
+                            left, bottom,
+                            left, elem.top,
+                        };
+
+                        glGenVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
+                        glBindVertexArray(elem.extraData->scrollData.verticalScrollBarVAO);
+
+                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
+                        }
+
+                        glGenBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
+                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.verticalScrollBarVBO);
+                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                        glEnableVertexAttribArray(0);
+                    }
+
+                    glBindVertexArray(elem.extraData->scrollData.verticalScrollBarVAO);
+                    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                    uint32_t color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+                    glUniform4f(color, 0.9f, 0.9f, 0.9f, 1.0f);
+
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                    if (
+                        elem.extraData->scrollData.verticalScrollThumbVAO != 0
+                        && !elem.extraData->scrollData.renderedUpdate
+                    ) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
+                        glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
+                        elem.extraData->scrollData.verticalScrollThumbVAO = 0;
+                        elem.extraData->scrollData.verticalScrollThumbVBO = 0;
+                    }
+
+                    if (elem.extraData->scrollData.verticalScrollThumbVAO == 0) {
+                        float right = elem.left + elem.width;
+                        float left = right - 10.0f;
+                        float top = elem.top + elem.extraData->scrollData.yOffset / elem.extraData->scrollData.height * elem.height;
+                        float bottom = top + elem.height / elem.extraData->scrollData.height * elem.height;
+
+                        float vertices[] = {
+                            right, bottom,
+                            right, top,
+                            left, bottom,
+                            left, top,
+                        };
+
+                        glGenVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
+                        glBindVertexArray(elem.extraData->scrollData.verticalScrollThumbVAO);
+
+                        if (elem.extraData->scrollData.verticalScrollThumbVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
+                        }
+
+                        glGenBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
+                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.verticalScrollThumbVBO);
+                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                        glEnableVertexAttribArray(0);
+                        elem.extraData->scrollData.renderedUpdate = true;
+                    }
+
+                    glBindVertexArray(elem.extraData->scrollData.verticalScrollThumbVAO);
+                    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                    color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                    glUniform4f(color, 0.6f, 0.6f, 0.6f, 1.0f);
+
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                }
             }
             break;
         }

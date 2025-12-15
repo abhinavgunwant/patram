@@ -208,6 +208,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     bool verticalScroll = !shiftPressed && yOffset != 0;
 
     if (elem != nullptr && elem->type == UI_SCROLL_AREA) {
+        bool scrolled = false;
+
         if (verticalScroll) {
             if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
                 Y_OFFSET += SCROLL_AMOUNT;
@@ -220,6 +222,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             } else if (Y_OFFSET > elem->extraData->scrollData.height) {
                 Y_OFFSET = elem->extraData->scrollData.height - elem->height;
             }
+
+            scrolled = true;
         }
 
         if (horizontalScroll) {
@@ -237,6 +241,13 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             if (X_OFFSET < 0) {
                 X_OFFSET = 0;
             }
+
+            scrolled = true;
+        }
+
+        if (scrolled) {
+            elem->extraData->scrollData.lastScrolled = glfwGetTime();
+            elem->extraData->scrollData.renderedUpdate = false;
         }
     }
 

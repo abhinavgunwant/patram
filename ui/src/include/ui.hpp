@@ -171,6 +171,22 @@ struct ScrollData {
     float yOffset;
     float width;
     float height;
+
+    float lastScrolled;
+
+    bool showVerticalScrollbar;
+    bool showHorizontalScrollbar;
+    bool renderedUpdate;
+
+    uint32_t verticalScrollBarVAO;
+    uint32_t verticalScrollBarVBO;
+    uint32_t horizontalScrollBarVAO;
+    uint32_t horizontalScrollBarVBO;
+
+    uint32_t verticalScrollThumbVAO;
+    uint32_t verticalScrollThumbVBO;
+    uint32_t horizontalScrollThumbVAO;
+    uint32_t horizontalScrollThumbVBO;
 };
 
 union UIExtraData {
