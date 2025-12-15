@@ -13,6 +13,8 @@
 #define ROOT_BG_DARK        glm::vec4(0.10, 0.09, 0.09, 1.0)
 #define TOOL_BAR_BG_DARK    glm::vec4(0.19, 0.17, 0.17, 1.0)
 
+#define DEBUG_SCROLL
+
 using namespace std;
 
 GLFWwindow* window;
@@ -193,7 +195,9 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     #define Y_OFFSET elem->extraData->scrollData.yOffset
     #define X_OFFSET elem->extraData->scrollData.xOffset
 
-    cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
+    #ifdef DEBUG_SCROLL
+        cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
+    #endif
 
     UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
@@ -204,8 +208,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     bool verticalScroll = !shiftPressed && yOffset != 0;
 
     if (elem != nullptr && elem->type == UI_SCROLL_AREA) {
-        if (verticalScroll && elem->height + Y_OFFSET < elem->extraData->scrollData.height) {
-            if (yOffset < 0) {
+        if (verticalScroll) {
+            if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
                 Y_OFFSET += SCROLL_AMOUNT;
             } else if (yOffset > 0) {
                 Y_OFFSET -= SCROLL_AMOUNT;
@@ -213,19 +217,19 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
             if (Y_OFFSET < 0) {
                 Y_OFFSET = 0;
+            } else if (Y_OFFSET > elem->extraData->scrollData.height) {
+                Y_OFFSET = elem->extraData->scrollData.height - elem->height;
             }
         }
 
-            cout << " horizontal scroll!";
+        if (horizontalScroll) {
             if (
-                horizontalScroll
-                && elem->width + X_OFFSET < elem->extraData->scrollData.width
+                elem->width + X_OFFSET < elem->extraData->scrollData.width
                 && (!shiftPressed && xOffset < 0 || yOffset < 0)
             ) {
                 X_OFFSET += SCROLL_AMOUNT;
             } else if (
-                horizontalScroll && X_OFFSET > 0 && !shiftPressed
-                && xOffset > 0 || yOffset > 0
+                X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
             ) {
                 X_OFFSET -= SCROLL_AMOUNT;
             }
@@ -233,6 +237,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             if (X_OFFSET < 0) {
                 X_OFFSET = 0;
             }
+        }
     }
 
     #undef Y_OFFSET
@@ -318,7 +323,7 @@ void setupUI(bool isDarkTheme) {
     initElement(*label4, UI_LABEL, 10.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label5, UI_LABEL, 70.0f, 8.0f, 48.0f, 48.0f);
     initElement(*label6, UI_LABEL, 140.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*scrollArea, UI_SCROLL_AREA, 370.0f, 8.0f, 256.0f, 256.0f);
+    initElement(*scrollArea, UI_SCROLL_AREA, 370.0f, 8.0f, 256.0f, 128.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -366,7 +371,7 @@ void setupUI(bool isDarkTheme) {
 
     // scrollArea->extraData->scrollData.yOffset = 50;
     scrollArea->extraData->scrollData.width = 300;
-    scrollArea->extraData->scrollData.height = 156;
+    scrollArea->extraData->scrollData.height = 200;
 
     addChild(&rootContainer, menuBar);
     addChild(&rootContainer, newButton);

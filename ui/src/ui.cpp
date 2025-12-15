@@ -1215,12 +1215,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         case UI_LABEL: {
             glm::vec4 dim;
 
-            if (elem.parent->type == UI_SCROLL_AREA) {
-                cout << "\nDEBUG: reDraw: " << elem.reDraw << ", widthPreference: "
-                    << elem.preferences->widthPreference << ", parent type: "
-                    << elementType(elem.parent);
-            }
-
             if (elem.positioning == UI_POSITIONING_RELATIVE) {
                 float top = elem.parent->top + elem.top;
                 float left = elem.parent->left + elem.left;
@@ -1230,9 +1224,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     left -= elem.parent->extraData->scrollData.xOffset;
                 }
 
-                if (top + elem.height >= elem.parent->top) {
-                    dim = renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
-                }
+                dim = renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
 
                 if (
                     elem.reDraw
