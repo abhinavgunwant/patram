@@ -1377,8 +1377,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 if (elem.extraData->scrollData.showVerticalScrollbar) {
                     if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
                         float right = elem.left + elem.width;
-                        float left = right - 10.0f;
+                        float left = right - SCROLL_BAR_THICKNESS;
                         float bottom = elem.top + elem.height;
+
+                        if (elem.extraData->scrollData.showHorizontalScrollbar) {
+                            bottom -= SCROLL_BAR_THICKNESS;
+                        }
 
                         float vertices[] = {
                             right, bottom,
@@ -1421,13 +1425,23 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         float height = elem.height;
 
                         if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                            height -= 10.0f;
+                            height -= SCROLL_BAR_THICKNESS;
                         }
 
                         float right = elem.left + elem.width;
-                        float left = right - 10.0f;
+                        float left = right - SCROLL_BAR_THICKNESS;
                         float top = elem.top + elem.extraData->scrollData.yOffset / elem.extraData->scrollData.height * height;
                         float bottom = top + elem.height / elem.extraData->scrollData.height * height;
+
+                        if (
+                            bottom > elem.top + elem.height
+                            || (
+                                elem.extraData->scrollData.showHorizontalScrollbar
+                                && bottom > elem.top + elem.height - SCROLL_BAR_THICKNESS
+                            )
+                        ) {
+                            bottom = elem.top + elem.height - SCROLL_BAR_THICKNESS;
+                        }
 
                         float vertices[] = {
                             right, bottom,
@@ -1463,9 +1477,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 if (elem.extraData->scrollData.showHorizontalScrollbar) {
                     if (elem.extraData->scrollData.horizontalScrollBarVAO == 0) {
                         float bottom = elem.top + elem.height;
-                        float top = bottom - 10.0f;
+                        float top = bottom - SCROLL_BAR_THICKNESS;
                         float right = elem.left + elem.width;
                         float left = elem.left;
+
+                        if (elem.extraData->scrollData.showVerticalScrollbar) {
+                            right -= SCROLL_BAR_THICKNESS;
+                        }
 
                         float vertices[] = {
                             right, bottom,
@@ -1507,14 +1525,24 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     if (elem.extraData->scrollData.horizontalScrollThumbVAO == 0) {
                         float width = elem.width;
 
-                        if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                            width -= 10.0f;
+                        if (elem.extraData->scrollData.showVerticalScrollbar) {
+                            width -= SCROLL_BAR_THICKNESS;
                         }
 
                         float bottom = elem.top + elem.height;
-                        float top = bottom - 10.0f;
+                        float top = bottom - SCROLL_BAR_THICKNESS;
                         float left = elem.left + elem.extraData->scrollData.xOffset / elem.extraData->scrollData.width * width;
                         float right = left + elem.width / elem.extraData->scrollData.width * width;
+
+                        if (
+                            right > elem.left + elem.width
+                            || (
+                                elem.extraData->scrollData.showVerticalScrollbar
+                                && right > elem.left + elem.width - SCROLL_BAR_THICKNESS
+                            )
+                        ) {
+                            right = elem.left + elem.width - SCROLL_BAR_THICKNESS;
+                        }
 
                         float vertices[] = {
                             right, bottom,

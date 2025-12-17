@@ -50,6 +50,8 @@
 #define BUTTON_PADDING              8
 #define LINE_GAP                    3
 
+#define SCROLL_BAR_THICKNESS        10.0f
+
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
