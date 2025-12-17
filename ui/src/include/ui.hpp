@@ -285,6 +285,14 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
 
+
+void getScrollbarDimensions(
+    UIElement* elem,
+    float& top, float& right, float& bottom, float& left,
+    float& thumbStart, float& thumbEnd,
+    bool vertical
+);
+
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
 

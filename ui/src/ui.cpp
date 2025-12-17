@@ -1375,14 +1375,19 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 bool update = !elem.extraData->scrollData.renderedUpdate;
 
                 if (elem.extraData->scrollData.showVerticalScrollbar) {
-                    if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
-                        float right = elem.left + elem.width;
-                        float left = right - SCROLL_BAR_THICKNESS;
-                        float bottom = elem.top + elem.height;
+                    // WARNING: side effects!
+                    float top, left, bottom, right, thumbStart, thumbEnd;
+                    bool dimensionsInitialized = false;
 
-                        if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                            bottom -= SCROLL_BAR_THICKNESS;
-                        }
+                    if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
+                        // WARNING: side effects!
+                        getScrollbarDimensions(
+                            &elem, top, right, bottom, left,
+                            thumbStart, thumbEnd,
+                            true
+                        );
+
+                        dimensionsInitialized = true;
 
                         float vertices[] = {
                             right, bottom,
@@ -1422,32 +1427,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     }
 
                     if (elem.extraData->scrollData.verticalScrollThumbVAO == 0) {
-                        float height = elem.height;
-
-                        if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                            height -= SCROLL_BAR_THICKNESS;
-                        }
-
-                        float right = elem.left + elem.width;
-                        float left = right - SCROLL_BAR_THICKNESS;
-                        float top = elem.top + elem.extraData->scrollData.yOffset / elem.extraData->scrollData.height * height;
-                        float bottom = top + elem.height / elem.extraData->scrollData.height * height;
-
-                        if (
-                            bottom > elem.top + elem.height
-                            || (
-                                elem.extraData->scrollData.showHorizontalScrollbar
-                                && bottom > elem.top + elem.height - SCROLL_BAR_THICKNESS
-                            )
-                        ) {
-                            bottom = elem.top + elem.height - SCROLL_BAR_THICKNESS;
+                        if (!dimensionsInitialized) {
+                            // WARNING: side effects!
+                            getScrollbarDimensions(
+                                &elem, top, right, bottom, left,
+                                thumbStart, thumbEnd,
+                                true
+                            );
                         }
 
                         float vertices[] = {
-                            right, bottom,
-                            right, top,
-                            left, bottom,
-                            left, top,
+                            right, thumbEnd,
+                            right, thumbStart,
+                            left, thumbEnd,
+                            left, thumbStart,
                         };
 
                         glGenVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
@@ -1475,15 +1468,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 }
 
                 if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                    if (elem.extraData->scrollData.horizontalScrollBarVAO == 0) {
-                        float bottom = elem.top + elem.height;
-                        float top = bottom - SCROLL_BAR_THICKNESS;
-                        float right = elem.left + elem.width;
-                        float left = elem.left;
+                    // WARNING: side effects!
+                    float top, left, bottom, right, thumbStart, thumbEnd;
+                    bool dimensionsInitialized = false;
 
-                        if (elem.extraData->scrollData.showVerticalScrollbar) {
-                            right -= SCROLL_BAR_THICKNESS;
-                        }
+                    if (elem.extraData->scrollData.horizontalScrollBarVAO == 0) {
+                        getScrollbarDimensions(
+                            &elem, top, right, bottom, left,
+                            thumbStart, thumbEnd,
+                            false
+                        );
+
+                        dimensionsInitialized = true;
 
                         float vertices[] = {
                             right, bottom,
@@ -1523,32 +1519,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     }
 
                     if (elem.extraData->scrollData.horizontalScrollThumbVAO == 0) {
-                        float width = elem.width;
-
-                        if (elem.extraData->scrollData.showVerticalScrollbar) {
-                            width -= SCROLL_BAR_THICKNESS;
-                        }
-
-                        float bottom = elem.top + elem.height;
-                        float top = bottom - SCROLL_BAR_THICKNESS;
-                        float left = elem.left + elem.extraData->scrollData.xOffset / elem.extraData->scrollData.width * width;
-                        float right = left + elem.width / elem.extraData->scrollData.width * width;
-
-                        if (
-                            right > elem.left + elem.width
-                            || (
-                                elem.extraData->scrollData.showVerticalScrollbar
-                                && right > elem.left + elem.width - SCROLL_BAR_THICKNESS
-                            )
-                        ) {
-                            right = elem.left + elem.width - SCROLL_BAR_THICKNESS;
+                        if (!dimensionsInitialized) {
+                            // WARNING: side effects!
+                            getScrollbarDimensions(
+                                &elem, top, right, bottom, left,
+                                thumbStart, thumbEnd,
+                                false
+                            );
                         }
 
                         float vertices[] = {
-                            right, bottom,
-                            right, top,
-                            left, bottom,
-                            left, top,
+                            thumbStart, bottom,
+                            thumbStart, top,
+                            thumbEnd, bottom,
+                            thumbEnd, top,
                         };
 
                         glGenVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
@@ -2553,6 +2537,53 @@ string getIconLocation(Icon icon) {
     return path;
 }
 
+
+void getScrollbarDimensions(
+    UIElement* elem,
+    float& top, float& right, float& bottom, float& left,
+    float& thumbStart, float& thumbEnd,
+    bool vertical
+) {
+    if (vertical) {
+        float height = elem->height;
+
+        if (elem->extraData->scrollData.showHorizontalScrollbar) {
+            height -= SCROLL_BAR_THICKNESS;
+        }
+
+        top = elem->top;
+        right = elem->left + elem->width;
+        left = right - SCROLL_BAR_THICKNESS;
+        bottom = top + height;
+
+        thumbStart = top + elem->extraData->scrollData.yOffset / elem->extraData->scrollData.height * height;
+        thumbEnd = thumbStart + elem->height / elem->extraData->scrollData.height * height;
+
+        if (thumbEnd > top + height) {
+            thumbEnd = elem->top + height;
+        }
+
+        return;
+    }
+
+    float width = elem->width;
+
+    if (elem->extraData->scrollData.showVerticalScrollbar) {
+        width -= SCROLL_BAR_THICKNESS;
+    }
+
+    bottom = elem->top + elem->height;
+    top = bottom - SCROLL_BAR_THICKNESS;
+    right = elem->left + width;
+    left = elem->left;
+
+    thumbStart = left + elem->extraData->scrollData.xOffset / elem->extraData->scrollData.width * width;
+    thumbEnd = thumbStart + elem->width / elem->extraData->scrollData.width * width;
+
+    if (thumbEnd > elem->left + width) {
+        thumbEnd = elem->left + width;
+    }
+}
 string elementType(UIElement *elem) {
     switch(elem->type) {
         case UI_LABEL: return "UI Element Type: Label";
