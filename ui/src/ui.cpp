@@ -1023,6 +1023,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             break;
 
         case UI_SCROLL_AREA:
+            pref = initPreferences();
+            pref->widthPreference = UI_GROW;
+
             extraData = new UIExtraData {
                 .scrollData = ScrollData {
                     0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0, 0, 0, 0
@@ -1196,14 +1199,71 @@ void addChild(UIElement* parent, UIElement * child) {
 
 void recalculateLayout(UIElement * elem) {
     elem->reDraw = true;
+    bool updated = false;
 
     if (elem->preferences != nullptr) {
         switch (elem->preferences->widthPreference) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
-                    cout << "\nparent element!";
+                    cout << "\n-> Resizing element (text: " << elem->text << ")";
                     elem->width = elem->parent->width;
+                    updated = true;
                 }
+                break;
+
+            case UI_STRETCH:
+                if (elem->parent != nullptr) {
+                    float width = elem->parent->width;
+
+                    UIElement* siblingElem = nullptr;
+
+                    uint32_t totalChildren = elem->parent->totalChildren;
+                    uint32_t stretchCandidates = 0;
+
+                    for (uint32_t i=0; i<elem->parent->totalChildren; ++i) {
+                        siblingElem = elem->parent->children[i];
+
+                        if (siblingElem != elem && siblingElem->preferences != nullptr) {
+                            switch (siblingElem->preferences->widthPreference) {
+                                case UI_FIXED:
+                                case UI_GROW:
+                                    width -= siblingElem->width;
+                                    break;
+
+                                case UI_PERCENT:
+                                    width -= elem->parent->width * siblingElem->width;
+
+                                case UI_STRETCH:
+                                    ++stretchCandidates;
+                                    break;
+
+                                default:
+                                    // Do nothing!
+                                    break;
+                            }
+                        }
+                    }
+
+                    if (stretchCandidates) {
+                        width /= stretchCandidates;
+                    }
+
+                    if (width < 0) {
+                        cout << "\nLAYOUT ERROR: width less than 0";
+                        break;
+                    }
+
+                    elem->width = width;
+
+                    if (elem->type == UI_SCROLL_AREA && elem->extraData->scrollData.width < width) {
+                        elem->extraData->scrollData.width = width;
+                        elem->extraData->scrollData.xOffset = 0;
+                    }
+
+                    updated = true;
+                }
+                break;
+
             default:
                 break;
         }
@@ -1212,9 +1272,70 @@ void recalculateLayout(UIElement * elem) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
                     elem->height = elem->parent->height;
+                    updated = true;
                 }
+                break;
+
+            case UI_STRETCH:
+                if (elem->parent != nullptr) {
+                    float height = elem->parent->height;
+
+                    UIElement* siblingElem = nullptr;
+
+                    uint32_t totalChildren = elem->parent->totalChildren;
+                    uint32_t stretchCandidates = 0;
+
+                    for (uint32_t i=0; i<elem->parent->totalChildren; ++i) {
+                        siblingElem = elem->parent->children[i];
+
+                        if (siblingElem != elem && siblingElem->preferences != nullptr) {
+                            switch (siblingElem->preferences->heightPreference) {
+                                case UI_FIXED:
+                                case UI_GROW:
+                                    height -= siblingElem->height;
+                                    break;
+
+                                case UI_PERCENT:
+                                    height -= elem->parent->height * siblingElem->height;
+
+                                case UI_STRETCH:
+                                    ++stretchCandidates;
+                                    break;
+
+                                default:
+                                    // Do nothing!
+                                    break;
+                            }
+                        }
+                    }
+
+                    if (stretchCandidates) {
+                        height /= stretchCandidates;
+                    }
+
+                    if (height < 0) {
+                        cout << "\nLAYOUT ERROR: height less than 0";
+                        break;
+                    }
+
+                    elem->height = height;
+                    updated = true;
+                }
+                break;
+
             default:
                 break;
+        }
+    }
+
+    if (updated) {
+        #ifdef DEBUG_SCROLL_AREA
+            cout << "\n    -> Updated dimensions: width: " << elem->width << ", height: " << elem->height;
+        #endif
+
+        if (elem->type == UI_SCROLL_AREA) {
+            elem->extraData->scrollData.renderedUpdate = false;
+            elem->reDraw = true;
         }
     }
 
@@ -1320,6 +1441,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 ) {
                     elem.parent->extraData->scrollData.width = dim.w;
                     elem.reDraw = false;
+                }
+
+                if (elem.parent->type == UI_SCROLL_AREA) {
+                    if (elem.parent->extraData->scrollData.height < dim.z) {
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nScroll height less than dim.z " << dim.z;
+                        #endif
+
+                        elem.parent->extraData->scrollData.height = dim.z;
+                        elem.parent->extraData->scrollData.renderedUpdate = false;
+                        elem.parent->reDraw = true;
+                    }
                 }
                 break;
             }
@@ -1435,24 +1568,37 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         case UI_SCROLL_AREA: {
             // TODO: Render the rectangle with background colors. If borders
             // are set, then render borders.
-            // Clip the content that is not completely inside the defined
-            // dimensions. Don't render anything outside the bounding box.
 
             if (elem.totalChildren) {
                 if (elem.reDraw) {
                     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
                     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+
+                    #ifdef DEBUG_SCROLL_AREA
+                        cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
+                        cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
+                    #endif
                 }
 
-                // glScissor(elem.left, resolution.y - elem.top + elem.height, elem.width, elem.height);
-                glScissor(elem.left, resolution.y - elem.top - elem.height, elem.width, elem.height);
+                elem.reDraw = false;
+
+                float width = elem.width;
+                float height = elem.height;
+
+                if (elem.extraData->scrollData.showVerticalScrollbar) {
+                    width -= SCROLL_BAR_THICKNESS;
+                }
+
+                if (elem.extraData->scrollData.showHorizontalScrollbar) {
+                    height -= SCROLL_BAR_THICKNESS;
+                }
+
+                glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
                 glEnable(GL_SCISSOR_TEST);
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
-
-                elem.reDraw = false;
 
                 glDisable(GL_SCISSOR_TEST);
 
@@ -1463,13 +1609,40 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     float top, left, bottom, right, thumbStart, thumbEnd;
                     bool dimensionsInitialized = false;
 
+                    if (elem.extraData->scrollData.verticalScrollBarVAO != 0 && update) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
+                        elem.extraData->scrollData.verticalScrollBarVAO = 0;
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared vertical scrollbar vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVAO);
+                            elem.extraData->scrollData.verticalScrollBarVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared vertical scrollbar vertex buffers";
+                            #endif
+                        }
+                    }
+
                     if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nShowing vertical scrollbar. Element width: " << elem.width;
+                        #endif
                         // WARNING: side effects!
                         getScrollbarDimensions(
                             &elem, top, right, bottom, left,
                             thumbStart, thumbEnd,
                             true
                         );
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\n--> Vertical scrollbar dimensions. top: "
+                                << top << ", left: " << left << ", bottom: "
+                                << bottom << ", right:" << right
+                                << ", thumbStart: " << thumbStart << ", thumbEnd: " << thumbEnd;
+                        #endif
 
                         dimensionsInitialized = true;
 
@@ -1549,12 +1722,66 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glUniform4f(color, 0.6f, 0.6f, 0.6f, 1.0f);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                } else {
+                    if (elem.extraData->scrollData.verticalScrollBarVAO != 0) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
+                        elem.extraData->scrollData.verticalScrollBarVAO = 0;
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared vertical scrollbar vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
+                            elem.extraData->scrollData.verticalScrollBarVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared vertical scroll bar vertex buffers";
+                            #endif
+                        }
+                    }
+
+                    if (elem.extraData->scrollData.verticalScrollThumbVAO != 0) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
+                        elem.extraData->scrollData.verticalScrollThumbVAO = 0;
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared vertical scrollbar thumb vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.verticalScrollThumbVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
+                            elem.extraData->scrollData.verticalScrollThumbVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared vertical scroll bar thumb vertex buffers";
+                            #endif
+                        }
+                    }
                 }
 
                 if (elem.extraData->scrollData.showHorizontalScrollbar) {
                     // WARNING: side effects!
                     float top, left, bottom, right, thumbStart, thumbEnd;
                     bool dimensionsInitialized = false;
+
+                    if (elem.extraData->scrollData.horizontalScrollBarVAO != 0 && update) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollBarVAO);
+                        elem.extraData->scrollData.horizontalScrollBarVAO = 0;
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared horizontal scrollbar vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.horizontalScrollBarVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollBarVAO);
+                            elem.extraData->scrollData.horizontalScrollBarVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared horizontal scrollbar vertex buffers";
+                            #endif
+                        }
+                    }
 
                     if (elem.extraData->scrollData.horizontalScrollBarVAO == 0) {
                         getScrollbarDimensions(
@@ -1641,6 +1868,42 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glUniform4f(color, 0.6f, 0.6f, 0.6f, 1.0f);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                } else {
+                    if (elem.extraData->scrollData.horizontalScrollBarVAO != 0) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
+                        elem.extraData->scrollData.horizontalScrollBarVAO = 0;
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared horizontal scrollbar vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.horizontalScrollBarVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
+                            elem.extraData->scrollData.horizontalScrollBarVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared horizontal scroll bar vertex buffers";
+                            #endif
+                        }
+                    }
+
+                    if (elem.extraData->scrollData.horizontalScrollThumbVAO != 0) {
+                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
+                        elem.extraData->scrollData.horizontalScrollThumbVAO = 0;
+
+                        #ifdef DEBUG_SCROLL_AREA
+                            cout << "\nCleared horizontal scrollbar thumb vertex array";
+                        #endif
+
+                        if (elem.extraData->scrollData.horizontalScrollThumbVBO != 0) {
+                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
+                            elem.extraData->scrollData.horizontalScrollThumbVBO = 0;
+
+                            #ifdef DEBUG_SCROLL_AREA
+                                cout << "\nCleared horizontal scroll bar thumb vertex buffers";
+                            #endif
+                        }
+                    }
                 }
             }
             break;

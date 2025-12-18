@@ -141,7 +141,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
 
 // render line of text
 glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
-    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
+    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
 
     int32_t pid = shaders[SHADER_TEXT].programId;
 

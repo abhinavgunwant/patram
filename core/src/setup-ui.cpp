@@ -168,6 +168,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     windowWidth = width;
     windowHeight = height;
 
+    cout << "\nRecalculating layout";
     recalculateLayout(&rootContainer);
 
     resolution = glm::vec2(width, height);
@@ -307,40 +308,116 @@ void setupUI(bool isDarkTheme) {
     glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // UIElement* menuBar = &elements[0];
+    // UIElement* newButton = &elements[1];
+    // UIElement* button2 = &elements[2];
+    // UIElement* button3 = &elements[3];
+    // UIElement* label2 = &elements[4];
+    // UIElement* label3 = &elements[5];
+    // UIElement* button4 = &elements[6];
+    // UIElement* input = &elements[7];
+    // UIElement* inputArea = &elements[8];
+    // UIElement* scrollArea = &elements[9];
+    // UIElement* label4 = &elements[10];
+    // UIElement* label5 = &elements[11];
+    // UIElement* label6 = &elements[12];
+
+    // initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
+    // initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*button2, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
+    // initElement(*button3, UI_ICON_BUTTON, 8.0f, 120.0f, 48.0f, 48.0f);
+    // initElement(*button4, UI_BUTTON, 72.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
+    // initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 108.0f);
+    // initElement(*label4, UI_LABEL, 10.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*label5, UI_LABEL, 70.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*label6, UI_LABEL, 140.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*scrollArea, UI_SCROLL_AREA, 370.0f, 8.0f, 256.0f, 128.0f);
+
+    // if (darkTheme) {
+    //     rootContainer.backgroundColor = ROOT_BG_DARK;
+    //     menuBar->backgroundColor = TOOL_BAR_BG_DARK;
+    //     menuBar->color = WHITE;
+    // } else {
+    //     rootContainer.backgroundColor = ROOT_BG;
+    //     menuBar->backgroundColor = TOOL_BAR_BG;
+    //     menuBar->color = BLACK;
+    // }
+
+    // menuBar->text = "test";
+    // 
+    // menuBar->preferences->widthPreference = UI_FULL;
+    // menuBar->preferences->heightPreference = UI_FIXED;
+    // menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
+    // menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
+
+    // newButton->text = "New";
+    // newButton->icon = ICON_PLUS;
+    // button2->icon = ICON_FILE;
+    // button2->text = "Button2";
+    // button4->text = "Test Button";
+    // button4->onClick = testOnClick;
+    // button4->borderRadius = 10;
+
+    // label2->text = "Made by:";
+    // label2->fontSize = 32;
+    // label3->text = "Abhinav Gunwant";
+    // label3->fontSize = 48;
+    // label4->text = "This is test label for scroll Area";
+    // label4->fontSize = 48;
+    // label4->positioning = UI_POSITIONING_RELATIVE;
+    // label5->text = "This is another test label for scroll Area";
+    // label5->fontSize = 32;
+    // label5->positioning = UI_POSITIONING_RELATIVE;
+    // label6->text = "This is yet another test label for scroll area!";
+    // label6->fontSize = 16;
+    // label6->positioning = UI_POSITIONING_RELATIVE;
+
+    // input->borderRadius = 10;
+    // input->text = "Input Test";
+    // inputArea->text = "Input Area\nTest line 1\nTest line 2\nTest line 3\nTest line 4";
+
+    // scrollArea->extraData->scrollData.width = 300;
+    // scrollArea->extraData->scrollData.height = 200;
+
+    // addChild(&rootContainer, menuBar);
+    // addChild(&rootContainer, newButton);
+    // addChild(&rootContainer, button2);
+    // addChild(&rootContainer, button3);
+    // addChild(&rootContainer, button4);
+    // addChild(&rootContainer, label2);
+    // addChild(&rootContainer, label3);
+    // addChild(&rootContainer, input);
+    // addChild(&rootContainer, inputArea);
+
+    // addChild(scrollArea, label4);
+    // addChild(scrollArea, label5);
+    // addChild(scrollArea, label6);
+    // addChild(&rootContainer, scrollArea);
+
     UIElement* menuBar = &elements[0];
     UIElement* newButton = &elements[1];
-    UIElement* button2 = &elements[2];
-    UIElement* button3 = &elements[3];
-    UIElement* label2 = &elements[4];
-    UIElement* label3 = &elements[5];
-    UIElement* button4 = &elements[6];
-    UIElement* input = &elements[7];
-    UIElement* inputArea = &elements[8];
-    UIElement* scrollArea = &elements[9];
-    UIElement* label4 = &elements[10];
-    UIElement* label5 = &elements[11];
-    UIElement* label6 = &elements[12];
+    UIElement* openButton = &elements[2];
+    UIElement* contentScroll = &elements[3];
+    UIElement* testLabel = &elements[4];
 
     initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*button2, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(*button3, UI_ICON_BUTTON, 8.0f, 120.0f, 48.0f, 48.0f);
-    initElement(*button4, UI_BUTTON, 72.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label2, UI_LABEL, 100.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label3, UI_LABEL, 128.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*input, UI_TEXT_INPUT, 200.0f, 8.0f, 128.0f, 32.0f);
-    initElement(*inputArea, UI_TEXT_AREA, 250.0f, 8.0f, 256.0f, 108.0f);
-    initElement(*label4, UI_LABEL, 10.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label5, UI_LABEL, 70.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*label6, UI_LABEL, 140.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*scrollArea, UI_SCROLL_AREA, 370.0f, 8.0f, 256.0f, 128.0f);
+    initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
+    initElement(*contentScroll, UI_SCROLL_AREA, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(*testLabel, UI_LABEL, 1200.0f, 8.0f, 256.0f, 48.0f);
 
     if (darkTheme) {
+        cout << "\nDark theme";
         rootContainer.backgroundColor = ROOT_BG_DARK;
         menuBar->backgroundColor = TOOL_BAR_BG_DARK;
         menuBar->color = WHITE;
     } else {
+        cout << "\nLight theme";
         rootContainer.backgroundColor = ROOT_BG;
         menuBar->backgroundColor = TOOL_BAR_BG;
         menuBar->color = BLACK;
@@ -355,53 +432,29 @@ void setupUI(bool isDarkTheme) {
 
     newButton->text = "New";
     newButton->icon = ICON_PLUS;
-    button2->icon = ICON_FILE;
-    button2->text = "Button2";
-    button4->text = "Test Button";
-    button4->onClick = testOnClick;
-    button4->borderRadius = 10;
 
-    label2->text = "Made by:";
-    label2->fontSize = 32;
-    label3->text = "Abhinav Gunwant";
-    label3->fontSize = 48;
-    label4->text = "This is test label for scroll Area";
-    label4->fontSize = 48;
-    label4->positioning = UI_POSITIONING_RELATIVE;
-    label5->text = "This is another test label for scroll Area";
-    label5->fontSize = 32;
-    label5->positioning = UI_POSITIONING_RELATIVE;
-    label6->text = "This is yet another test label for scroll area!";
-    label6->fontSize = 16;
-    label6->positioning = UI_POSITIONING_RELATIVE;
+    openButton->icon = ICON_FILE;
+    openButton->text = "Open";
 
-    input->borderRadius = 10;
-    input->text = "Input Test";
-    inputArea->text = "Input Area\nTest line 1\nTest line 2\nTest line 3\nTest line 4";
-    // input->onClick = inputClickCallback;
+    contentScroll->text = "Main Scroll Area";
+    contentScroll->extraData->scrollData.width = WINDOW_WIDTH;
+    contentScroll->extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    contentScroll->preferences->widthPreference = UI_FULL;
+    contentScroll->preferences->heightPreference = UI_STRETCH;
 
-    // scrollArea->extraData->scrollData.yOffset = 50;
-    scrollArea->extraData->scrollData.width = 300;
-    scrollArea->extraData->scrollData.height = 200;
+    testLabel->text = "Testing the scroll area for full width";
+    testLabel->fontSize = 48.0f;
+    testLabel->positioning = UI_POSITIONING_RELATIVE;
+
+    addChild(menuBar, newButton);
+    addChild(menuBar, openButton);
+
+    addChild(contentScroll, testLabel);
 
     addChild(&rootContainer, menuBar);
-    addChild(&rootContainer, newButton);
-    addChild(&rootContainer, button2);
-    addChild(&rootContainer, button3);
-    addChild(&rootContainer, button4);
-    addChild(&rootContainer, label2);
-    addChild(&rootContainer, label3);
-    addChild(&rootContainer, input);
-    addChild(&rootContainer, inputArea);
-
-    addChild(scrollArea, label4);
-    addChild(scrollArea, label5);
-    addChild(scrollArea, label6);
-    addChild(&rootContainer, scrollArea);
+    addChild(&rootContainer, contentScroll);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
-
-    cout << "\nInside setup UI " << elementType(label5->parent);
 }
 
 void enterRenderLoop() {
