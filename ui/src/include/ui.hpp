@@ -51,6 +51,7 @@
 #define LINE_GAP                    3
 
 #define SCROLL_BAR_THICKNESS        10.0f
+#define SCROLL_DEBOUNCE_DELAY       0.00833f
 
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
@@ -265,11 +266,16 @@ struct UIElement {
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
+
 void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputUnselect(TextInputData * tid, string token = "");
+
+void scrollAreaMouseDownCallback(UIElement*, float, float, glm::vec2);
+void scrollAreaMouseDragCallback(UIElement*, float, float, glm::vec2);
+
 /** Creates a command to replace the selected text in a text input. */
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
@@ -285,6 +291,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
 
+bool isPointInside(float pointX, float pointY, float left, float right, float top, float bottom);
 
 void getScrollbarDimensions(
     UIElement* elem,

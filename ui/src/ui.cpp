@@ -825,6 +825,87 @@ void textInputUnselect(TextInputData * tid, string token) {
     tid->textSelectEndRow = tid->textSelectStartRow;
 }
 
+void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    if (elem->type == UI_SCROLL_AREA) {
+        float top, left, bottom, right, thumbStart, thumbEnd;
+
+        if (elem->extraData->scrollData.showVerticalScrollbar) {
+            getScrollbarDimensions(
+                elem, top, right, bottom, left,
+                thumbStart, thumbEnd,
+                true
+            );
+
+            if (
+                isPointInside(mouseX, mouseY, left, right, top, bottom)
+                && !isPointInside(mouseX, mouseY, left, right, thumbStart, thumbEnd)
+            ) {
+                float height = elem->height;
+                float barHeight = thumbEnd - thumbStart;
+                float newThumbStart = mouseY - elem->top - barHeight/2;
+
+                if (newThumbStart < 0) {
+                    newThumbStart = 0;
+                }
+
+                if (elem->extraData->scrollData.showHorizontalScrollbar) {
+                    height -= SCROLL_BAR_THICKNESS;
+                }
+
+                if (newThumbStart + barHeight > height) {
+                    newThumbStart = elem->top + height - barHeight;
+                }
+
+                elem->extraData->scrollData.yOffset = newThumbStart * elem->extraData->scrollData.height / height;
+                elem->extraData->scrollData.renderedUpdate = false;
+                elem->extraData->scrollData.lastScrolled = glfwGetTime();
+                return;
+            }
+        }
+
+        if (elem->extraData->scrollData.showHorizontalScrollbar) {
+            getScrollbarDimensions(
+                elem, top, right, bottom, left,
+                thumbStart, thumbEnd,
+                false
+            );
+
+            if (
+                isPointInside(mouseX, mouseY, left, right, top, bottom)
+                && !isPointInside(mouseX, mouseY, left, right, thumbStart, thumbEnd)
+            ) {
+                float width = elem->width;
+                float barWidth = thumbEnd - thumbStart;
+                float newThumbStart = mouseX - elem->left - barWidth/2;
+
+                if (newThumbStart < 0) {
+                    newThumbStart = 0;
+                }
+
+                if (elem->extraData->scrollData.showVerticalScrollbar) {
+                    width -= SCROLL_BAR_THICKNESS;
+                }
+
+                if (newThumbStart + barWidth > elem->width) {
+                    newThumbStart = elem->left + width - barWidth;
+                }
+
+                elem->extraData->scrollData.xOffset = newThumbStart * elem->extraData->scrollData.width / width;
+                elem->extraData->scrollData.renderedUpdate = false;
+                elem->extraData->scrollData.lastScrolled = glfwGetTime();
+            }
+        }
+    }
+}
+
+void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    if (glfwGetTime() - elem->extraData->scrollData.lastScrolled < SCROLL_DEBOUNCE_DELAY) {
+        return;
+    }
+
+    scrollAreaMouseDownCallback(elem, mouseX, mouseY, res);
+}
+
 // TODO: delete
 void selectTextWithMouse(
     UIElement* elem,
@@ -956,6 +1037,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             } else {
                 color = BLACK;
             }
+
+            onMouseDown = scrollAreaMouseDownCallback;
+            onMouseDrag = scrollAreaMouseDragCallback;
             break;
 
         case UI_TEXT_AREA:
@@ -2537,6 +2621,9 @@ string getIconLocation(Icon icon) {
     return path;
 }
 
+bool isPointInside(float pointX, float pointY, float left, float right, float top, float bottom) {
+    return pointX > left && pointX < right && pointY > top && pointY < bottom;
+}
 
 void getScrollbarDimensions(
     UIElement* elem,
