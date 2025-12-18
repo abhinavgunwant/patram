@@ -2560,7 +2560,10 @@ void getScrollbarDimensions(
         thumbEnd = thumbStart + elem->height / elem->extraData->scrollData.height * height;
 
         if (thumbEnd > top + height) {
-            thumbEnd = elem->top + height;
+            float barWidth = thumbEnd - thumbStart;
+
+            thumbEnd = top + height;
+            thumbStart = thumbEnd - barWidth;
         }
 
         return;
@@ -2581,9 +2584,13 @@ void getScrollbarDimensions(
     thumbEnd = thumbStart + elem->width / elem->extraData->scrollData.width * width;
 
     if (thumbEnd > elem->left + width) {
-        thumbEnd = elem->left + width;
+        float barWidth = thumbEnd - thumbStart;
+
+        thumbEnd = left + width;
+        thumbStart = thumbEnd - barWidth;
     }
 }
+
 string elementType(UIElement *elem) {
     switch(elem->type) {
         case UI_LABEL: return "UI Element Type: Label";
