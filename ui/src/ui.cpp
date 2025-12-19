@@ -1205,7 +1205,7 @@ void recalculateLayout(UIElement * elem) {
         switch (elem->preferences->widthPreference) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
-                    cout << "\n-> Resizing element (text: " << elem->text << ")";
+                    cout << "\n-> Resizing width of element (text: " << elem->text << ") with UI_FULL width preference.";
                     elem->width = elem->parent->width;
                     updated = true;
                 }
@@ -1213,6 +1213,7 @@ void recalculateLayout(UIElement * elem) {
 
             case UI_STRETCH:
                 if (elem->parent != nullptr) {
+                    cout << "\n-> Resizing width of element (text: " << elem->text << ") with UI_STRETCH width preference";
                     float width = elem->parent->width;
 
                     UIElement* siblingElem = nullptr;
@@ -1256,6 +1257,7 @@ void recalculateLayout(UIElement * elem) {
                     elem->width = width;
 
                     if (elem->type == UI_SCROLL_AREA && elem->extraData->scrollData.width < width) {
+                        cout << "\n!!!!!";
                         elem->extraData->scrollData.width = width;
                         elem->extraData->scrollData.xOffset = 0;
                     }
@@ -1271,6 +1273,7 @@ void recalculateLayout(UIElement * elem) {
         switch (elem->preferences->heightPreference) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
+                    cout << "\n-> Resizing height of element (text: " << elem->text << ") with UI_FULL height preference.";
                     elem->height = elem->parent->height;
                     updated = true;
                 }
@@ -1278,6 +1281,7 @@ void recalculateLayout(UIElement * elem) {
 
             case UI_STRETCH:
                 if (elem->parent != nullptr) {
+                    cout << "\n-> Resizing height of element (text: " << elem->text << ") with UI_STRETCH height preference.";
                     float height = elem->parent->height;
 
                     UIElement* siblingElem = nullptr;
@@ -1336,6 +1340,10 @@ void recalculateLayout(UIElement * elem) {
         if (elem->type == UI_SCROLL_AREA) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
+
+            if (elem->extraData->scrollData.width < elem->width) {
+                elem->extraData->scrollData.xOffset = 0;
+            }
         }
     }
 
