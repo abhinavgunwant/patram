@@ -168,7 +168,10 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     windowWidth = width;
     windowHeight = height;
 
-    cout << "\nRecalculating layout";
+    #ifdef DEBUG_LAYOUT
+        cout << "\nRecalculating layout";
+    #endif
+
     recalculateLayout(&rootContainer);
 
     resolution = glm::vec2(width, height);

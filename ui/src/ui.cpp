@@ -1205,7 +1205,11 @@ void recalculateLayout(UIElement * elem) {
         switch (elem->preferences->widthPreference) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
-                    cout << "\n-> Resizing width of element (text: " << elem->text << ") with UI_FULL width preference.";
+                    #ifdef DEBUG_LAYOUT
+                        cout << "\n-> Resizing width of element (text: "
+                            << elem->text << ") with UI_FULL width preference.";
+                    #endif
+
                     elem->width = elem->parent->width;
                     updated = true;
                 }
@@ -1213,7 +1217,11 @@ void recalculateLayout(UIElement * elem) {
 
             case UI_STRETCH:
                 if (elem->parent != nullptr) {
-                    cout << "\n-> Resizing width of element (text: " << elem->text << ") with UI_STRETCH width preference";
+                    #ifdef DEBUG_LAYOUT
+                        cout << "\n-> Resizing width of element (text: "
+                            << elem->text << ") with UI_STRETCH width preference";
+                    #endif
+
                     float width = elem->parent->width;
 
                     UIElement* siblingElem = nullptr;
@@ -1250,7 +1258,9 @@ void recalculateLayout(UIElement * elem) {
                     }
 
                     if (width < 0) {
-                        cout << "\nLAYOUT ERROR: width less than 0";
+                        #ifdef DEBUG_LAYOUT
+                            cout << "\nLAYOUT ERROR: width less than 0";
+                        #endif
                         break;
                     }
 
@@ -1273,7 +1283,11 @@ void recalculateLayout(UIElement * elem) {
         switch (elem->preferences->heightPreference) {
             case UI_FULL:
                 if (elem->parent != nullptr) {
-                    cout << "\n-> Resizing height of element (text: " << elem->text << ") with UI_FULL height preference.";
+                    #ifdef DEBUG_LAYOUT
+                        cout << "\n-> Resizing height of element (text: "
+                            << elem->text << ") with UI_FULL height preference.";
+                    #endif
+
                     elem->height = elem->parent->height;
                     updated = true;
                 }
@@ -1281,7 +1295,11 @@ void recalculateLayout(UIElement * elem) {
 
             case UI_STRETCH:
                 if (elem->parent != nullptr) {
-                    cout << "\n-> Resizing height of element (text: " << elem->text << ") with UI_STRETCH height preference.";
+                    #ifdef DEBUG_LAYOUT
+                        cout << "\n-> Resizing height of element (text: "
+                            << elem->text << ") with UI_STRETCH height preference.";
+                    #endif
+
                     float height = elem->parent->height;
 
                     UIElement* siblingElem = nullptr;
@@ -1359,7 +1377,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             if (elem.reDraw) {
                 // recalculateLayout(&elem);
 
-                cout << "\nRe-drawing Container";
+                #ifdef DEBUG_RENDER
+                    cout << "\nRe-drawing Container";
+                #endif
+
                 if (elem.vao != 0) {
                     glDeleteVertexArrays(1, &elem.vao);
                 }
@@ -1483,7 +1504,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             if (elem.reDraw) {
                 // recalculateLayout(&elem);
 
-                cout << "\nRe-drawing";
+                #ifdef DEBUG_RENDER
+                    cout << "\nRe-drawing";
+                #endif
+
                 if (elem.vao != 0) {
                     glDeleteVertexArrays(1, &elem.vao);
                 }
@@ -2042,7 +2066,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
         case UI_TEXT_INPUT: {
             if (elem.reDraw) {
-                cout << "\nRe-drawing Text Input";
+                #ifdef DEBUG_RENDER
+                    cout << "\nRe-drawing Text Input";
+                #endif
+
                 if (elem.vao != 0) {
                     glDeleteVertexArrays(1, &elem.vao);
                 }
@@ -2277,7 +2304,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
         case UI_TEXT_AREA: {
             if (elem.reDraw) {
-                cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
+                #ifdef DEBUG_RENDER
+                    cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
+                #endif
+
                 if (elem.vao != 0) {
                     glDeleteVertexArrays(1, &elem.vao);
                 }

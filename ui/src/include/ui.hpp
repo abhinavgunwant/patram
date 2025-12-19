@@ -60,6 +60,8 @@
 #define DEBUG_TEXT_SELECTION
 #define DEBUG_MOUSE_BUTTON
 #define DEBUG_SCROLL_AREA
+#define DEBUG_LAYOUT
+#define DEBUG_RENDER
 
 using namespace std;
 
