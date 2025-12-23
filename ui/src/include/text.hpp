@@ -11,9 +11,11 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "ui.hpp"
+
 #define MAX_CHARACTERS 65536
 #define DEFAULT_FONT_SIZE 48
-// #define DEBUG_TEXT
+#define DEBUG_TEXT
 
 #ifdef DEBUG_TEXT
 extern bool debugTextFirstRenderPrint;
@@ -67,7 +69,8 @@ glm::vec4 renderText(
     glm::vec2 pos,
     glm::vec2& res,
     glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0),
-    uint8_t fontSize = 16
+    uint8_t fontSize = 16,
+    UIElement* parent = nullptr
 );
 
 glm::vec4 renderText(
@@ -75,7 +78,8 @@ glm::vec4 renderText(
     glm::vec2 pos,
     glm::vec2& res,
     glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0),
-    uint8_t fontSize = 16
+    uint8_t fontSize = 16,
+    UIElement* parent = nullptr
 );
 
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);

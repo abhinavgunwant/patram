@@ -59,9 +59,9 @@
 
 #define DEBUG_TEXT_SELECTION
 #define DEBUG_MOUSE_BUTTON
-#define DEBUG_SCROLL_AREA
-#define DEBUG_LAYOUT
-#define DEBUG_RENDER
+// #define DEBUG_SCROLL_AREA
+// #define DEBUG_LAYOUT
+// #define DEBUG_RENDER
 
 using namespace std;
 
@@ -78,6 +78,17 @@ enum UIElementType {
     UI_TEXT_AREA,
     UI_TAB_BAR,
     UI_TAB,
+};
+
+enum ContentBlockType {
+    CB_TITLE,
+    CB_PARAGRAPH,
+    CB_HEADING1,
+    CB_HEADING2,
+    CB_HEADING3,
+    CB_HEADING4,
+    CB_HEADING5,
+    CB_HEADING6,
 };
 
 enum UIAlignment {
@@ -105,6 +116,7 @@ enum Icon {
 enum UIPositioning {
     UI_POSITIONING_ABSOLUTE,
     UI_POSITIONING_RELATIVE,
+    UI_POSITIONING_RELATIVE_SIBLING,
 };
 
 struct UIPreferences {
@@ -204,6 +216,8 @@ union UIExtraData {
     }
 };
 
+struct ContentBlock;
+
 struct UIElement {
     UIElementType type;
 
@@ -259,11 +273,40 @@ struct UIElement {
 
     uint8_t fontSize;
     uint8_t borderRadius;
+    uint32_t totalContentBlocks;
+    uint32_t contentBlockCapacity;
 
     UIPositioning positioning;
 
     UIPreferences * preferences;
     UIExtraData * extraData;
+
+    ContentBlock * contentBlocks;
+};
+
+struct ContentBlock {
+    ContentBlockType type;
+
+    bool reDraw;
+    bool visible;
+    bool selected;
+    bool isBeingDragged;
+    bool active;
+
+    Rope* rope;
+
+    float top;
+    float left; // Is it needed?
+    float height;
+
+    /**
+     * Click behaviour for buttons.
+     */
+    void (*onClick)(UIElement*);
+    void (*onMouseDown)(UIElement*, float, float, glm::vec2);
+    void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
+    void (*onMouseUp)(UIElement*, float, float, glm::vec2);
+    void (*onHover)(UIElement*);
 };
 
 void defaultCallback(UIElement* elem);
@@ -284,12 +327,16 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
+void initContentBlock(ContentBlock &cb, ContentBlockType type, string text);
+void initContentBlocks(UIElement& parentElement, uint32_t capacity);
+void addContentBlock(UIElement& parentElement, ContentBlockType type, string text);
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+void renderContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* prevSibling, glm::vec2 &resolution, glm::vec2 &cursor);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);

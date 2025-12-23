@@ -140,7 +140,10 @@ void initTextRendering(uint16_t width, uint16_t height) {
 }
 
 // render line of text
-glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+glm::vec4 renderText(
+    string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
+    uint8_t fontSize, UIElement* parent
+) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
 
     int32_t pid = shaders[SHADER_TEXT].programId;
@@ -163,13 +166,16 @@ glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 colo
     }
     #endif
 
+    float xpos = pos.x;
+    float yNet = pos.y;
+
 	// iterate through all characters
 	for (const char c : text) {
 		Character ch = characters[(int)c];
 
         #ifdef DEBUG_TEXT
         if (debugTextFirstRenderPrint) {
-            cout << "\n--> Rendering character: " << (char) c;
+            cout << "\n--> Rendering character: '" << (char) c << "'";
         }
         #endif
 
@@ -186,13 +192,24 @@ glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 colo
         float bearingTop = ch.bearingTop * heightRatio;
         float bearingLeft = ch.bearingLeft * widthRatio;
 
-		float xpos = pos.x + bearingLeft;
-		float ypos = pos.y + (glyphHeight - bearingTop) + fontSize;
-
-        if (dimensions.z == 0) {
-            // TODO: update dimensions.z when there's a new line
-            dimensions.z = ypos;
+        if (bearingLeft != bearingLeft) {
+            bearingLeft = 0.0f;
         }
+
+        if (bearingTop != bearingTop) {
+            bearingTop = 0.0f;
+        }
+
+		xpos += bearingLeft;
+
+        if (parent != nullptr && xpos + glyphWidth > parent->width - 10.0f) {
+            yNet += fontSize + 4.0f;
+            xpos = pos.x;
+        }
+
+        float ypos = yNet + glyphHeight - bearingTop + fontSize;
+
+        dimensions.z = ypos - pos.y;
 
 		float xpos_plus_w = xpos + glyphWidth;
 		float ypos_plus_h = ypos - glyphHeight; // ypos + h
@@ -228,7 +245,7 @@ glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 colo
 		// render quad
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-		pos.x += (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+		xpos += (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6) - bearingLeft; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
 	}
 
 	glBindVertexArray(0);
@@ -241,7 +258,10 @@ glm::vec4 renderText(string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 colo
 
 // render line of text
 // TODO: update to be consistent with above function.
-glm::vec4 renderText(wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color, uint8_t fontSize) {
+glm::vec4 renderText(
+    wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
+    uint8_t fontSize, UIElement* parent
+) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
 
     int32_t pid = shaders[SHADER_TEXT].programId;
@@ -306,12 +326,30 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
     float bearingTop = ch.bearingTop * heightRatio;
     float bearingLeft = ch.bearingLeft * widthRatio;
 
+    if (isnan(bearingLeft)) {
+        bearingLeft = 0;
+    }
+
     float xpos = x + bearingLeft;
     // float ypos = y + (glyphHeight - bearingTop) + fontSize;
     float ypos = y + glyphHeight - bearingTop + 0.75*fontSize;
 
     // float xpos_plus_w = xpos + glyphWidth;
     // float ypos_plus_h = ypos - glyphHeight; // ypos + h
+
+    #ifdef DEBUG_TEXT
+    if (debugTextFirstRenderPrint) {
+     cout << "\nRendering glyph: " << c
+        << "\n--> Rendering character: '" << (char) c
+        << "'; x: " << xpos << " y: " << ypos << " x + w: "
+        << xpos + glyphWidth << " y + h: " << ypos - glyphHeight
+        << " bearingLeft: " << bearingLeft << "(" << ch.bearingLeft << ", " <<  widthRatio << ")"
+        << " bearingTop: " << bearingTop
+        << " widthRatio: " << widthRatio
+        << " heightRatio: " << heightRatio;
+    }
+    #endif
+
 
     return GlyphDimensions {
         .leftX = xpos,
@@ -325,19 +363,6 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
 }
 
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize) {
-    #ifdef DEBUG_TEXT
-    if (debugTextFirstRenderPrint) {
-     cout << "\nRendering glyph: " << c
-        << "\n--> Rendering character: " << (char) c
-        << "; x: " << xpos << " y: " << ypos << " x + w: "
-        << xpos_plus_w << " y + h: " << ypos_plus_h
-        << " bearingLeft: " << bearingLeft
-        << " bearingTop: " << bearingTop
-        << " widthRatio: " << widthRatio
-        << " heightRatio: " << heightRatio;
-    }
-    #endif
-
     GlyphDimensions gd = getGlyphDimensions(c, x, y, res, fontSize);
 
     // update textVBO for each character

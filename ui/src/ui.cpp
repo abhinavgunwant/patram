@@ -955,10 +955,13 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     UIExtraData * extraData = nullptr;
     Rope* rope = nullptr;
 
-    glm::vec4 backgroundColor;
-    glm::vec4 hoverColor;
-    glm::vec4 color;
+    glm::vec4 backgroundColor = TRANSPARENT;
+    glm::vec4 hoverColor = TRANSPARENT;
+    glm::vec4 color = darkTheme ? WHITE : BLACK;
     uint8_t borderRadius = 0;
+    UIPositioning positioning = UI_POSITIONING_ABSOLUTE;
+
+    uint8_t fontSize = 16;
 
     UIPreferences* pref = nullptr;
 
@@ -1133,12 +1136,80 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         ICON_NONE,
 
-        16,
+        fontSize,
         borderRadius,
-        UI_POSITIONING_ABSOLUTE,
+        0,
+        0,
+        positioning,
         pref,
         extraData,
+        nullptr,
     };
+}
+
+void initContentBlock(ContentBlock &cb, ContentBlockType type, string text) {
+    cb = ContentBlock {
+        .type = type,
+        .reDraw = true,
+        .visible = true,
+        .selected = false,
+        .isBeingDragged = false,
+        .active = false,
+
+        .rope = new Rope(text),
+
+        .top = 0.0f,
+        .left = 0.0f,
+        .height = 0.0f,
+
+        .onClick = defaultCallback,
+        .onMouseDown = defaultOnMouseUpDownCallback,
+        .onMouseDrag = defaultOnMouseUpDownCallback,
+        .onMouseUp = defaultOnMouseUpDownCallback,
+        .onHover = defaultCallback,
+    };
+}
+
+void initContentBlocks(UIElement& parentElement, int capacity) {
+    if (parentElement.contentBlocks != nullptr) {
+        cout << "\nContent blocks are already initialized for the parent element (" << parentElement.text << ").";
+        return;
+    }
+
+    parentElement.contentBlockCapacity = capacity;
+    parentElement.contentBlocks = new ContentBlock[capacity];
+    parentElement.totalContentBlocks = 0;
+}
+
+void growContentBlocks(UIElement& parentElement) {
+    if (parentElement.contentBlockCapacity > GROWTH_THRESHOLD) {
+        parentElement.capacity += INCR_POST_GROWTH_THRESHOLD;
+    } else {
+        parentElement.capacity *= GROWTH_FACTOR;
+    }
+
+    ContentBlock* newlist = new ContentBlock[parentElement.contentBlockCapacity];
+
+    for (uint32_t i=0; i<parentElement.totalContentBlocks; ++i) {
+        newlist[i] = parentElement.contentBlocks[i];
+    }
+
+    delete [] parentElement.children;
+
+    parentElement.contentBlocks = newlist;
+}
+
+void addContentBlock(UIElement& parentElement, ContentBlockType type, string text) {
+    if (parentElement.capacity == 0 || parentElement.contentBlocks == nullptr) {
+        initContentBlocks(parentElement, INITIAL_PARENT_CAPACITY);
+    }
+
+    if (parentElement.totalContentBlocks >= parentElement.contentBlockCapacity) {
+        growContentBlocks(parentElement);
+    }
+
+    initContentBlock(parentElement.contentBlocks[parentElement.totalContentBlocks], type, text);
+    parentElement.totalContentBlocks += 1;
 }
 
 UIPreferences* initPreferences() {
@@ -1358,6 +1429,14 @@ void recalculateLayout(UIElement * elem) {
         if (elem->type == UI_SCROLL_AREA) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
+
+            if (elem->contentBlocks != nullptr && elem->totalContentBlocks > 0) {
+                for (int i=0; i<elem->totalContentBlocks; ++i) {
+                    elem->contentBlocks[i].reDraw = true;
+                }
+
+                elem->extraData->scrollData.height = 0;
+            }
 
             if (elem->extraData->scrollData.width < elem->width) {
                 elem->extraData->scrollData.xOffset = 0;
@@ -1601,7 +1680,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             // TODO: Render the rectangle with background colors. If borders
             // are set, then render borders.
 
-            if (elem.totalChildren) {
+            if (elem.totalChildren || elem.totalContentBlocks) {
                 if (elem.reDraw) {
                     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
                     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
@@ -1630,6 +1709,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     renderElement(*elem.children[i], resolution, cursor);
+                }
+
+                for (uint32_t i=0; i<elem.totalContentBlocks; ++i) {
+                    renderContentBlock(&elem, &elem.contentBlocks[i], i == 0 ? nullptr : &elem.contentBlocks[i - 1], resolution, cursor);
                 }
 
                 glDisable(GL_SCISSOR_TEST);
@@ -2638,7 +2721,81 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
+
         default: break;
+    }
+}
+
+void renderContentBlock(
+    UIElement* parentElement,
+    ContentBlock* cb,
+    ContentBlock* prevSibling,
+    glm::vec2 &resolution,
+    glm::vec2 &cursor
+) {
+    // NOTE: Assuming parent element will always be of type UI_SCROLL_AREA.
+ 
+    if (cb == nullptr || !cb->visible) {
+        cout << "\nContent block not visible";
+        return;
+    }
+
+    uint8_t fontSize = 16;
+
+    switch (cb->type) {
+        case CB_HEADING1: fontSize = 48; break;
+        case CB_HEADING2: fontSize = 40; break;
+        case CB_HEADING3: fontSize = 32; break;
+        case CB_HEADING4: fontSize = 24; break;
+        case CB_HEADING5: fontSize = 16; break;
+        case CB_HEADING6: fontSize = 12; break;
+        case CB_PARAGRAPH: fontSize = 16; break;
+        case CB_TITLE:  fontSize = 48; break;
+    }
+
+    if (parentElement->extraData == nullptr) {
+        cout << "\nRender Error: UIElement's parent is NULL!";
+        return;
+    }
+
+    glm::vec4 dim;
+
+    if (cb->reDraw) {
+        if (prevSibling != nullptr) {
+            cb->top = prevSibling->top + prevSibling->height + 8.0f;
+            cb->left = prevSibling->left;
+        } else {
+            cb->top = parentElement->top;
+            cb->left = parentElement->left;
+        }
+    }
+
+    float top = cb->top - parentElement->extraData->scrollData.yOffset;
+    float left = cb->left - parentElement->extraData->scrollData.xOffset;
+
+    // TODO: Change the code below when renderTextRope() is implemented.
+
+    string text = cb->rope->getString();
+
+    if (cb->reDraw) {
+        cout << "\n--> Rendering: " << text;
+    }
+
+    dim = renderText(text, glm::vec2(left, top), resolution, BLACK, fontSize, parentElement);
+
+    if (cb->reDraw) {
+        cb->height = dim[2];
+        cb->reDraw = false;
+    }
+
+    if (parentElement->extraData->scrollData.height < cb->top + cb->height) {
+        #ifdef DEBUG_SCROLL_AREA
+            cout << "\nScroll height less than dim.z " << dim.z;
+        #endif
+
+        parentElement->extraData->scrollData.height = cb->top + cb->height;
+        parentElement->extraData->scrollData.renderedUpdate = false;
+        parentElement->reDraw = true;
     }
 }
 
