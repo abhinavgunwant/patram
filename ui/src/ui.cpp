@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 
 #include "include/ui.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "include/command.hpp"
 #include "include/shader.hpp"
 #include "include/text.hpp"
@@ -26,6 +27,13 @@ bool darkTheme = false;
 
 uint32_t iconButtonVAO;
 uint32_t iconButtonVBO;
+
+float contentLeft = 0.0f;
+float contentRight = 550.0f;
+
+HighlightedContentBlock highlightedContentBlock = {
+    nullptr, false, false, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0
+};
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -1711,8 +1719,23 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
 
+                highlightedContentBlock.show = false;
+
                 for (uint32_t i=0; i<elem.totalContentBlocks; ++i) {
                     renderContentBlock(&elem, &elem.contentBlocks[i], i == 0 ? nullptr : &elem.contentBlocks[i - 1], resolution, cursor);
+                }
+
+                if (!highlightedContentBlock.show && highlightedContentBlock.backgroundVAO) {
+                    // glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVAO);
+                    // glDeleteBuffers(1, &highlightedContentBlock.backgroundVBO);
+
+                    // glDeleteVertexArrays(1, &highlightedContentBlock.dragTabVAO);
+                    // glDeleteBuffers(1, &highlightedContentBlock.dragTabVBO);
+
+                    // highlightedContentBlock.backgroundVAO = 0;
+                    // highlightedContentBlock.backgroundVBO = 0;
+                    // highlightedContentBlock.dragTabVAO = 0;
+                    // highlightedContentBlock.dragTabVBO = 0;
                 }
 
                 glDisable(GL_SCISSOR_TEST);
@@ -1785,9 +1808,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glBindVertexArray(elem.extraData->scrollData.verticalScrollBarVAO);
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    uint32_t color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
 
-                    glUniform4f(color, 0.9f, 0.9f, 0.9f, 1.0f);
+                    glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
+
+                    if (darkTheme) {
+                        color = SCROLL_BAR_TRACK_COLOR_DARK;
+                    }
+
+                    glUniform4f(colorU, color.r, color.g, color.b, color.a);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -1833,8 +1862,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glBindVertexArray(elem.extraData->scrollData.verticalScrollThumbVAO);
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-                    glUniform4f(color, 0.6f, 0.6f, 0.6f, 1.0f);
+                    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 } else {
@@ -1931,9 +1960,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glBindVertexArray(elem.extraData->scrollData.horizontalScrollBarVAO);
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    uint32_t color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
 
-                    glUniform4f(color, 0.9f, 0.9f, 0.9f, 1.0f);
+                    glUniform4f(colorU, 0.9f, 0.9f, 0.9f, 1.0f);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -1979,8 +2008,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     glBindVertexArray(elem.extraData->scrollData.horizontalScrollThumbVAO);
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    color = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-                    glUniform4f(color, 0.6f, 0.6f, 0.6f, 1.0f);
+                    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+                    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 } else {
@@ -2773,12 +2802,42 @@ void renderContentBlock(
     float top = cb->top - parentElement->extraData->scrollData.yOffset;
     float left = cb->left - parentElement->extraData->scrollData.xOffset;
 
+    if (resolution.x >= CONTENT_BREAKPOINT) {
+        left += contentLeft;
+    } else {
+        left += CONTENT_HORIZONTAL_MARGIN;
+    }
+
     // TODO: Change the code below when renderTextRope() is implemented.
 
     string text = cb->rope->getString();
 
     if (cb->reDraw) {
-        cout << "\n--> Rendering: " << text;
+        // cout << "\n--> Rendering: " << text;
+    } else if (
+        cb->type != ContentBlockType::CB_TITLE
+        && cursor.y > top && cursor.y < top + cb->height
+    ) {
+        // TODO: Make sure the cursor is not over a scrollbar.
+
+        // TODO: Change background color and show the drag tab.
+        // float before = glfwGetTime();
+
+        highlightedContentBlock.show = true;
+        highlightedContentBlock.left = left;
+        highlightedContentBlock.top = top;
+        highlightedContentBlock.bottom = top + cb->height;
+        highlightedContentBlock.right = contentRight;
+
+        if (highlightedContentBlock.cb != cb) {
+            highlightedContentBlock.updated = true;
+        }
+
+        highlightedContentBlock.cb = cb;
+
+        renderContentBlockHighlight();
+
+        // cout << "\nRender time: " << glfwGetTime() - before;
     }
 
     dim = renderText(
@@ -2804,6 +2863,112 @@ void renderContentBlock(
         parentElement->extraData->scrollData.renderedUpdate = false;
         parentElement->reDraw = true;
     }
+}
+
+void renderContentBlockHighlight() {
+    if (!highlightedContentBlock.show) {
+        return;
+    }
+
+    if (highlightedContentBlock.backgroundVAO == 0) {
+        glGenVertexArrays(1, &highlightedContentBlock.backgroundVAO);
+        glBindVertexArray(highlightedContentBlock.backgroundVAO);
+
+        if (highlightedContentBlock.backgroundVBO) {
+            glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVBO);
+            highlightedContentBlock.backgroundVBO = 0;
+        }
+
+        float vertices[] = {
+            highlightedContentBlock.right, highlightedContentBlock.top,
+            highlightedContentBlock.right, highlightedContentBlock.bottom,
+            highlightedContentBlock.left, highlightedContentBlock.top,
+            highlightedContentBlock.left, highlightedContentBlock.bottom,
+        };
+
+        glGenBuffers(1, &highlightedContentBlock.backgroundVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+    } else if (highlightedContentBlock.updated) {
+        float vertices[] = {
+            highlightedContentBlock.right, highlightedContentBlock.top,
+            highlightedContentBlock.right, highlightedContentBlock.bottom,
+            highlightedContentBlock.left, highlightedContentBlock.top,
+            highlightedContentBlock.left, highlightedContentBlock.bottom,
+        };
+
+        glBindVertexArray(highlightedContentBlock.backgroundVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    }
+
+    glBindVertexArray(highlightedContentBlock.backgroundVAO);
+    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+    glm::vec4 color = CONTENT_HIGHLIGHT_BG;
+
+    if (darkTheme) {
+        color = CONTENT_HIGHLIGHT_BG_DARK;
+    }
+
+    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    if (highlightedContentBlock.dragTabVAO == 0) {
+        glGenVertexArrays(1, &highlightedContentBlock.dragTabVAO);
+        glBindVertexArray(highlightedContentBlock.dragTabVAO);
+
+        if (highlightedContentBlock.dragTabVBO) {
+            glDeleteVertexArrays(1, &highlightedContentBlock.dragTabVBO);
+            highlightedContentBlock.dragTabVBO = 0;
+        }
+
+        float vertices[] = {
+            highlightedContentBlock.left, highlightedContentBlock.top,
+            highlightedContentBlock.left, highlightedContentBlock.bottom,
+            highlightedContentBlock.left - 20.0f, highlightedContentBlock.top,
+            highlightedContentBlock.left - 20.0f, highlightedContentBlock.bottom,
+        };
+
+        glGenBuffers(1, &highlightedContentBlock.dragTabVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+    } else if (highlightedContentBlock.updated) {
+        float vertices[] = {
+            highlightedContentBlock.left, highlightedContentBlock.top,
+            highlightedContentBlock.left, highlightedContentBlock.bottom,
+            highlightedContentBlock.left - 20.0f, highlightedContentBlock.top,
+            highlightedContentBlock.left - 20.0f, highlightedContentBlock.bottom,
+        };
+
+        glBindVertexArray(highlightedContentBlock.dragTabVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    }
+
+    glBindVertexArray(highlightedContentBlock.dragTabVAO);
+    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+    color = CONTENT_HIGHLIGHT_DRAG;
+
+    if (darkTheme) {
+        color = CONTENT_HIGHLIGHT_DRAG_DARK;
+    }
+
+    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    highlightedContentBlock.updated = false;
 }
 
 void processRedo(UIElement* element) {

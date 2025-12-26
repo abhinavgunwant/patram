@@ -162,7 +162,16 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 }
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
-	glViewport(0, 0, width, height);
+    glViewport(0, 0, width, height);
+
+    if (width >= CONTENT_BREAKPOINT) {
+        contentLeft = (static_cast<float>(width) - CONTENT_MAX_WIDTH) / 2;
+        contentRight = contentLeft + CONTENT_MAX_WIDTH;
+    } else {
+        contentLeft = CONTENT_HORIZONTAL_MARGIN;
+        contentRight = width - CONTENT_HORIZONTAL_MARGIN;
+    }
+
     rootContainer.width = width;
     rootContainer.height = height;
 
@@ -204,6 +213,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
         cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
     #endif
 
+    highlightedContentBlock.show = false;
     UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
     bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
@@ -516,7 +526,7 @@ void enterRenderLoop() {
         }
 
         glfwSwapBuffers(window);
-		glfwPollEvents();
+        glfwPollEvents();
 
         #ifdef DEBUG_TEXT
         debugTextFirstRenderPrint = false;

@@ -18,6 +18,14 @@
 
 #define TOTAL_ICONS                 3
 
+#define CONTENT_MAX_WIDTH           760.0f
+#define CONTENT_BREAKPOINT          800
+#define CONTENT_HORIZONTAL_MARGIN   20.0f
+#define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
+#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.15f, 0.15f, 0.15f, 1.0)
+#define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
+#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
+
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
@@ -53,6 +61,9 @@
 #define SCROLL_BAR_THICKNESS        10.0f
 #define SCROLL_DEBOUNCE_DELAY       0.00833f
 
+#define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
+#define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
+
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
@@ -67,6 +78,13 @@ using namespace std;
 
 extern float iconButtonVertices[16];
 extern bool darkTheme;
+
+extern float contentLeft;
+extern float contentRight;
+
+struct HighlightedContentBlock;
+
+extern HighlightedContentBlock highlightedContentBlock;
 
 enum UIElementType {
     UI_LABEL,
@@ -309,6 +327,20 @@ struct ContentBlock {
     void (*onHover)(UIElement*);
 };
 
+struct HighlightedContentBlock {
+    ContentBlock* cb;
+    bool show;
+    bool updated;
+    float top;
+    float left;
+    float bottom;
+    float right;
+    uint32_t backgroundVAO;
+    uint32_t backgroundVBO;
+    uint32_t dragTabVAO;
+    uint32_t dragTabVBO;
+};
+
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
@@ -337,6 +369,7 @@ void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* prevSibling, glm::vec2 &resolution, glm::vec2 &cursor);
+void renderContentBlockHighlight();
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);

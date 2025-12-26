@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "include/shader.hpp"
+#include "include/ui.hpp"
 
 using namespace std;
 
@@ -202,7 +203,14 @@ glm::vec4 renderText(
 
 		xpos += bearingLeft;
 
-        if (parent != nullptr && xpos + glyphWidth > parent->width - 10.0f) {
+        if (
+            parent != nullptr
+            && (
+                parent->width < 800.0f
+                && xpos + glyphWidth > parent->width - CONTENT_HORIZONTAL_MARGIN
+                || xpos + glyphWidth > contentRight
+            )
+        ) {
             yNet += fontSize + 4.0f;
             xpos = pos.x;
         }
