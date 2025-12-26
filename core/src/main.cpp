@@ -1,6 +1,7 @@
 #include "include/argparser.hpp"
 #include "include/window-utils.hpp"
 #include "include/setup-ui.hpp"
+#include "include/dark-mode.hpp"
 #include "ui.hpp"
 
 #include "shader.hpp"
@@ -8,8 +9,6 @@
 using namespace std;
 
 int main(int argc, char ** argv) {
-    darkTheme = false;
-
     switch (parseArgs(argc, argv)) {
         case CMD_LINE_VERSION: displayVersion(); return 0;
         case CMD_LINE_ERROR: displayError(); return 1;
@@ -19,6 +18,7 @@ int main(int argc, char ** argv) {
 
         case CMD_LINE_NONE:
         case CMD_LINE_RUN:
+            darkTheme = isDarkMode();
             break;
     }
 

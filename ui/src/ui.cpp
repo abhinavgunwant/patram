@@ -2781,7 +2781,14 @@ void renderContentBlock(
         cout << "\n--> Rendering: " << text;
     }
 
-    dim = renderText(text, glm::vec2(left, top), resolution, BLACK, fontSize, parentElement);
+    dim = renderText(
+        text,
+        glm::vec2(left, top),
+        resolution,
+        darkTheme ? WHITE : BLACK,
+        fontSize,
+        parentElement
+    );
 
     if (cb->reDraw) {
         cb->height = dim[2];
