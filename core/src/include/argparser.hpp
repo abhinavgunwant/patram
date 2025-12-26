@@ -12,6 +12,7 @@ enum CmdLineArgs {
     CMD_LINE_ERROR,
     CMD_LINE_HELP,
     CMD_LINE_NONE,
+    CMD_LINE_FPS,
 };
 
 CmdLineArgs parseArgs(int argc, char ** argv);

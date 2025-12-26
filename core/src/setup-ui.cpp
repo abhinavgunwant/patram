@@ -23,6 +23,7 @@ bool minimized = false;
 bool focused = true;
 bool mouse1Down = false;
 bool cursorShouldUpdate = false;
+bool showFps = false;
 
 GLFWcursor* textCursor;
 
@@ -475,7 +476,11 @@ void setupUI(bool isDarkTheme) {
 }
 
 void enterRenderLoop() {
-	while (!glfwWindowShouldClose(window)) {
+    float fpsPrevTime = 0.0f;
+    uint16_t fps = 0;
+    uint16_t newFps = 0;
+
+    while (!glfwWindowShouldClose(window)) {
         if (minimized) {
             glfwWaitEventsTimeout(4000.0f);
         }
@@ -488,6 +493,27 @@ void enterRenderLoop() {
 
         renderElement(rootContainer, resolution, cursor);
         // renderText("Test", glm::vec2(0.0f, 500.0f), resolution, BLACK, 48);
+
+        if (showFps) {
+            float time = glfwGetTime();
+
+            if (time - fpsPrevTime > 1.0f) {
+                fpsPrevTime = time;
+                fps = newFps;
+                newFps = 0;
+            } else {
+                ++newFps;
+            }
+
+            renderText(
+                "FPS: " + to_string(fps),
+                glm::vec2(0.0f, 0.0f),
+                resolution,
+                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+                16,
+                nullptr
+            );
+        }
 
         glfwSwapBuffers(window);
 		glfwPollEvents();

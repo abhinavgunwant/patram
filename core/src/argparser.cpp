@@ -23,6 +23,10 @@ CmdLineArgs parseArgs(int argc, char ** argv) {
             return CMD_LINE_RUN;
         }
 
+        if (strcmp(argv[1], "--fps") == 0) {
+            return CMD_LINE_FPS;
+        }
+
         return CMD_LINE_ERROR;
     }
 

@@ -17,6 +17,7 @@ extern GLFWwindow* window;
 extern UIElement rootContainer;
 extern bool minimized;
 extern bool focused;
+extern bool showFps;
 extern uint16_t windowHeight;
 extern uint16_t windowWidth;
 extern glm::vec2 resolution;

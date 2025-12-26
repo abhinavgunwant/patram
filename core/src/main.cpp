@@ -16,6 +16,9 @@ int main(int argc, char ** argv) {
 
         case CMD_LINE_RUN_DARK: darkTheme = true; break;
 
+        case CMD_LINE_FPS:
+            showFps = true;
+
         case CMD_LINE_NONE:
         case CMD_LINE_RUN:
             darkTheme = isDarkMode();
