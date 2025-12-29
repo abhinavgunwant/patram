@@ -2770,16 +2770,17 @@ void renderContentBlock(
     }
 
     uint8_t fontSize = 16;
+    float topMargin = 0.0f;
 
     switch (cb->type) {
-        case CB_HEADING1: fontSize = 48; break;
-        case CB_HEADING2: fontSize = 40; break;
-        case CB_HEADING3: fontSize = 32; break;
-        case CB_HEADING4: fontSize = 24; break;
-        case CB_HEADING5: fontSize = 16; break;
-        case CB_HEADING6: fontSize = 12; break;
+        case CB_HEADING1: fontSize = 48; topMargin = 10.0f; break;
+        case CB_HEADING2: fontSize = 40; topMargin = 10.0f; break;
+        case CB_HEADING3: fontSize = 32; topMargin = 10.0f; break;
+        case CB_HEADING4: fontSize = 24; topMargin = 10.0f; break;
+        case CB_HEADING5: fontSize = 16; topMargin = 10.0f; break;
+        case CB_HEADING6: fontSize = 12; topMargin = 10.0f; break;
         case CB_PARAGRAPH: fontSize = 16; break;
-        case CB_TITLE:  fontSize = 48; break;
+        case CB_TITLE:  fontSize = 48; topMargin = 10.0f; break;
     }
 
     if (parentElement->extraData == nullptr) {
@@ -2793,6 +2794,23 @@ void renderContentBlock(
         if (prevSibling != nullptr) {
             cb->top = prevSibling->top + prevSibling->height + 8.0f;
             cb->left = prevSibling->left;
+
+            switch (prevSibling->type) {
+                case CB_HEADING1:
+                case CB_HEADING2:
+                case CB_HEADING3:
+                case CB_HEADING4:
+                case CB_HEADING5:
+                case CB_HEADING6:
+                    topMargin += 10.0f;
+                    break;
+                case CB_TITLE:
+                    topMargin += 20.0f;
+                default:
+                    break;
+            }
+
+            cb->top += topMargin;
         } else {
             cb->top = parentElement->top;
             cb->left = parentElement->left;
@@ -2821,8 +2839,6 @@ void renderContentBlock(
         // TODO: Make sure the cursor is not over a scrollbar.
 
         // TODO: Change background color and show the drag tab.
-        // float before = glfwGetTime();
-
         highlightedContentBlock.show = true;
         highlightedContentBlock.left = left;
         highlightedContentBlock.top = top;
@@ -2836,8 +2852,6 @@ void renderContentBlock(
         highlightedContentBlock.cb = cb;
 
         renderContentBlockHighlight();
-
-        // cout << "\nRender time: " << glfwGetTime() - before;
     }
 
     dim = renderText(
