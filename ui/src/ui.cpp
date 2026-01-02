@@ -32,8 +32,22 @@ float contentLeft = 0.0f;
 float contentRight = 550.0f;
 
 HighlightedContentBlock highlightedContentBlock = {
-    nullptr, false, false, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0
+    .cb = nullptr,
+    .parentElement = nullptr,
+    .show =  false,
+    .updated =  false,
+    .mouseDown = false,
+    .top =  0.0f,
+    .left =  0.0f,
+    .bottom =  0.0f,
+    .right =  0.0f,
+    .backgroundVAO = 0,
+    .backgroundVBO = 0,
+    .dragTabVAO = 0,
+    .dragTabVBO = 0,
 };
+
+ContentBlockMoveMarker cbMove = { false, true, nullptr, 0, 0, 0 };
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -1146,8 +1160,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         fontSize,
         borderRadius,
-        0,
-        0,
         positioning,
         pref,
         extraData,
@@ -1155,8 +1167,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     };
 }
 
-void initContentBlock(ContentBlock &cb, ContentBlockType type, string text) {
-    cb = ContentBlock {
+ContentBlock* initContentBlock(ContentBlockType type, string text) {
+    return new ContentBlock {
         .type = type,
         .reDraw = true,
         .visible = true,
@@ -1175,49 +1187,94 @@ void initContentBlock(ContentBlock &cb, ContentBlockType type, string text) {
         .onMouseDrag = defaultOnMouseUpDownCallback,
         .onMouseUp = defaultOnMouseUpDownCallback,
         .onHover = defaultCallback,
+
+        .prev = nullptr,
+        .next = nullptr,
     };
 }
 
-void initContentBlocks(UIElement& parentElement, int capacity) {
-    if (parentElement.contentBlocks != nullptr) {
-        cout << "\nContent blocks are already initialized for the parent element (" << parentElement.text << ").";
+ContentBlock* addContentBlock(UIElement& parentElement, ContentBlockType type, string text, ContentBlock* addAfter) {
+    if (parentElement.contentBlocks == nullptr) {
+        parentElement.contentBlocks = initContentBlock(type, text);
+        return parentElement.contentBlocks;
+    }
+
+    ContentBlock* block = initContentBlock(type, text);
+
+    if (addAfter != nullptr) {
+        block->prev = addAfter;
+        block->next = addAfter->next;
+
+        addAfter->next = block;
+        return block;
+    }
+
+    ContentBlock* temp = parentElement.contentBlocks;
+
+    while (temp->next != nullptr) {
+        temp = temp->next;
+    }
+
+    temp->next = block;
+    block->prev = temp;
+
+    return block;
+}
+
+void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* before = nullptr) {
+    if (parentElement->contentBlocks == nullptr) {
+        cout << "\nError: There are no content blocks in the parent element!";
         return;
     }
 
-    parentElement.contentBlockCapacity = capacity;
-    parentElement.contentBlocks = new ContentBlock[capacity];
-    parentElement.totalContentBlocks = 0;
-}
-
-void growContentBlocks(UIElement& parentElement) {
-    if (parentElement.contentBlockCapacity > GROWTH_THRESHOLD) {
-        parentElement.capacity += INCR_POST_GROWTH_THRESHOLD;
-    } else {
-        parentElement.capacity *= GROWTH_FACTOR;
+    if (cb == nullptr) {
+        cout << "\nError: There is no content block to move!";
+        return;
     }
 
-    ContentBlock* newlist = new ContentBlock[parentElement.contentBlockCapacity];
-
-    for (uint32_t i=0; i<parentElement.totalContentBlocks; ++i) {
-        newlist[i] = parentElement.contentBlocks[i];
+    if (cb == before) {
+        return;
     }
 
-    delete [] parentElement.children;
-
-    parentElement.contentBlocks = newlist;
-}
-
-void addContentBlock(UIElement& parentElement, ContentBlockType type, string text) {
-    if (parentElement.capacity == 0 || parentElement.contentBlocks == nullptr) {
-        initContentBlocks(parentElement, INITIAL_PARENT_CAPACITY);
+    if (before->prev == cb) {
+        cout << "\nThis element is in the right place. Aborting...";
+        return;
     }
 
-    if (parentElement.totalContentBlocks >= parentElement.contentBlockCapacity) {
-        growContentBlocks(parentElement);
+    cb->reDraw = true;
+    before->reDraw = true;
+
+    if (cb->prev != nullptr) {
+        cb->prev->next = cb->next;
     }
 
-    initContentBlock(parentElement.contentBlocks[parentElement.totalContentBlocks], type, text);
-    parentElement.totalContentBlocks += 1;
+    if (cb->next != nullptr) {
+        cb->next->prev = cb->prev;
+    }
+
+    if (before == nullptr || before == parentElement->contentBlocks) {
+        cb->next = parentElement->contentBlocks->next;
+        cb->prev = parentElement->contentBlocks;
+        parentElement->contentBlocks->next->prev = cb;
+        parentElement->contentBlocks->next = cb;
+        cout << "\nError: There is no content block in the \"before\"!";
+        return;
+    }
+
+    cb->next = before;
+
+    if (before->prev != nullptr) {
+        before->prev->next = cb;
+        cb->prev = before->prev;
+    }
+
+    before->prev = cb;
+
+    cout << "\nFinished moving content block!";
+
+    #ifdef DEBUG_CONTENT_BLOCKS
+        printContentBlocks(parentElement);
+    #endif
 }
 
 UIPreferences* initPreferences() {
@@ -1438,9 +1495,12 @@ void recalculateLayout(UIElement * elem) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
 
-            if (elem->contentBlocks != nullptr && elem->totalContentBlocks > 0) {
-                for (int i=0; i<elem->totalContentBlocks; ++i) {
-                    elem->contentBlocks[i].reDraw = true;
+            if (elem->contentBlocks != nullptr) {
+                ContentBlock* temp = elem->contentBlocks;
+
+                while (temp->next != nullptr) {
+                    temp->reDraw = true;
+                    temp = temp->next;
                 }
 
                 elem->extraData->scrollData.height = 0;
@@ -1688,7 +1748,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             // TODO: Render the rectangle with background colors. If borders
             // are set, then render borders.
 
-            if (elem.totalChildren || elem.totalContentBlocks) {
+            if (elem.totalChildren || elem.contentBlocks != nullptr) {
                 if (elem.reDraw) {
                     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
                     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
@@ -1719,13 +1779,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
 
-                highlightedContentBlock.show = false;
+                // highlightedContentBlock.show = false;
 
-                for (uint32_t i=0; i<elem.totalContentBlocks; ++i) {
-                    renderContentBlock(&elem, &elem.contentBlocks[i], i == 0 ? nullptr : &elem.contentBlocks[i - 1], resolution, cursor);
+                renderContentBlockHighlight();
+
+                ContentBlock* temp = elem.contentBlocks;
+
+                while (temp != nullptr) {
+                    renderContentBlock(&elem, temp, resolution, cursor);
+                    temp = temp->next;
                 }
 
-                if (!highlightedContentBlock.show && highlightedContentBlock.backgroundVAO) {
+                renderCBMoveMarker();
+
+                // if (!highlightedContentBlock.show && highlightedContentBlock.backgroundVAO) {
                     // glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVAO);
                     // glDeleteBuffers(1, &highlightedContentBlock.backgroundVBO);
 
@@ -1736,7 +1803,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     // highlightedContentBlock.backgroundVBO = 0;
                     // highlightedContentBlock.dragTabVAO = 0;
                     // highlightedContentBlock.dragTabVBO = 0;
-                }
+                // }
 
                 glDisable(GL_SCISSOR_TEST);
 
@@ -2758,7 +2825,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 void renderContentBlock(
     UIElement* parentElement,
     ContentBlock* cb,
-    ContentBlock* prevSibling,
     glm::vec2 &resolution,
     glm::vec2 &cursor
 ) {
@@ -2791,11 +2857,11 @@ void renderContentBlock(
     glm::vec4 dim;
 
     if (cb->reDraw) {
-        if (prevSibling != nullptr) {
-            cb->top = prevSibling->top + prevSibling->height + 8.0f;
-            cb->left = prevSibling->left;
+        if (cb->prev != nullptr) {
+            cb->top = cb->prev->top + cb->prev->height + 8.0f;
+            cb->left = cb->prev->left;
 
-            switch (prevSibling->type) {
+            switch (cb->prev->type) {
                 case CB_HEADING1:
                 case CB_HEADING2:
                 case CB_HEADING3:
@@ -2833,13 +2899,13 @@ void renderContentBlock(
     if (cb->reDraw) {
         // cout << "\n--> Rendering: " << text;
     } else if (
-        cb->type != ContentBlockType::CB_TITLE
+        !highlightedContentBlock.mouseDown
+        && cb->type != ContentBlockType::CB_TITLE
         && cursor.y > top && cursor.y < top + cb->height
     ) {
         // TODO: Make sure the cursor is not over a scrollbar.
-
-        // TODO: Change background color and show the drag tab.
         highlightedContentBlock.show = true;
+        highlightedContentBlock.parentElement = parentElement;
         highlightedContentBlock.left = left;
         highlightedContentBlock.top = top;
         highlightedContentBlock.bottom = top + cb->height;
@@ -2850,8 +2916,8 @@ void renderContentBlock(
         }
 
         highlightedContentBlock.cb = cb;
-
-        renderContentBlockHighlight();
+    } else if (highlightedContentBlock.mouseDown) {
+        highlightedContentBlock.show = true;
     }
 
     dim = renderText(
@@ -2884,12 +2950,14 @@ void renderContentBlockHighlight() {
         return;
     }
 
+    uint32_t colorU;
+
     if (highlightedContentBlock.backgroundVAO == 0) {
         glGenVertexArrays(1, &highlightedContentBlock.backgroundVAO);
         glBindVertexArray(highlightedContentBlock.backgroundVAO);
 
         if (highlightedContentBlock.backgroundVBO) {
-            glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVBO);
+            glDeleteBuffers(1, &highlightedContentBlock.backgroundVBO);
             highlightedContentBlock.backgroundVBO = 0;
         }
 
@@ -2921,7 +2989,7 @@ void renderContentBlockHighlight() {
     glBindVertexArray(highlightedContentBlock.backgroundVAO);
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
 
     glm::vec4 color = CONTENT_HIGHLIGHT_BG;
 
@@ -2938,7 +3006,7 @@ void renderContentBlockHighlight() {
         glBindVertexArray(highlightedContentBlock.dragTabVAO);
 
         if (highlightedContentBlock.dragTabVBO) {
-            glDeleteVertexArrays(1, &highlightedContentBlock.dragTabVBO);
+            glDeleteBuffers(1, &highlightedContentBlock.dragTabVBO);
             highlightedContentBlock.dragTabVBO = 0;
         }
 
@@ -2983,6 +3051,88 @@ void renderContentBlockHighlight() {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     highlightedContentBlock.updated = false;
+}
+
+void renderCBMoveMarker() {
+    #define Y_OFFSET highlightedContentBlock.parentElement->extraData->scrollData.yOffset
+
+    if (
+        highlightedContentBlock.mouseDown
+        && highlightedContentBlock.parentElement != nullptr
+        && cbMove.show
+        && cbMove.targetBlock != nullptr
+    ) {
+        if (cbMove.updated) {
+            if (cbMove.colorU == 0) {
+                cbMove.colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+            }
+
+            float top = cbMove.targetBlock->top - 1.5f;
+            float bottom = top + 3.0f;
+
+            float vertices[] = {
+                contentRight, top,
+                contentRight, bottom,
+                contentLeft, top,
+                contentLeft, bottom,
+            };
+
+            if (cbMove.vao) {
+                glBindVertexArray(cbMove.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, cbMove.vbo);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+                glBindVertexArray(0);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+            } else {
+                glGenVertexArrays(1, &cbMove.vao);
+                glBindVertexArray(cbMove.vao);
+
+                if (cbMove.vbo) {
+                    glDeleteBuffers(1, &cbMove.vbo);
+                    cbMove.vbo = 0;
+                }
+
+                glGenBuffers(1, &cbMove.vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, cbMove.vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+            }
+
+            cbMove.updated = false;
+        }
+
+        glBindVertexArray(cbMove.vao);
+        glUseProgram(shaders[SHADER_DEFAULT].programId);
+        glUniform4f(cbMove.colorU, 1.0f, 0.0f, 0.0f, 1.0f);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    #undef Y_OFFSET
+}
+
+void hideCBMoveMarker() {
+    cbMove.show = false;
+    glDeleteVertexArrays(1, &cbMove.vao);
+    glDeleteBuffers(1, &cbMove.vbo);
+
+    cbMove.vao = 0;
+    cbMove.vbo = 0;
+    cbMove.targetBlock = nullptr;
+}
+
+void reDrawAllContentBlocks(UIElement* parentElement) {
+    if (parentElement->contentBlocks == nullptr) {
+        return;
+    }
+
+    ContentBlock* temp = parentElement->contentBlocks;
+
+    while (temp->next != nullptr) {
+        temp->reDraw = true;
+        temp = temp->next;
+    }
 }
 
 void processRedo(UIElement* element) {
@@ -3381,5 +3531,36 @@ string elementType(UIElement *elem) {
 
         debug_lastTid = glfwGetTime();
     }
+#endif
+
+#ifdef DEBUG_CONTENT_BLOCKS
+
+void printContentBlocks(UIElement* parentElement) {
+    cout << "\nContent Blocks: ";
+
+    if (parentElement->contentBlocks == nullptr) {
+        return;
+    }
+
+    ContentBlock* temp = parentElement->contentBlocks;
+
+    while (temp != nullptr) {
+        cout << "\n  ";
+        switch (temp->type) {
+            case ContentBlockType::CB_TITLE: cout << "Title"; break;
+            case ContentBlockType::CB_HEADING1: cout << "Heading1"; break;
+            case ContentBlockType::CB_HEADING2: cout << "Heading2"; break;
+            case ContentBlockType::CB_HEADING3: cout << "Heading3"; break;
+            case ContentBlockType::CB_HEADING4: cout << "Heading4"; break;
+            case ContentBlockType::CB_HEADING5: cout << "Heading5"; break;
+            case ContentBlockType::CB_HEADING6: cout << "Heading6"; break;
+            case ContentBlockType::CB_PARAGRAPH: cout << "Paragraph"; break;
+        }
+
+        cout << " -> " << temp->rope->text.substr(0, 10);
+        temp = temp->next;
+    }
+}
+
 #endif
 

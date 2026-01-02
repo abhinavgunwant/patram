@@ -73,6 +73,7 @@
 // #define DEBUG_SCROLL_AREA
 // #define DEBUG_LAYOUT
 // #define DEBUG_RENDER
+#define DEBUG_CONTENT_BLOCKS
 
 using namespace std;
 
@@ -83,8 +84,10 @@ extern float contentLeft;
 extern float contentRight;
 
 struct HighlightedContentBlock;
+struct ContentBlockMoveMarker;
 
 extern HighlightedContentBlock highlightedContentBlock;
+extern ContentBlockMoveMarker cbMove;
 
 enum UIElementType {
     UI_LABEL,
@@ -291,8 +294,6 @@ struct UIElement {
 
     uint8_t fontSize;
     uint8_t borderRadius;
-    uint32_t totalContentBlocks;
-    uint32_t contentBlockCapacity;
 
     UIPositioning positioning;
 
@@ -325,12 +326,17 @@ struct ContentBlock {
     void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
     void (*onMouseUp)(UIElement*, float, float, glm::vec2);
     void (*onHover)(UIElement*);
+
+    ContentBlock* prev;
+    ContentBlock* next;
 };
 
 struct HighlightedContentBlock {
     ContentBlock* cb;
+    UIElement* parentElement;
     bool show;
     bool updated;
+    bool mouseDown;
     float top;
     float left;
     float bottom;
@@ -339,6 +345,15 @@ struct HighlightedContentBlock {
     uint32_t backgroundVBO;
     uint32_t dragTabVAO;
     uint32_t dragTabVBO;
+};
+
+struct ContentBlockMoveMarker {
+    bool show;
+    bool updated;
+    ContentBlock* targetBlock;
+    uint32_t vao;
+    uint32_t vbo;
+    uint32_t colorU;
 };
 
 void defaultCallback(UIElement* elem);
@@ -359,17 +374,20 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
-void initContentBlock(ContentBlock &cb, ContentBlockType type, string text);
-void initContentBlocks(UIElement& parentElement, uint32_t capacity);
-void addContentBlock(UIElement& parentElement, ContentBlockType type, string text);
+ContentBlock* initContentBlock(ContentBlockType type, string text);
+ContentBlock* addContentBlock(UIElement& parentElement, ContentBlockType type, string text, ContentBlock* addAfter = nullptr);
+void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* before);
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
-void renderContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* prevSibling, glm::vec2 &resolution, glm::vec2 &cursor);
+void renderContentBlock(UIElement* parentElement, ContentBlock* cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
+void renderCBMoveMarker();
+void hideCBMoveMarker();
+void reDrawAllContentBlocks(UIElement* parentElement);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
@@ -389,6 +407,10 @@ string elementType(UIElement* elem);
 #ifdef DEBUG_TEXT_SELECTION
 void printTextSelectionVertices(vector<float> &fvec);
 void printTextInputData(TextInputData* tid, string token = "");
+#endif
+
+#ifdef DEBUG_CONTENT_BLOCKS
+void printContentBlocks(UIElement* parentElement);
 #endif
 
 #endif // PATRAM_UI

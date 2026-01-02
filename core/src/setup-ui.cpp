@@ -110,11 +110,63 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 activeElement->active = false;
                 activeElement = nullptr;
             }
+
+            if (highlightedContentBlock.show) {
+                if (highlightedContentBlock.parentElement == nullptr) {
+                    highlightedContentBlock.show = false;
+                    highlightedContentBlock.mouseDown = false;
+
+                    if (highlightedContentBlock.cb != nullptr) {
+                        highlightedContentBlock.cb->isBeingDragged = false;
+                    }
+
+                    hideCBMoveMarker();
+
+                    return;
+                }
+
+                if (
+                    mouseX >= highlightedContentBlock.left - 20.0f
+                    && mouseX <= highlightedContentBlock.left
+                    && mouseY >= highlightedContentBlock.top
+                    && mouseY <= highlightedContentBlock.bottom
+                    && highlightedContentBlock.cb != nullptr
+                ) {
+                    highlightedContentBlock.cb->isBeingDragged = true;
+                    highlightedContentBlock.mouseDown = true;
+                } else {
+                    highlightedContentBlock.cb->isBeingDragged = false;
+                    highlightedContentBlock.mouseDown = false;
+                    cbMove.targetBlock = nullptr;
+                }
+            }
         } else if (action == GLFW_RELEASE) {
             #ifdef DEBUG_MOUSE_BUTTON
                 cout << "\nMouse button 1 released";
             #endif
             mouse1Down = false;
+
+            if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
+                if (
+                    highlightedContentBlock.cb != nullptr
+                    && cbMove.targetBlock != nullptr
+                ) {
+                    cout << "\nHighlighted content block RELEASE target: "
+                        << cbMove.targetBlock->rope->text.substr(0, 10);
+
+                    moveContentBlock(
+                        highlightedContentBlock.parentElement,
+                        highlightedContentBlock.cb,
+                        cbMove.targetBlock
+                    );
+
+                    highlightedContentBlock.cb->isBeingDragged = false;
+                    reDrawAllContentBlocks(highlightedContentBlock.parentElement);
+                }
+
+                highlightedContentBlock.mouseDown = false;
+                hideCBMoveMarker();
+            }
 
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
@@ -194,6 +246,33 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
+
+    if (
+        highlightedContentBlock.show
+        && highlightedContentBlock.parentElement != nullptr
+        && highlightedContentBlock.mouseDown
+    ) {
+        ContentBlock* temp = highlightedContentBlock.parentElement->contentBlocks;
+
+        while (temp != nullptr) {
+            float top = temp->top - highlightedContentBlock.parentElement->extraData->scrollData.yOffset;
+
+            if (
+                temp != cbMove.targetBlock
+                && temp != highlightedContentBlock.cb
+                && mouseY > top
+                && mouseY < top + temp->height
+            ) {
+                cbMove.targetBlock = temp;
+                cbMove.show = true;
+                cbMove.updated = true;
+                cout << "\nTarget element = " << temp->rope->text.substr(0, 10) << "...";
+                break;
+            }
+
+            temp = temp->next;
+        }
+    }
 
     if (
         activeElement != nullptr
@@ -463,8 +542,9 @@ void setupUI(bool isDarkTheme) {
     contentScroll->preferences->widthPreference = UI_FULL;
     contentScroll->preferences->heightPreference = UI_STRETCH;
 
-    addContentBlock(*contentScroll, CB_TITLE, "This is a test note title!");
-    addContentBlock(*contentScroll, CB_PARAGRAPH, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.");
+    ContentBlock* temp;
+    temp = addContentBlock(*contentScroll, CB_TITLE, "This is a test note title!");
+    addContentBlock(*contentScroll, CB_PARAGRAPH, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.", temp);
     addContentBlock(*contentScroll, CB_HEADING1, "Vivamus scelerisque ac lorem quis lacinia.");
     addContentBlock(*contentScroll, CB_PARAGRAPH, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
     addContentBlock(*contentScroll, CB_HEADING2, "Praesent rutrum odio in neque commodo pretium.");
@@ -483,6 +563,10 @@ void setupUI(bool isDarkTheme) {
     addChild(&rootContainer, contentScroll);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+
+    #ifdef DEBUG_CONTENT_BLOCKS
+        printContentBlocks(contentScroll);
+    #endif
 }
 
 void enterRenderLoop() {
