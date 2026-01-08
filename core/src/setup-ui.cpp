@@ -252,26 +252,57 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         && highlightedContentBlock.parentElement != nullptr
         && highlightedContentBlock.mouseDown
     ) {
+        #define SCROLL_DATA highlightedContentBlock.parentElement->extraData->scrollData
+
         ContentBlock* temp = highlightedContentBlock.parentElement->contentBlocks;
 
         while (temp != nullptr) {
-            float top = temp->top - highlightedContentBlock.parentElement->extraData->scrollData.yOffset;
+            float top = temp->top - SCROLL_DATA.yOffset;
 
             if (
-                temp != cbMove.targetBlock
-                && temp != highlightedContentBlock.cb
+                temp != highlightedContentBlock.cb
                 && mouseY > top
                 && mouseY < top + temp->height
             ) {
-                cbMove.targetBlock = temp;
+                if (
+                    temp == cbMove.targetBlock
+                    && mouseY > top + temp->height/2
+                    && temp->next != nullptr
+                ) {
+                    cbMove.targetBlock = temp->next;
+                } else {
+                    if (temp != cbMove.targetBlock && mouseY < top + temp->height/2) {
+                        cbMove.targetBlock = temp;
+                    }
+                }
+
                 cbMove.show = true;
                 cbMove.updated = true;
-                cout << "\nTarget element = " << temp->rope->text.substr(0, 10) << "...";
                 break;
             }
 
             temp = temp->next;
         }
+
+        if (mouseY > resolution.y - 50.0f) {
+            float newScrollOffset = (50.0f - resolution.y + mouseY)/10 + SCROLL_DATA.yOffset;
+
+            if (newScrollOffset > SCROLL_DATA.height) {
+                SCROLL_DATA.yOffset = SCROLL_DATA.height;
+            } else {
+                SCROLL_DATA.yOffset = newScrollOffset;
+            }
+        } else if (mouseY < 114.0f) {
+            float newScrollOffset = SCROLL_DATA.yOffset - (114.0f - mouseY)/10;
+
+            if (newScrollOffset < 0) {
+                SCROLL_DATA.yOffset = 0;
+            } else {
+                SCROLL_DATA.yOffset = newScrollOffset;
+            }
+        }
+
+        #undef SCROLL_DATA
     }
 
     if (
