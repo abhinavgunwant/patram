@@ -3067,7 +3067,7 @@ void renderCBMoveMarker() {
                 cbMove.colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
             }
 
-            float top = cbMove.targetBlock->top - 1.5f;
+            float top = cbMove.targetBlock->top - 1.5f - Y_OFFSET;
             float bottom = top + 3.0f;
 
             float vertices[] = {
