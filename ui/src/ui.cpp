@@ -13,6 +13,7 @@
 #include "../lib/stb_image.h"
 
 #define TIME() static_cast<float>(glfwGetTime())
+#define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
 
 using namespace std;
 
@@ -1209,14 +1210,12 @@ ContentBlock* addContentBlock(UIElement& parentElement, ContentBlockType type, s
         return block;
     }
 
-    ContentBlock* temp = parentElement.contentBlocks;
+    ContentBlock* last = parentElement.contentBlocks;
 
-    while (temp->next != nullptr) {
-        temp = temp->next;
-    }
+    LAST_IN_LIST(last);
 
-    temp->next = block;
-    block->prev = temp;
+    last->next = block;
+    block->prev = last;
 
     return block;
 }
@@ -1236,13 +1235,12 @@ void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* 
         return;
     }
 
-    if (before->prev == cb) {
+    if (before != nullptr && before->prev == cb) {
         cout << "\nThis element is in the right place. Aborting...";
         return;
     }
 
     cb->reDraw = true;
-    before->reDraw = true;
 
     if (cb->prev != nullptr) {
         cb->prev->next = cb->next;
@@ -1252,7 +1250,23 @@ void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* 
         cb->next->prev = cb->prev;
     }
 
-    if (before == nullptr || before == parentElement->contentBlocks) {
+    if (before == nullptr) {
+        cout << "\nMoving after last element.";
+        auto last = parentElement->contentBlocks;
+
+        while (last->next != nullptr) {
+            last = last->next;
+        }
+
+        last->next = cb;
+        cb->prev = last;
+        cb->next = nullptr;
+        return;
+    }
+
+    before->reDraw = true;
+
+    if (before == parentElement->contentBlocks) {
         cb->next = parentElement->contentBlocks->next;
         cb->prev = parentElement->contentBlocks;
         parentElement->contentBlocks->next->prev = cb;
@@ -3054,20 +3068,30 @@ void renderContentBlockHighlight() {
 }
 
 void renderCBMoveMarker() {
-    #define Y_OFFSET highlightedContentBlock.parentElement->extraData->scrollData.yOffset
+    #define GET_TOP(block) block->top - 1.5f - highlightedContentBlock.parentElement->extraData->scrollData.yOffset
 
     if (
         highlightedContentBlock.mouseDown
         && highlightedContentBlock.parentElement != nullptr
         && cbMove.show
-        && cbMove.targetBlock != nullptr
     ) {
         if (cbMove.updated) {
             if (cbMove.colorU == 0) {
                 cbMove.colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
             }
 
-            float top = cbMove.targetBlock->top - 1.5f - Y_OFFSET;
+            float top;
+
+            if (cbMove.targetBlock == nullptr) {
+                ContentBlock* last = highlightedContentBlock.parentElement->contentBlocks;
+
+                LAST_IN_LIST(last);
+
+                top = GET_TOP(last) + last->height;
+            } else {
+                top = GET_TOP(cbMove.targetBlock);
+            }
+
             float bottom = top + 3.0f;
 
             float vertices[] = {
@@ -3109,7 +3133,7 @@ void renderCBMoveMarker() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
 
-    #undef Y_OFFSET
+    #undef GET_TOP
 }
 
 void hideCBMoveMarker() {

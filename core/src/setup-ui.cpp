@@ -147,12 +147,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouse1Down = false;
 
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
-                if (
-                    highlightedContentBlock.cb != nullptr
-                    && cbMove.targetBlock != nullptr
-                ) {
-                    cout << "\nHighlighted content block RELEASE target: "
-                        << cbMove.targetBlock->rope->text.substr(0, 10);
+                if (highlightedContentBlock.cb != nullptr) {
+                    cout << "\nHighlighted content block RELEASE target: ";
+
+                    if (cbMove.targetBlock != nullptr) {
+                        cout << cbMove.targetBlock->rope->text.substr(0, 10);
+                    } else {
+                        cout << "NULL";
+                    }
 
                     moveContentBlock(
                         highlightedContentBlock.parentElement,
@@ -267,7 +269,6 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 if (
                     temp == cbMove.targetBlock
                     && mouseY > top + temp->height/2
-                    && temp->next != nullptr
                 ) {
                     cbMove.targetBlock = temp->next;
                 } else {
