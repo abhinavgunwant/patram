@@ -288,8 +288,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         if (mouseY > resolution.y - 50.0f) {
             float newScrollOffset = (50.0f - resolution.y + mouseY)/10 + SCROLL_DATA.yOffset;
 
-            if (newScrollOffset > SCROLL_DATA.height) {
-                SCROLL_DATA.yOffset = SCROLL_DATA.height;
+            if (newScrollOffset > SCROLL_DATA.height - resolution.y) {
+                SCROLL_DATA.yOffset = SCROLL_DATA.height - resolution.y + 50.0f;
             } else {
                 SCROLL_DATA.yOffset = newScrollOffset;
             }
