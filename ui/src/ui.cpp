@@ -29,7 +29,7 @@ bool darkTheme = false;
 uint32_t iconButtonVAO;
 uint32_t iconButtonVBO;
 
-float contentLeft = 0.0f;
+float contentLeft = CONTENT_HORIZONTAL_MARGIN;
 float contentRight = 550.0f;
 
 HighlightedContentBlock highlightedContentBlock = {
@@ -1510,12 +1510,7 @@ void recalculateLayout(UIElement * elem) {
             elem->reDraw = true;
 
             if (elem->contentBlocks != nullptr) {
-                ContentBlock* temp = elem->contentBlocks;
-
-                while (temp->next != nullptr) {
-                    temp->reDraw = true;
-                    temp = temp->next;
-                }
+                reDrawAllContentBlocks(elem);
 
                 elem->extraData->scrollData.height = 0;
             }
@@ -2910,30 +2905,6 @@ void renderContentBlock(
 
     string text = cb->rope->getString();
 
-    if (cb->reDraw) {
-        // cout << "\n--> Rendering: " << text;
-    } else if (
-        !highlightedContentBlock.mouseDown
-        && cb->type != ContentBlockType::CB_TITLE
-        && cursor.y > top && cursor.y < top + cb->height
-    ) {
-        // TODO: Make sure the cursor is not over a scrollbar.
-        highlightedContentBlock.show = true;
-        highlightedContentBlock.parentElement = parentElement;
-        highlightedContentBlock.left = left;
-        highlightedContentBlock.top = top;
-        highlightedContentBlock.bottom = top + cb->height;
-        highlightedContentBlock.right = contentRight;
-
-        if (highlightedContentBlock.cb != cb) {
-            highlightedContentBlock.updated = true;
-        }
-
-        highlightedContentBlock.cb = cb;
-    } else if (highlightedContentBlock.mouseDown) {
-        highlightedContentBlock.show = true;
-    }
-
     dim = renderText(
         text,
         glm::vec2(left, top),
@@ -3153,7 +3124,7 @@ void reDrawAllContentBlocks(UIElement* parentElement) {
 
     ContentBlock* temp = parentElement->contentBlocks;
 
-    while (temp->next != nullptr) {
+    while (temp != nullptr) {
         temp->reDraw = true;
         temp = temp->next;
     }

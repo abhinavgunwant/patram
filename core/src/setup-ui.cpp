@@ -237,6 +237,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     #endif
 
     recalculateLayout(&rootContainer);
+    highlightedContentBlock.show = false;
+    highlightedContentBlock.updated = true;
 
     resolution = glm::vec2(width, height);
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
@@ -248,6 +250,43 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
+
+    if (highlightedContentBlock.parentElement != nullptr && !highlightedContentBlock.mouseDown) {
+        ContentBlock* cb = highlightedContentBlock.parentElement->contentBlocks;
+
+        float top;
+
+        while (cb != nullptr) {
+            top = cb->top - highlightedContentBlock.parentElement->extraData->scrollData.yOffset;
+
+            if (ypos > top && ypos < top + cb->height) {
+                if (cb->type == ContentBlockType::CB_TITLE) {
+                    highlightedContentBlock.show = false;
+                    break;
+                }
+
+                // TODO: Make sure the cursor is not over a scrollbar.
+                highlightedContentBlock.show = true;
+                highlightedContentBlock.left = contentLeft;
+                highlightedContentBlock.top = top;
+                highlightedContentBlock.bottom = top + cb->height;
+                highlightedContentBlock.right = contentRight;
+
+                if (highlightedContentBlock.cb != cb) {
+                    highlightedContentBlock.updated = true;
+                }
+
+                highlightedContentBlock.cb = cb;
+                break;
+            }
+
+            cb = cb->next;
+        }
+
+        if (cb == nullptr) {
+            highlightedContentBlock.show = false;
+        }
+    }
 
     if (
         highlightedContentBlock.show
@@ -325,6 +364,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     #endif
 
     highlightedContentBlock.show = false;
+    highlightedContentBlock.updated = true;
     UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
     bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
@@ -593,6 +633,8 @@ void setupUI(bool isDarkTheme) {
 
     addChild(&rootContainer, menuBar);
     addChild(&rootContainer, contentScroll);
+
+    highlightedContentBlock.parentElement = contentScroll;
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 
