@@ -232,11 +232,13 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     windowWidth = width;
     windowHeight = height;
 
-    #ifdef DEBUG_LAYOUT
-        cout << "\nRecalculating layout";
-    #endif
+    if (!minimized) {
+        #ifdef DEBUG_LAYOUT
+            cout << "\nRecalculating layout";
+        #endif
 
-    recalculateLayout(&rootContainer);
+        recalculateLayout(&rootContainer);
+    }
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
 
