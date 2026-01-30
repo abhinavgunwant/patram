@@ -15,6 +15,7 @@
 
 #define MAX_CHARACTERS 65536
 #define DEFAULT_FONT_SIZE 48
+#define ATLAS_DIMENSION 1024
 // #define DEBUG_TEXT
 
 #ifdef DEBUG_TEXT
@@ -31,6 +32,13 @@ struct Character {
     uint8_t bearingTop;
 	uint16_t textureID; // ID handle of the glyph texture
 	uint16_t advance;   // Horizontal offset to advance to next glyph
+};
+
+struct Char {
+    uint16_t charcode;
+    uint8_t width;
+    uint8_t height;
+    uint8_t* bitmap;
 };
 
 struct GlyphDimensions {

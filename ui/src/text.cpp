@@ -1,9 +1,15 @@
 #include "include/text.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <iostream>
 #include <cstdlib>
 #include <string>
+
+#ifdef DEBUG_TEXT_ATLAS
+    #include <thread>
+#endif
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -12,6 +18,7 @@
 
 #include "include/shader.hpp"
 #include "include/ui.hpp"
+#include "../lib/stb_image_write.h"
 
 using namespace std;
 
@@ -22,6 +29,14 @@ bool debugTextFirstRenderPrint = true;
 Character characters[MAX_CHARACTERS];
 Shader textShader;
 unsigned int textVAO, textVBO;
+
+vector<Char> chvec;
+
+void saveFontAtlas();
+
+void initAtlas() {
+    chvec.reserve(256);
+}
 
 void initCharGlyph(FT_Face& face, uint16_t c) {
 	if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
@@ -62,14 +77,81 @@ void initCharGlyph(FT_Face& face, uint16_t c) {
         }
     #endif
 
+    uint8_t width = face->glyph->bitmap.width;
+    uint8_t height = face->glyph->bitmap.rows;
+
 	characters[c] = {
-        static_cast<uint8_t>(face->glyph->bitmap.width),
-		static_cast<uint8_t>(face->glyph->bitmap.rows),
+        static_cast<uint8_t>(width),
+		static_cast<uint8_t>(height),
 		static_cast<int8_t>(face->glyph->bitmap_left),
         static_cast<uint8_t>(face->glyph->bitmap_top),
 		static_cast<uint16_t>(texture),
 		static_cast<uint16_t>(face->glyph->advance.x)
 	};
+
+    Char cccc = { c, width, height, nullptr };
+
+    cccc.bitmap = new uint8_t[width * height];
+
+    for (int i=0; i<width * height; ++i) {
+        cccc.bitmap[i] = face->glyph->bitmap.buffer[i];
+    }
+
+    chvec.push_back(cccc);
+}
+
+void saveFontAtlas() {
+    cout << "\nWriting character atlas";
+
+    std::sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+        if (a.height == b.height) {
+            return a.width < b.width;
+        }
+
+        return a.height < b.height;
+    });
+
+    uint8_t* png_data = new uint8_t[ATLAS_DIMENSION * ATLAS_DIMENSION];
+
+    for (uint32_t i=0; i<ATLAS_DIMENSION * ATLAS_DIMENSION; ++i) {
+        png_data[i] = 0;
+    }
+
+    uint16_t max_y = 0;
+    uint16_t x = 0;
+    uint16_t y = 0;
+
+    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
+        if ((*itr).height == 0 || (*itr).width == 0) {
+            continue;
+        }
+
+        if ((*itr).height > max_y) {
+            max_y = (*itr).height;
+        }
+
+        if (x + (*itr).width > ATLAS_DIMENSION) {
+            y += max_y + 1;
+            x = 0;
+        }
+
+        for (int i=y; i<y + (*itr).height && i<ATLAS_DIMENSION; ++i) {
+            for (int j=x; j<x + (*itr).width && j<ATLAS_DIMENSION; ++j) {
+                png_data[i * ATLAS_DIMENSION + j] = (*itr).bitmap[(i - y) * (*itr).width + (j - x)];
+            }
+        }
+
+        x += (*itr).width + 1;
+
+        delete (*itr).bitmap;
+    }
+
+    stbi_write_png("font-atlas.png", ATLAS_DIMENSION, ATLAS_DIMENSION, 1, png_data, ATLAS_DIMENSION);
+
+    cout << "\nCharacter atlas written";
+
+    chvec.clear();
+    chvec.resize(0);
 }
 
 void initFonts() {
@@ -127,7 +209,27 @@ void initTextRendering(uint16_t width, uint16_t height) {
         static_cast<float>(height)
     );
 
+    auto t0 = std::chrono::high_resolution_clock::now();
+
+    initAtlas();
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+
 	initFonts();
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    saveFontAtlas();
+
+    auto t3 = std::chrono::high_resolution_clock::now();
+
+    auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
+    auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+    auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    cout << "\nDEBUG: Initializing font atlas took " << duration0.count() << " microseconds.";
+    cout << "\nDEBUG: Initializing fonts took " << duration1.count() << " microseconds.";
+    cout << "\nDEBUG: Saving font atlas took " << duration2.count() << " microseconds.";
 
 	glGenVertexArrays(1, &textVAO);
 	glGenBuffers(1, &textVBO);

@@ -4,6 +4,7 @@ add_executable(rope src/test_rope.cpp src/rope.cpp)
 
 add_library(ui
     lib/stb_image.cpp
+    lib/stb_image_write.cpp
     src/ui.cpp
     src/render.cpp
     src/shader.cpp
