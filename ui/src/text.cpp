@@ -32,8 +32,6 @@ unsigned int textVAO, textVBO;
 
 vector<Char> chvec;
 
-void saveFontAtlas();
-
 void initAtlas() {
     chvec.reserve(256);
 }

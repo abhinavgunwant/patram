@@ -15,6 +15,7 @@ add_library(ui
 
 target_include_directories(ui
     PUBLIC
+    sys
     src/include
     ${INCLUDE_DIR}
 )

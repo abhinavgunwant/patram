@@ -1,9 +1,11 @@
-#include "include/dark-mode.hpp"
+#include "include/utils.hpp"
 
 #ifdef _WIN32
     #include <winrt/windows.ui.viewmanagement.h>
     using namespace winrt::Windows::UI::ViewManagement;
 #endif
+
+using namespace std;
 
 bool isDarkMode() {
     #ifdef _WIN32

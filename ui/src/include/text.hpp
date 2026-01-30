@@ -92,6 +92,7 @@ glm::vec4 renderText(
 
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
+void saveFontAtlas();
 
 #endif // PATRAM_TEXT
 

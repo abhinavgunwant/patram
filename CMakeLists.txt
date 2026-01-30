@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 project(patram CXX)
 
 add_subdirectory(core)
+add_subdirectory(sys)
 add_subdirectory(ui)
 add_subdirectory(note)
 
