@@ -18,4 +18,11 @@ TODOs.md
 .cache/
 font-atlas.png
 patram.rad
+*.msi
+*.wixpdb
+*.cab
+*.FileListAbsolute.txt
+*.CoreCompileInputs.cache
+*.BindTracking-neutral.txt
+wix/obj/*
 
