@@ -13,26 +13,26 @@
 using namespace std;
 
 void showWindow() {
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "patram", NULL, NULL);
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "patram", NULL, NULL);
 
-	if (window == NULL) {
-		cout << "\nFailed to create GLFW window";
-		glfwTerminate();
-		exit(-1);
-	}
+    if (window == NULL) {
+        cout << "\nFailed to create GLFW window";
+        glfwTerminate();
+        exit(-1);
+    }
 
-	glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(window);
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		cerr << "\nFailed to initialize GLAD";
-	}
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        cerr << "\nFailed to initialize GLAD";
+    }
 
-	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     glfwSetKeyCallback(window, keyCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -45,6 +45,6 @@ void showWindow() {
 
     glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
 
-	glClearColor(0, 0, 0, 1.0);
+    glClearColor(0, 0, 0, 1.0);
 }
 

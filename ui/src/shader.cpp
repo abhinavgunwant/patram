@@ -265,18 +265,18 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
     // cout << "\nVertex shader code ("<< (int) vs << "): \n" << vsCode << "\n";
     // cout << "\nFragment shader code (// " << (int) fs << "): \n" << fsCode << "\n";
 
-	glShaderSource(vShaderID, 1, (char const* const*)&vsCode, NULL);
-	glCompileShader(vShaderID);
-	glGetShaderiv(vShaderID, GL_COMPILE_STATUS, &success);
+    glShaderSource(vShaderID, 1, (char const* const*)&vsCode, NULL);
+    glCompileShader(vShaderID);
+    glGetShaderiv(vShaderID, GL_COMPILE_STATUS, &success);
 
-	if (!success) {
-		char log[1024];
-		glGetShaderInfoLog(vShaderID, 1024, NULL, log);
-		cerr << "\nError: vertexShader(" << vShaderID << ") index " << (int)index
+    if (!success) {
+        char log[1024];
+        glGetShaderInfoLog(vShaderID, 1024, NULL, log);
+        cerr << "\nError: vertexShader(" << vShaderID << ") index " << (int)index
             << "'s compilation failed:\n" << log;
 
         return 0;
-	}
+    }
 
     // cout << "\ncompiled vertex shader";
 
@@ -286,40 +286,40 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
         cerr << "\nCould not create fragment shader " << (int)index;
     }
 
-	glShaderSource(fShaderID, 1, (char const* const*)&fsCode, NULL);
-	glCompileShader(fShaderID);
-	glGetShaderiv(fShaderID, GL_COMPILE_STATUS, &success);
+    glShaderSource(fShaderID, 1, (char const* const*)&fsCode, NULL);
+    glCompileShader(fShaderID);
+    glGetShaderiv(fShaderID, GL_COMPILE_STATUS, &success);
 
-	if (!success) {
-		char log[1024];
-		glGetShaderInfoLog(fShaderID, 1024, NULL, log);
-		cerr << "\nError: fragmentShader(" << fShaderID << ", index: " << (int)index
+    if (!success) {
+        char log[1024];
+        glGetShaderInfoLog(fShaderID, 1024, NULL, log);
+        cerr << "\nError: fragmentShader(" << fShaderID << ", index: " << (int)index
             << ")'s compilation failed:\n" << log;
 
         return 0;
-	}
+    }
 
     // cout << "\ncompiled fragment shader";
 
-	uint32_t programID = glCreateProgram();
+    uint32_t programID = glCreateProgram();
 
-	glAttachShader(programID, vShaderID);
-	glAttachShader(programID, fShaderID);
+    glAttachShader(programID, vShaderID);
+    glAttachShader(programID, fShaderID);
 
-	glLinkProgram(programID);
+    glLinkProgram(programID);
 
-	// cout << "\nLinking... Program ID: " << programID;
+    // cout << "\nLinking... Program ID: " << programID;
 
-	glGetProgramiv(programID, GL_LINK_STATUS, &success);
+    glGetProgramiv(programID, GL_LINK_STATUS, &success);
 
-	if (!success) {
-		char log[1024];
-		glGetProgramInfoLog(programID, 1024, NULL, log);
-		cerr << "\nError while linking shader program:\n" << log;
-	}
+    if (!success) {
+        char log[1024];
+        glGetProgramInfoLog(programID, 1024, NULL, log);
+        cerr << "\nError while linking shader program:\n" << log;
+    }
 
-	glDeleteShader(vShaderID);
-	glDeleteShader(fShaderID);
+    glDeleteShader(vShaderID);
+    glDeleteShader(fShaderID);
 
     return programID;
 }

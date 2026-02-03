@@ -30,8 +30,8 @@ struct Character {
     uint8_t height;
     int8_t bearingLeft;
     uint8_t bearingTop;
-	uint16_t textureID; // ID handle of the glyph texture
-	uint16_t advance;   // Horizontal offset to advance to next glyph
+    uint16_t textureID; // ID handle of the glyph texture
+    uint16_t advance;   // Horizontal offset to advance to next glyph
 };
 
 struct Char {
@@ -56,8 +56,8 @@ struct GlyphDimensions {
 
     float scale; // Font Height Ratio
 
-	uint16_t advance; // Same as in Character
-	uint16_t textureID; // Same as in Character
+    uint16_t advance; // Same as in Character
+    uint16_t textureID; // Same as in Character
 };
 
 extern Character characters[MAX_CHARACTERS];
