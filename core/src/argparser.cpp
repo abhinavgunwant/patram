@@ -1,9 +1,35 @@
 #include "include/argparser.hpp"
+#include "include/setup-ui.hpp"
 
 #include <iostream>
-#include <string>
+
+#include "ui.hpp"
+#include "utils.hpp"
 
 using namespace std;
+
+void processCmdLineArgs(int argc, char ** argv) {
+    switch (parseArgs(argc, argv)) {
+        case CMD_LINE_VERSION: displayVersion(); exit(0);
+        case CMD_LINE_ERROR: displayError(); exit(1);
+        case CMD_LINE_HELP: displayHelp(); exit(0);
+
+        case CMD_LINE_RUN_DARK: darkTheme = true; break;
+
+        case CMD_LINE_FPS:
+            showFps = true;
+            darkTheme = isDarkMode();
+            break;
+
+        case CMD_LINE_RUN:
+            darkTheme = false;
+            break;
+
+        case CMD_LINE_NONE:
+            darkTheme = isDarkMode();
+            break;
+    }
+}
 
 CmdLineArgs parseArgs(int argc, char ** argv) {
     if (argc == 2) {

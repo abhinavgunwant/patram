@@ -15,6 +15,7 @@ enum CmdLineArgs {
     CMD_LINE_FPS,
 };
 
+void processCmdLineArgs(int argc, char ** argv);
 CmdLineArgs parseArgs(int argc, char ** argv);
 void displayVersion();
 void displayHelp();
