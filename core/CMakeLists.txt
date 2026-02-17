@@ -1,3 +1,5 @@
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(core)
 
 add_executable(patram
@@ -5,6 +7,7 @@ add_executable(patram
     src/argparser.cpp
     src/window-utils.cpp
     src/setup-ui.cpp
+    src/startup-checks.cpp
     src/glad.c
 )
 

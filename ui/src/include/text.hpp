@@ -12,34 +12,31 @@
 #include FT_FREETYPE_H
 
 #include "ui.hpp"
+#include "files.hpp"
 
-#define MAX_CHARACTERS 65536
-#define DEFAULT_FONT_SIZE 48
-#define ATLAS_DIMENSION 1024
+#define MAX_CHARACTERS              65535
+#define DEFAULT_FONT_SIZE           48
+#define ATLAS_DIMENSION             1024
 // #define DEBUG_TEXT
 
 #ifdef DEBUG_TEXT
 extern bool debugTextFirstRenderPrint;
 #endif
 
+#define ASCII_START_CHAR            32
+#define ASCII_END_CHAR              126
+#define ASCII_LEN                   95
+
+#define DEVANAGARI_START_CHAR       2304
+#define DEVANAGARI_END_CHAR         2431
+#define DEVANAGARI_LEN              128
+#define DEVANAGARI_EXT_START_CHAR   43232
+#define DEVANAGARI_EXT_END_CHAR     43263
+#define DEVANAGARI_EXT_LEN          32
+
+#define MAX_CHAR_INDEX              0xffff
+
 using namespace std;
-
-/// Holds all state information relevant to a character as loaded using FreeType
-struct Character {
-    uint8_t width;
-    uint8_t height;
-    int8_t bearingLeft;
-    uint8_t bearingTop;
-    uint16_t textureID; // ID handle of the glyph texture
-    uint16_t advance;   // Horizontal offset to advance to next glyph
-};
-
-struct Char {
-    uint16_t charcode;
-    uint8_t width;
-    uint8_t height;
-    uint8_t* bitmap;
-};
 
 struct GlyphDimensions {
     /** x dimension of the left of glyph */
@@ -60,11 +57,12 @@ struct GlyphDimensions {
     uint16_t textureID; // Same as in Character
 };
 
-extern Character characters[MAX_CHARACTERS];
+extern uint32_t fontTextureID;
+extern vector<Char> chvec;
+extern Character* characters;
 extern unsigned int textVAO, textVBO;
 
 void initCharGlyph(FT_Face& face, uint16_t c);
-void initFonts();
 void initTextRendering(uint16_t width, uint16_t height);
 
 /**
@@ -93,6 +91,9 @@ glm::vec4 renderText(
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 void saveFontAtlas();
+void initFontTexture(string path);
+
+uint16_t getCharIndex(uint32_t charcode);
 
 #endif // PATRAM_TEXT
 

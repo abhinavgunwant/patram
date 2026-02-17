@@ -7,6 +7,7 @@
 #include "GLFW/glfw3.h"
 #include "include/window-utils.hpp"
 #include "text.hpp"
+#include "files.hpp"
 
 #define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0)
@@ -639,6 +640,8 @@ void setupUI(bool isDarkTheme) {
     highlightedContentBlock.parentElement = contentScroll;
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+
+    initFontTexture(getFontAtlasPath(0).string());
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(contentScroll);

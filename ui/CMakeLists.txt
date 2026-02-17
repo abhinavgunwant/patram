@@ -1,3 +1,5 @@
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(ui)
 
 add_executable(rope src/test_rope.cpp src/rope.cpp)
@@ -15,10 +17,12 @@ add_library(ui
 
 target_include_directories(ui
     PUBLIC
-    sys
     src/include
     ${INCLUDE_DIR}
 )
 
-target_link_libraries(patram ${LIB_DIR})
+target_link_libraries(ui
+    sys
+    ${LIB_DIR}
+)
 
