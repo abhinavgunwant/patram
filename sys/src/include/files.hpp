@@ -25,6 +25,7 @@ using namespace std;
 #define FONT_ATLAS_FILE_NAME_PREFIX     "fa"
 #define FONT_ATLAS_FILE_NAME_EXT        ".png"
 #define FONT_INFO_FILE_NAME_PREFIX      "fi"
+#define FONT_ATLAS_MARGIN               2
 
 #define CURRENT_FONT_INFO_VERSION       0
 

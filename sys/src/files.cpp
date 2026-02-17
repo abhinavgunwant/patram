@@ -192,8 +192,8 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
     }
 
     uint16_t max_y = 0;
-    uint16_t x = 0;
-    uint16_t y = 0;
+    uint16_t x = FONT_ATLAS_MARGIN;
+    uint16_t y = FONT_ATLAS_MARGIN;
 
     for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
         if ((*itr).height == 0 || (*itr).width == 0) {
@@ -205,11 +205,10 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
         }
 
         if (x + (*itr).width > ATLAS_DIMENSION) {
-            y += max_y + 1;
-            x = 0;
+            y += max_y + FONT_ATLAS_MARGIN;
+            x = FONT_ATLAS_MARGIN;
         }
 
-        // cout << "\nCharcode: " << (*itr).charcode << " x: " << x << " y: " << y;
         characters[(*itr).charcode].textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
         characters[(*itr).charcode].textureY1 = 1.0f - static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
         characters[(*itr).charcode].textureX2 = static_cast<float>(x + (*itr).width)/static_cast<float>(ATLAS_DIMENSION);
@@ -221,7 +220,7 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
             }
         }
 
-        x += (*itr).width + 1;
+        x += (*itr).width + FONT_ATLAS_MARGIN;
 
         delete [] (*itr).bitmap;
     }
