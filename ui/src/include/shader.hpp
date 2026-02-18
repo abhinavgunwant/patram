@@ -3,6 +3,7 @@
 
 #include <string>
 
+// #define DEBUG_SHADER
 #define TOTAL_SHADERS 6
 #define TOTAL_VERTEX_SHADERS 3
 #define TOTAL_FRAGMENT_SHADERS 6

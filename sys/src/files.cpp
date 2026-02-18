@@ -93,7 +93,9 @@ void createCacheDirectory() {
 }
 
 void createCacheIndex(vector<string> fontFilePaths) {
-    cout << "\nSTARTUP CHECK: Writing cache index";
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Writing cache index";
+    #endif
 
     filesystem::path cacheIndex = getCacheIndexPath();
 
@@ -130,16 +132,22 @@ void createCacheIndex(vector<string> fontFilePaths) {
         const char * fontFilePath = (*itr).c_str();
 
         f.write(fontFilePath, (*itr).length());
-        cout << "\nSTARTUP CHECK: Font file path: " << fontFilePath << "(" << (*itr).length() << ")";
+        #ifdef DEBUG_FILES
+            cout << "\nSTARTUP CHECK: Font file path: " << fontFilePath << "(" << (*itr).length() << ")";
+        #endif
     }
 
     f.close();
 
-    cout << "\nSTARTUP CHECK: Cache Index file written in " << cacheIndex.string();
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Cache Index file written in " << cacheIndex.string();
+    #endif
 }
 
 void createFontInfoFile(uint8_t index, Character* characters, uint16_t len) {
-    cout << "\nSTARTUP CHECK: Writing font information";
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Writing font information";
+    #endif
 
     filesystem::path fontInfoPath = getFontInfoPath(index);
     // fontInfoPath /= "fi" + to_string((int)index);
@@ -171,11 +179,15 @@ void createFontInfoFile(uint8_t index, Character* characters, uint16_t len) {
 
     f.close();
 
-    cout << "\nSTARTUP CHECK: Font information file written in " << fontInfoPath.string();
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Font information file written in " << fontInfoPath.string();
+    #endif
 }
 
 void createFontAtlasFile(uint8_t index, Character* characters) {
-    cout << "\nSTARTUP CHECK: Writing font atlas";
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Writing font atlas";
+    #endif
 
     std::sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
         if (a.height == b.height) {
@@ -231,7 +243,9 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
 
     delete [] png_data;
 
-    cout << "\nSTARTUP CHECK: Character atlas written in " << fontAtlasPath;
+    #ifdef DEBUG_FILES
+        cout << "\nSTARTUP CHECK: Character atlas written in " << fontAtlasPath;
+    #endif
 }
 
 bool processFontInfoFile(Character* characters) {
@@ -250,14 +264,14 @@ bool processFontInfoFile(Character* characters) {
     f.read((char *)&magic[3], sizeof(uint8_t));
 
     if (magic[0] != MAGIC_1 || magic[1] != MAGIC_2 || magic[2] != MAGIC_3 || magic[3] != MAGIC_4_FI) {
-        cerr << "\nSTARTUP CHECK: Invalid font info file.";
+        cerr << "\nError: Invalid font info file.";
         return false;
     }
 
     f.read((char *)&ver, sizeof(ver));
 
     if (ver != CURRENT_FONT_INFO_VERSION) {
-        cerr << "\nSTARTUP CHECK: Unsupported font info versoin.";
+        cerr << "\nError: Unsupported font info versoin.";
         return false;
     }
 

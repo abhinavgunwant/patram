@@ -62,7 +62,6 @@ extern vector<Char> chvec;
 extern Character* characters;
 extern unsigned int textVAO, textVBO;
 
-void initCharGlyph(FT_Face& face, uint16_t c);
 void initTextRendering(uint16_t width, uint16_t height);
 
 /**
@@ -90,7 +89,6 @@ glm::vec4 renderText(
 
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
-void saveFontAtlas();
 void initFontTexture(string path);
 
 uint16_t getCharIndex(uint32_t charcode);

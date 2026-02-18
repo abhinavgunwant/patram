@@ -15,26 +15,30 @@ bool initFonts(string fontPath, bool cache) {
     characters = new Character[MAX_CHARACTERS];
 
     if (cache) {
-        cout << "\nSTARTUP CHECK: Initializing fonts from cache.";
+        #ifdef DEBUG_TEXT
+            cout << "\nSTARTUP CHECK: Initializing fonts from cache.";
+        #endif
 
         if (processFontInfoFile(characters)) {
             return true;
         }
     }
 
-    cout << "\nSTARTUP CHECK: Initializing font cache.";
+    #ifdef DEBUG_TEXT
+        cout << "\nSTARTUP CHECK: Initializing font cache.";
+    #endif
 
     FT_Library ft;
 
     if (FT_Init_FreeType(&ft)) {
-        std::cerr << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
+        std::cerr << "Error: FREETYPE: Could not init FreeType Library" << std::endl;
         return false;
     }
 
     // load font as face
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-        std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
+        std::cout << "Error: FREETYPE: Failed to load font" << std::endl;
         return false;
     }
 
@@ -44,7 +48,9 @@ bool initFonts(string fontPath, bool cache) {
     // disable byte-alignment restriction
     // glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    cout << "\nTotal characters: " << face->num_glyphs;
+    #ifdef DEBUG_TEXT
+        cout << "\nDEBUG: Total characters: " << face->num_glyphs;
+    #endif
 
     chvec.reserve(face->num_glyphs);
 
@@ -108,11 +114,15 @@ void runStartupChecks() {
 
         if (success) {
             auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
-            cout << "\nSTARTUP CHECK: Font initialization from cache took " << duration0.count() << " microseconds.";
+            #ifdef DEBUG_TEXT
+                cout << "\nSTARTUP CHECK: Font initialization from cache took " << duration0.count() << " microseconds.";
+            #endif
             return;
         }
     } else {
-        cout << "\nSTARTUP CHECK: Creating cache";
+        #ifdef DEBUG_TEXT
+            cout << "\nSTARTUP CHECK: Creating cache";
+        #endif
 
         if (!DIR_EXISTS(getCacheDirectoryPath())) {
             createCacheDirectory();
@@ -124,33 +134,45 @@ void runStartupChecks() {
         fontFilePaths.reserve(1);
         fontFilePaths.push_back(POPPINS_REGULAR);
 
-        auto t0 = std::chrono::high_resolution_clock::now();
+        #ifdef DEBUG_TEXT
+            auto t0 = std::chrono::high_resolution_clock::now();
+        #endif
 
         initFonts(POPPINS_REGULAR, false);
 
+        #ifdef DEBUG_TEXT
         auto t1 = std::chrono::high_resolution_clock::now();
+        #endif
 
         createCacheIndex(fontFilePaths);
 
+        #ifdef DEBUG_TEXT
         auto t2 = std::chrono::high_resolution_clock::now();
+        #endif
 
         createFontAtlasFile(0, characters);
 
-        auto t3 = std::chrono::high_resolution_clock::now();
+        #ifdef DEBUG_TEXT
+            auto t3 = std::chrono::high_resolution_clock::now();
+        #endif
 
         createFontInfoFile(0, characters, MAX_CHARACTERS);
 
-        auto t4 = std::chrono::high_resolution_clock::now();
+        #ifdef DEBUG_TEXT
+            auto t4 = std::chrono::high_resolution_clock::now();
+        #endif
 
-        auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
-        auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-        auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
-        auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3);
+        #ifdef DEBUG_TEXT
+            auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
+            auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+            auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
+            auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3);
 
-        cout << "\nSTARTUP CHECK: Font initialization took " << duration0.count() << " microseconds.";
-        cout << "\nSTARTUP CHECK: Cache index creation took " << duration1.count() << " microseconds.";
-        cout << "\nSTARTUP CHECK: Font Atlas creation took " << duration2.count() << " microseconds.";
-        cout << "\nSTARTUP CHECK: Font info file creation took " << duration3.count() << " microseconds.";
+            cout << "\nSTARTUP CHECK: Font initialization took " << duration0.count() << " microseconds.";
+            cout << "\nSTARTUP CHECK: Cache index creation took " << duration1.count() << " microseconds.";
+            cout << "\nSTARTUP CHECK: Font Atlas creation took " << duration2.count() << " microseconds.";
+            cout << "\nSTARTUP CHECK: Font info file creation took " << duration3.count() << " microseconds.";
+        #endif
 
         chvec.resize(0);
     }

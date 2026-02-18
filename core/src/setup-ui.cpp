@@ -587,12 +587,10 @@ void setupUI(bool isDarkTheme) {
     // initElement(*testLabel, UI_LABEL, 1200.0f, 8.0f, 256.0f, 48.0f);
 
     if (darkTheme) {
-        cout << "\nDark theme";
         rootContainer.backgroundColor = ROOT_BG_DARK;
         menuBar->backgroundColor = TOOL_BAR_BG_DARK;
         menuBar->color = WHITE;
     } else {
-        cout << "\nLight theme";
         rootContainer.backgroundColor = ROOT_BG;
         menuBar->backgroundColor = TOOL_BAR_BG;
         menuBar->color = BLACK;

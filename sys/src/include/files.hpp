@@ -11,6 +11,8 @@
 
 using namespace std;
 
+// #define DEBUG_FILES
+
 #define MAGIC_1                     0x03
 #define MAGIC_2                     0xf0
 #define MAGIC_3                     0x00

@@ -2156,7 +2156,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 iconButtonVertices[15] = 1.0f;
 
                 if (elem.reDraw) {
-                    cout << "\nRedrawing icon button";
+                    #ifdef DEBUG_RENDER
+                        cout << "\nRedrawing icon button";
+                    #endif
+
                     glGenVertexArrays(1, &iconButtonVAO);
                     glBindVertexArray(iconButtonVAO);
                     glGenBuffers(1, &iconButtonVBO);
@@ -2229,11 +2232,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     uint8_t* data = stbi_load(location.c_str(), &width, &height, &nrChannels, 0);
 
                     if (data) {
-                        cout << "\nTexture " << location << " loaded.";
+                        #ifdef DEBUG_TEXTURE
+                            cout << "\nTexture " << location << " loaded.";
+                        #endif
+
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
                         glGenerateMipmap(GL_TEXTURE_2D);
                     } else {
-                        cerr << "\nFailed to load texture.";
+                        cerr << "\nError: Failed to load texture (" << location << ").";
                     }
 
                     stbi_image_free(data);

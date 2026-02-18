@@ -250,11 +250,13 @@ Shader shaders[] = {
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
-    cout << "\nCompiling shaders (" << (int)index + 1 << " out of " << TOTAL_SHADERS << ")";
+    #ifdef DEBUG_SHADER
+        cout << "\nCompiling shaders (" << (int)index + 1 << " out of " << TOTAL_SHADERS << ")";
+    #endif
     uint32_t vShaderID = glCreateShader(GL_VERTEX_SHADER);
 
     if (vShaderID == 0) {
-        cerr << "\nCould not create vertex shader " << (int)index;
+        cerr << "\nError: Could not create vertex shader " << (int)index;
     }
 
     int success;
@@ -262,8 +264,10 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
     const char * vsCode = vertexShaders[(int)vs].c_str();
     const char * fsCode = fragmentShaders[(int)fs].c_str();
 
-    // cout << "\nVertex shader code ("<< (int) vs << "): \n" << vsCode << "\n";
-    // cout << "\nFragment shader code (// " << (int) fs << "): \n" << fsCode << "\n";
+    #ifdef DEBUG_SHADER
+        cout << "\nVertex shader code ("<< (int) vs << "): \n" << vsCode << "\n";
+        cout << "\nFragment shader code (// " << (int) fs << "): \n" << fsCode << "\n";
+    #endif
 
     glShaderSource(vShaderID, 1, (char const* const*)&vsCode, NULL);
     glCompileShader(vShaderID);
@@ -278,12 +282,14 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
         return 0;
     }
 
-    // cout << "\ncompiled vertex shader";
+    #ifdef DEBUG_SHADER
+        cout << "\ncompiled vertex shader";
+    #endif
 
     uint32_t fShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
     if (fShaderID == 0) {
-        cerr << "\nCould not create fragment shader " << (int)index;
+        cerr << "\nError: Could not create fragment shader " << (int)index;
     }
 
     glShaderSource(fShaderID, 1, (char const* const*)&fsCode, NULL);
@@ -299,7 +305,9 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
         return 0;
     }
 
-    // cout << "\ncompiled fragment shader";
+    #ifdef DEBUG_SHADER
+        cout << "\ncompiled fragment shader";
+    #endif
 
     uint32_t programID = glCreateProgram();
 
@@ -308,7 +316,9 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
 
     glLinkProgram(programID);
 
-    // cout << "\nLinking... Program ID: " << programID;
+    #ifdef DEBUG_SHADER
+        cout << "\nLinking... Program ID: " << programID;
+    #endif
 
     glGetProgramiv(programID, GL_LINK_STATUS, &success);
 

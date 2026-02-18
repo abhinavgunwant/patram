@@ -28,134 +28,10 @@ Character* characters;
 Shader textShader;
 unsigned int textVAO, textVBO;
 
-vector<Char> chvec_;
-
-void initAtlas() {
-    chvec_.reserve(256);
-}
-
-void initCharGlyph(FT_Face& face, uint16_t c) {
-    if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-        std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-        return;
-    }
-
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RED,
-        face->glyph->bitmap.width,
-        face->glyph->bitmap.rows,
-        0,
-        GL_RED,
-        GL_UNSIGNED_BYTE,
-        face->glyph->bitmap.buffer
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    #ifdef DEBUG_TEXT
-        if (debugTextFirstRenderPrint) {
-            if (c > 64 && c < 90 || c > 96 && c < 123) {
-                cout << "\nchar: " << (char)c << "; width: " << face->glyph->bitmap.width
-                << " height: " << face->glyph->bitmap.rows
-                << " bearingLeft: " << face->glyph->bitmap_left
-                << " bearingTop: " << face->glyph->bitmap_top
-                << " textureID: " << texture
-                << " advance: " << face->glyph->advance.x;
-            }
-        }
-    #endif
-
-    uint8_t width = face->glyph->bitmap.width;
-    uint8_t height = face->glyph->bitmap.rows;
-
-    characters[c] = {
-        static_cast<uint8_t>(width),
-        static_cast<uint8_t>(height),
-        static_cast<int8_t>(face->glyph->bitmap_left),
-        static_cast<uint8_t>(face->glyph->bitmap_top),
-        static_cast<uint16_t>(texture),
-        static_cast<uint16_t>(face->glyph->advance.x),
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-    };
-
-    Char cccc = { c, width, height, nullptr };
-
-    cccc.bitmap = new uint8_t[width * height];
-
-    for (int i=0; i<width * height; ++i) {
-        cccc.bitmap[i] = face->glyph->bitmap.buffer[i];
-    }
-
-    chvec_.push_back(cccc);
-}
-
-void saveFontAtlas() {
-    cout << "\nWriting character atlas";
-
-    std::sort(chvec_.begin(), chvec_.end(), [](Char& a, Char& b) {
-        if (a.height == b.height) {
-            return a.width < b.width;
-        }
-
-        return a.height < b.height;
-    });
-
-    uint8_t* png_data = new uint8_t[ATLAS_DIMENSION * ATLAS_DIMENSION];
-
-    for (uint32_t i=0; i<ATLAS_DIMENSION * ATLAS_DIMENSION; ++i) {
-        png_data[i] = 0;
-    }
-
-    uint16_t max_y = 0;
-    uint16_t x = 0;
-    uint16_t y = 0;
-
-    for (vector<Char>::iterator itr = chvec_.begin(); itr != chvec_.end(); ++itr) {
-        if ((*itr).height == 0 || (*itr).width == 0) {
-            continue;
-        }
-
-        if ((*itr).height > max_y) {
-            max_y = (*itr).height;
-        }
-
-        if (x + (*itr).width > ATLAS_DIMENSION) {
-            y += max_y + 1;
-            x = 0;
-        }
-
-        for (int i=y; i<y + (*itr).height && i<ATLAS_DIMENSION; ++i) {
-            for (int j=x; j<x + (*itr).width && j<ATLAS_DIMENSION; ++j) {
-                png_data[i * ATLAS_DIMENSION + j] = (*itr).bitmap[(i - y) * (*itr).width + (j - x)];
-            }
-        }
-
-        x += (*itr).width + 1;
-
-        delete (*itr).bitmap;
-    }
-
-    stbi_write_png("font-atlas.png", ATLAS_DIMENSION, ATLAS_DIMENSION, 1, png_data, ATLAS_DIMENSION);
-
-    cout << "\nCharacter atlas written";
-
-    chvec_.clear();
-    chvec_.resize(0);
-}
-
 void initFontTexture(string path) {
-    cout << "\nSTARTUP CHECK: loading font texture";
+    #ifdef DEBUG_TEXT
+        cout << "\nDEBUG: STARTUP CHECK: loading font texture";
+    #endif
 
     glGenTextures(1, &fontTextureID);
     glBindTexture(GL_TEXTURE_2D, fontTextureID);
@@ -171,16 +47,19 @@ void initFontTexture(string path) {
     uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
 
     if (stbi_failure_reason()) {
-        cerr << "\nFailed to load font texture: " << stbi_failure_reason();
+        cerr << "\nError: Failed to load font texture: " << stbi_failure_reason();
     }
 
     if (data) {
-        cout << "\nTexture " << path << " loaded.";
+        #ifdef DEBUG_TEXTURE
+            cout << "\nTexture " << path << " loaded.";
+        #endif
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
-        cerr << "\nFailed to load texture.";
+        cerr << "\nError: Failed to load texture (" << path << ").";
     }
 
     stbi_image_free(data);
