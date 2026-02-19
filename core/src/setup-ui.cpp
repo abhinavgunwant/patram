@@ -272,7 +272,13 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 highlightedContentBlock.show = true;
                 highlightedContentBlock.left = contentLeft;
                 highlightedContentBlock.top = top;
-                highlightedContentBlock.bottom = top + cb->height;
+
+                if (glyphDescender < 0) {
+                    highlightedContentBlock.bottom = top + cb->height - glyphDescender;
+                } else {
+                    highlightedContentBlock.bottom = top + cb->height;
+                }
+
                 highlightedContentBlock.right = contentRight;
 
                 if (highlightedContentBlock.cb != cb) {

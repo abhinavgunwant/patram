@@ -18,6 +18,8 @@
 
 #define TOTAL_ICONS                 3
 
+#define CONTENT_BLOCK_MARGIN        1.0f
+#define CONTENT_BLOCK_TITLE_MARGIN  5.0f
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
 #define CONTENT_HORIZONTAL_MARGIN   20.0f

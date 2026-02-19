@@ -51,10 +51,10 @@ bool dirExists(filesystem::path p);
 
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);
-void createFontInfoFile(uint8_t index, Character* characters, uint16_t len);
+void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len);
 void createFontAtlasFile(uint8_t index, Character* characters);
 
-bool processFontInfoFile(Character* characters);
+bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
 #endif // PATRAM_SYS_FILES
 

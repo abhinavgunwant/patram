@@ -144,13 +144,12 @@ void createCacheIndex(vector<string> fontFilePaths) {
     #endif
 }
 
-void createFontInfoFile(uint8_t index, Character* characters, uint16_t len) {
+void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len) {
     #ifdef DEBUG_FILES
         cout << "\nSTARTUP CHECK: Writing font information";
     #endif
 
     filesystem::path fontInfoPath = getFontInfoPath(index);
-    // fontInfoPath /= "fi" + to_string((int)index);
 
     ofstream f;
     f.open(fontInfoPath.string().c_str(), ios::out | ios::binary);
@@ -169,6 +168,12 @@ void createFontInfoFile(uint8_t index, Character* characters, uint16_t len) {
 
     // write version
     f.write((const char*)&ver, sizeof(uint16_t));
+
+    // write glyphAscender
+    f.write((const char*)&ascender, sizeof(ascender));
+
+    // write glyphDescender
+    f.write((const char*)&descender, sizeof(descender));
 
     // write length
     f.write((const char*)&len, sizeof(len));
@@ -248,7 +253,7 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
     #endif
 }
 
-bool processFontInfoFile(Character* characters) {
+bool processFontInfoFile(Character* characters, float& ascender, float& descender) {
     uint8_t magic[4];
     uint16_t ver;
     uint16_t len;
@@ -258,6 +263,7 @@ bool processFontInfoFile(Character* characters) {
 
     f.open(fontInfoPath.string(), ios::in | ios::binary);
 
+    // read magic words
     f.read((char *)&magic[0], sizeof(uint8_t));
     f.read((char *)&magic[1], sizeof(uint8_t));
     f.read((char *)&magic[2], sizeof(uint8_t));
@@ -268,6 +274,7 @@ bool processFontInfoFile(Character* characters) {
         return false;
     }
 
+    // read version
     f.read((char *)&ver, sizeof(ver));
 
     if (ver != CURRENT_FONT_INFO_VERSION) {
@@ -275,6 +282,13 @@ bool processFontInfoFile(Character* characters) {
         return false;
     }
 
+    // read ascender
+    f.read((char *)&ascender, sizeof(ascender));
+
+    // read descender
+    f.read((char *)&descender, sizeof(descender));
+
+    // read length
     f.read((char *)&len, sizeof(len));
 
     for (uint16_t i=0; i<len; ++i) {

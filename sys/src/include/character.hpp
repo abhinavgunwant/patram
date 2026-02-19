@@ -9,7 +9,6 @@ struct Character {
     uint8_t height;
     int8_t bearingLeft;
     uint8_t bearingTop;
-    uint16_t textureID; // ID handle of the glyph texture
     uint16_t advance;   // Horizontal offset to advance to next glyph
 
     float textureX1;

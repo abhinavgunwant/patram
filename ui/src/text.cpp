@@ -23,6 +23,7 @@ using namespace std;
 bool debugTextFirstRenderPrint = true;
 #endif
 
+float glyphDescender = 0;
 uint32_t fontTextureID = 0;
 Character* characters;
 Shader textShader;
@@ -163,7 +164,11 @@ glm::vec4 renderText(
 
         float ypos = yNet + glyphHeight - bearingTop + fontSize;
 
-        dimensions.z = ypos - pos.y;
+        if (glyphDescender < 0) {
+            dimensions.z = ypos - pos.y - (glyphDescender * fontSize);
+        } else {
+            dimensions.z = ypos - pos.y;
+        }
 
         float xpos_plus_w = xpos + glyphWidth;
         float ypos_plus_h = ypos - glyphHeight; // ypos + h
@@ -245,7 +250,7 @@ glm::vec4 renderText(
             { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f },
         };
         // render glyph texture over quad
-        glBindTexture(GL_TEXTURE_2D, ch.textureID);
+        // glBindTexture(GL_TEXTURE_2D, ch.textureID);
         // update content of textVBO memory
         glBindBuffer(GL_ARRAY_BUFFER, textVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
@@ -311,7 +316,6 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
         .topY = ypos - glyphHeight,
         .scale = fontHeightRatio,
         .advance = ch.advance,
-        .textureID = ch.textureID,
     };
 }
 
@@ -333,7 +337,7 @@ uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize)
     };
 
     // render glyph texture over quad
-    glBindTexture(GL_TEXTURE_2D, gd.textureID);
+    // glBindTexture(GL_TEXTURE_2D, gd.textureID);
     // update content of textVBO memory
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
 

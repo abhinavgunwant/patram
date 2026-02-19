@@ -2854,14 +2854,14 @@ void renderContentBlock(
     float topMargin = 0.0f;
 
     switch (cb->type) {
-        case CB_HEADING1: fontSize = 48; topMargin = 10.0f; break;
-        case CB_HEADING2: fontSize = 40; topMargin = 10.0f; break;
-        case CB_HEADING3: fontSize = 32; topMargin = 10.0f; break;
-        case CB_HEADING4: fontSize = 24; topMargin = 10.0f; break;
-        case CB_HEADING5: fontSize = 16; topMargin = 10.0f; break;
-        case CB_HEADING6: fontSize = 12; topMargin = 10.0f; break;
+        case CB_HEADING1: fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case CB_HEADING2: fontSize = 40; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case CB_HEADING3: fontSize = 32; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case CB_HEADING4: fontSize = 24; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case CB_HEADING5: fontSize = 16; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case CB_HEADING6: fontSize = 12; topMargin = CONTENT_BLOCK_MARGIN; break;
         case CB_PARAGRAPH: fontSize = 16; break;
-        case CB_TITLE:  fontSize = 48; topMargin = 10.0f; break;
+        case CB_TITLE:  fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
     }
 
     if (parentElement->extraData == nullptr) {
@@ -2883,7 +2883,7 @@ void renderContentBlock(
                 case CB_HEADING4:
                 case CB_HEADING5:
                 case CB_HEADING6:
-                    topMargin += 10.0f;
+                    topMargin += CONTENT_BLOCK_MARGIN;
                     break;
                 case CB_TITLE:
                     topMargin += 20.0f;

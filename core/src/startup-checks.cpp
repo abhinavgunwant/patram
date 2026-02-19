@@ -1,4 +1,3 @@
-#include <vector>
 #include <string>
 #include <chrono>
 
@@ -19,7 +18,10 @@ bool initFonts(string fontPath, bool cache) {
             cout << "\nSTARTUP CHECK: Initializing fonts from cache.";
         #endif
 
-        if (processFontInfoFile(characters)) {
+        // Not being used as of now...
+        float _ascender = 0;
+
+        if (processFontInfoFile(characters, _ascender, glyphDescender)) {
             return true;
         }
     }
@@ -58,6 +60,7 @@ bool initFonts(string fontPath, bool cache) {
     uint32_t id;
 
     charcode = FT_Get_First_Char(face, &id);
+    glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / DEFAULT_FONT_SIZE;
 
     while (id != 0) {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) {
@@ -72,7 +75,6 @@ bool initFonts(string fontPath, bool cache) {
             static_cast<uint8_t>(height),
             static_cast<int8_t>(face->glyph->bitmap_left),
             static_cast<uint8_t>(face->glyph->bitmap_top),
-            0,
             static_cast<uint16_t>(face->glyph->advance.x),
             0.0f,
             0.0f,
@@ -156,7 +158,7 @@ void runStartupChecks() {
             auto t3 = std::chrono::high_resolution_clock::now();
         #endif
 
-        createFontInfoFile(0, characters, MAX_CHARACTERS);
+        createFontInfoFile(0, 0.0f, glyphDescender, characters, MAX_CHARACTERS);
 
         #ifdef DEBUG_TEXT
             auto t4 = std::chrono::high_resolution_clock::now();

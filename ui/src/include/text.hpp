@@ -54,9 +54,9 @@ struct GlyphDimensions {
     float scale; // Font Height Ratio
 
     uint16_t advance; // Same as in Character
-    uint16_t textureID; // Same as in Character
 };
 
+extern float glyphDescender;
 extern uint32_t fontTextureID;
 extern vector<Char> chvec;
 extern Character* characters;
