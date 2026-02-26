@@ -48,7 +48,7 @@ HighlightedContentBlock highlightedContentBlock = {
     .dragTabVBO = 0,
 };
 
-ContentBlockMoveMarker cbMove = { false, true, nullptr, 0, 0, 0 };
+ContentBlockMoveMarker cbMove = { nullptr, 0, 0, 0, false, true,  };
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -69,29 +69,31 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     bool capsLck = mod & GLFW_MOD_CAPS_LOCK;
     bool numLck = mod & GLFW_MOD_NUM_LOCK;
 
-    // cout << "\n Key: ";
+    #ifdef DEBUG_TEXT_INPUT
+        cout << "\n Key: ";
 
-    // if (alt) {
-    //     cout << "Alt + ";
-    // }
+        if (alt) {
+            cout << "Alt + ";
+        }
 
-    // if (shift) {
-    //     cout << "Shift + ";
-    // }
+        if (shift) {
+            cout << "Shift + ";
+        }
 
-    // if (ctrl) {
-    //     cout << "Control + ";
-    // }
+        if (ctrl) {
+            cout << "Control + ";
+        }
 
-    // if (capsLck) {
-    //     cout << "Caps Lock + ";
-    // }
+        if (capsLck) {
+            cout << "Caps Lock + ";
+        }
 
-    // if (numLck) {
-    //     cout << "Num Lock + ";
-    // }
+        if (numLck) {
+            cout << "Num Lock + ";
+        }
 
-    // cout << key;
+        cout << key;
+    #endif
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         #define TYPE(c) processCommand(elem, new Command(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
@@ -181,7 +183,10 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_ENTER:
-                cout << "\nEnter pressed";
+                #ifdef DEBUG_TEXT_INPUT
+                    cout << "\nEnter pressed";
+                #endif
+
                 if (shift && elem->type == UI_TEXT_AREA) {
                     TYPE("\n");
                     INCR_CURSOR();
@@ -1171,23 +1176,13 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 ContentBlock* initContentBlock(ContentBlockType type, string text) {
     return new ContentBlock {
         .type = type,
-        .reDraw = true,
-        .visible = true,
-        .selected = false,
-        .isBeingDragged = false,
-        .active = false,
-
-        .rope = new Rope(text),
+        .flags = CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
 
         .top = 0.0f,
         .left = 0.0f,
         .height = 0.0f,
 
-        .onClick = defaultCallback,
-        .onMouseDown = defaultOnMouseUpDownCallback,
-        .onMouseDrag = defaultOnMouseUpDownCallback,
-        .onMouseUp = defaultOnMouseUpDownCallback,
-        .onHover = defaultCallback,
+        .rope = new Rope(text),
 
         .prev = nullptr,
         .next = nullptr,
@@ -1240,7 +1235,7 @@ void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* 
         return;
     }
 
-    cb->reDraw = true;
+    cb->flags |= CONTENT_BLOCK_REDRAW;
 
     if (cb->prev != nullptr) {
         cb->prev->next = cb->next;
@@ -1264,7 +1259,7 @@ void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* 
         return;
     }
 
-    before->reDraw = true;
+    before->flags |= CONTENT_BLOCK_REDRAW;
 
     if (before == parentElement->contentBlocks) {
         cb->next = parentElement->contentBlocks->next;
@@ -2845,7 +2840,7 @@ void renderContentBlock(
 ) {
     // NOTE: Assuming parent element will always be of type UI_SCROLL_AREA.
  
-    if (cb == nullptr || !cb->visible) {
+    if (cb == nullptr || !(cb->flags & CONTENT_BLOCK_VISIBLE)) {
         cout << "\nContent block not visible";
         return;
     }
@@ -2854,14 +2849,14 @@ void renderContentBlock(
     float topMargin = 0.0f;
 
     switch (cb->type) {
-        case CB_HEADING1: fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_HEADING2: fontSize = 40; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_HEADING3: fontSize = 32; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_HEADING4: fontSize = 24; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_HEADING5: fontSize = 16; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_HEADING6: fontSize = 12; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case CB_PARAGRAPH: fontSize = 16; break;
-        case CB_TITLE:  fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading1: fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading2: fontSize = 40; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading3: fontSize = 32; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading4: fontSize = 24; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading5: fontSize = 16; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Heading6: fontSize = 12; topMargin = CONTENT_BLOCK_MARGIN; break;
+        case ContentBlockType::Paragraph: fontSize = 16; break;
+        case ContentBlockType::Title:  fontSize = 48; topMargin = 5.0f; break;
     }
 
     if (parentElement->extraData == nullptr) {
@@ -2871,22 +2866,22 @@ void renderContentBlock(
 
     glm::vec4 dim;
 
-    if (cb->reDraw) {
+    if ((cb->flags & CONTENT_BLOCK_REDRAW) != 0) {
         if (cb->prev != nullptr) {
             cb->top = cb->prev->top + cb->prev->height + 8.0f;
             cb->left = cb->prev->left;
 
             switch (cb->prev->type) {
-                case CB_HEADING1:
-                case CB_HEADING2:
-                case CB_HEADING3:
-                case CB_HEADING4:
-                case CB_HEADING5:
-                case CB_HEADING6:
+                case ContentBlockType::Heading1:
+                case ContentBlockType::Heading2:
+                case ContentBlockType::Heading3:
+                case ContentBlockType::Heading4:
+                case ContentBlockType::Heading5:
+                case ContentBlockType::Heading6:
                     topMargin += CONTENT_BLOCK_MARGIN;
                     break;
-                case CB_TITLE:
-                    topMargin += 20.0f;
+                case ContentBlockType::Title:
+                    topMargin += 4.0f;
                 default:
                     break;
             }
@@ -2907,12 +2902,8 @@ void renderContentBlock(
         left += CONTENT_HORIZONTAL_MARGIN;
     }
 
-    // TODO: Change the code below when renderTextRope() is implemented.
-
-    string text = cb->rope->getString();
-
-    dim = renderText(
-        text,
+    dim = renderContentRope(
+        cb->rope,
         glm::vec2(left, top),
         resolution,
         darkTheme ? WHITE : BLACK,
@@ -2920,9 +2911,9 @@ void renderContentBlock(
         parentElement
     );
 
-    if (cb->reDraw) {
+    if ((cb->flags & CONTENT_BLOCK_REDRAW) != 0) {
         cb->height = dim[2];
-        cb->reDraw = false;
+        cb->flags &= ~(CONTENT_BLOCK_REDRAW);
     }
 
     if (parentElement->extraData->scrollData.height < cb->top + cb->height) {
@@ -3131,7 +3122,7 @@ void reDrawAllContentBlocks(UIElement* parentElement) {
     ContentBlock* temp = parentElement->contentBlocks;
 
     while (temp != nullptr) {
-        temp->reDraw = true;
+        temp->flags |= CONTENT_BLOCK_REDRAW;
         temp = temp->next;
     }
 }
@@ -3548,14 +3539,14 @@ void printContentBlocks(UIElement* parentElement) {
     while (temp != nullptr) {
         cout << "\n  ";
         switch (temp->type) {
-            case ContentBlockType::CB_TITLE: cout << "Title"; break;
-            case ContentBlockType::CB_HEADING1: cout << "Heading1"; break;
-            case ContentBlockType::CB_HEADING2: cout << "Heading2"; break;
-            case ContentBlockType::CB_HEADING3: cout << "Heading3"; break;
-            case ContentBlockType::CB_HEADING4: cout << "Heading4"; break;
-            case ContentBlockType::CB_HEADING5: cout << "Heading5"; break;
-            case ContentBlockType::CB_HEADING6: cout << "Heading6"; break;
-            case ContentBlockType::CB_PARAGRAPH: cout << "Paragraph"; break;
+            case ContentBlockType::Title: cout << "Title"; break;
+            case ContentBlockType::Heading1: cout << "Heading1"; break;
+            case ContentBlockType::Heading2: cout << "Heading2"; break;
+            case ContentBlockType::Heading3: cout << "Heading3"; break;
+            case ContentBlockType::Heading4: cout << "Heading4"; break;
+            case ContentBlockType::Heading5: cout << "Heading5"; break;
+            case ContentBlockType::Heading6: cout << "Heading6"; break;
+            case ContentBlockType::Paragraph: cout << "Paragraph"; break;
         }
 
         cout << " -> " << temp->rope->text.substr(0, 10);

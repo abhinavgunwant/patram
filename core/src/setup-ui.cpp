@@ -118,7 +118,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     highlightedContentBlock.mouseDown = false;
 
                     if (highlightedContentBlock.cb != nullptr) {
-                        highlightedContentBlock.cb->isBeingDragged = false;
+                        highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
                     }
 
                     hideCBMoveMarker();
@@ -133,10 +133,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     && mouseY <= highlightedContentBlock.bottom
                     && highlightedContentBlock.cb != nullptr
                 ) {
-                    highlightedContentBlock.cb->isBeingDragged = true;
+                    highlightedContentBlock.cb->flags |= CONTENT_BLOCK_DRAGGING;
                     highlightedContentBlock.mouseDown = true;
                 } else {
-                    highlightedContentBlock.cb->isBeingDragged = false;
+                    highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
                     highlightedContentBlock.mouseDown = false;
                     cbMove.targetBlock = nullptr;
                 }
@@ -163,7 +163,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         cbMove.targetBlock
                     );
 
-                    highlightedContentBlock.cb->isBeingDragged = false;
+                    highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
                     reDrawAllContentBlocks(highlightedContentBlock.parentElement);
                 }
 
@@ -187,8 +187,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 }
 
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
-    // cout << "\nKeyboard event. Key: " << key << ", Scan code:" << scanCode
-    //     << ", Action: " << action << ", Modifier Keys: " << mods;
+    #ifdef DEBUG_TEXT_INPUT
+        cout << "\nKeyboard event. Key: " << key << ", Scan code:" << scanCode
+            << ", Action: " << action << ", Modifier Keys: " << mods;
+    #endif
 
     if (action == GLFW_PRESS) {
         switch (key) {
@@ -263,7 +265,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             top = cb->top - highlightedContentBlock.parentElement->extraData->scrollData.yOffset;
 
             if (ypos > top && ypos < top + cb->height) {
-                if (cb->type == ContentBlockType::CB_TITLE) {
+                if (cb->type == ContentBlockType::Title) {
                     highlightedContentBlock.show = false;
                     break;
                 }
@@ -622,14 +624,14 @@ void setupUI(bool isDarkTheme) {
     contentScroll->preferences->heightPreference = UI_STRETCH;
 
     ContentBlock* temp;
-    temp = addContentBlock(*contentScroll, CB_TITLE, "This is a test note title!");
-    addContentBlock(*contentScroll, CB_PARAGRAPH, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.", temp);
-    addContentBlock(*contentScroll, CB_HEADING1, "Vivamus scelerisque ac lorem quis lacinia.");
-    addContentBlock(*contentScroll, CB_PARAGRAPH, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
-    addContentBlock(*contentScroll, CB_HEADING2, "Praesent rutrum odio in neque commodo pretium.");
-    addContentBlock(*contentScroll, CB_PARAGRAPH, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
-    addContentBlock(*contentScroll, CB_HEADING3, "Aenean porta tortor in tellus blandit consectetur.");
-    addContentBlock(*contentScroll, CB_PARAGRAPH, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
+    temp = addContentBlock(*contentScroll, ContentBlockType::Title, "This is a test note title!");
+    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.", temp);
+    addContentBlock(*contentScroll, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
+    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
+    addContentBlock(*contentScroll, ContentBlockType::Heading2, "Praesent rutrum odio in neque commodo pretium.");
+    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
+    addContentBlock(*contentScroll, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
+    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
 
     // testLabel->text = "Testing the scroll area for full width";
     // testLabel->fontSize = 48.0f;

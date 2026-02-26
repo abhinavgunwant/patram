@@ -28,6 +28,10 @@
 #define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
 
+#define CONTENT_BLOCK_VISIBLE       0b00000001
+#define CONTENT_BLOCK_REDRAW        0b00000010
+#define CONTENT_BLOCK_DRAGGING      0b00000100
+
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
@@ -71,6 +75,7 @@
 // #define THROTTLE_SLOW               0.25
 
 #define DEBUG_TEXT_SELECTION
+#define DEBUG_TEXT_INPUT
 #define DEBUG_MOUSE_BUTTON
 // #define DEBUG_TEXTURE
 // #define DEBUG_SCROLL_AREA
@@ -104,15 +109,15 @@ enum UIElementType {
     UI_TAB,
 };
 
-enum ContentBlockType {
-    CB_TITLE,
-    CB_PARAGRAPH,
-    CB_HEADING1,
-    CB_HEADING2,
-    CB_HEADING3,
-    CB_HEADING4,
-    CB_HEADING5,
-    CB_HEADING6,
+enum class ContentBlockType: uint8_t {
+    Title,
+    Paragraph,
+    Heading1,
+    Heading2,
+    Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
 };
 
 enum UIAlignment {
@@ -309,26 +314,13 @@ struct UIElement {
 struct ContentBlock {
     ContentBlockType type;
 
-    bool reDraw;
-    bool visible;
-    bool selected;
-    bool isBeingDragged;
-    bool active;
-
-    Rope* rope;
+    uint8_t flags;
 
     float top;
-    float left; // Is it needed?
+    float left;
     float height;
 
-    /**
-     * Click behaviour for buttons.
-     */
-    void (*onClick)(UIElement*);
-    void (*onMouseDown)(UIElement*, float, float, glm::vec2);
-    void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
-    void (*onMouseUp)(UIElement*, float, float, glm::vec2);
-    void (*onHover)(UIElement*);
+    Rope* rope;
 
     ContentBlock* prev;
     ContentBlock* next;
@@ -351,12 +343,12 @@ struct HighlightedContentBlock {
 };
 
 struct ContentBlockMoveMarker {
-    bool show;
-    bool updated;
     ContentBlock* targetBlock;
     uint32_t vao;
     uint32_t vbo;
     uint32_t colorU;
+    bool show;
+    bool updated;
 };
 
 void defaultCallback(UIElement* elem);
