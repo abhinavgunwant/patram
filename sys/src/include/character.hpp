@@ -1,7 +1,7 @@
 #ifndef PATRAM_SYS_CHARACTER
 #define PATRAM_SYS_CHARACTER
 
-#include <cinttypes>
+#include <cstdint>
 
 /// Holds all state information relevant to a character as loaded using FreeType
 struct Character {

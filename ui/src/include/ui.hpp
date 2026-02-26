@@ -31,6 +31,7 @@
 #define CONTENT_BLOCK_VISIBLE       0b00000001
 #define CONTENT_BLOCK_REDRAW        0b00000010
 #define CONTENT_BLOCK_DRAGGING      0b00000100
+#define CONTENT_BLOCK_EDITING       0b00001000
 
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
@@ -103,6 +104,7 @@ enum UIElementType {
     UI_SCROLL_AREA,
     UI_ICON_BUTTON,
     UI_CONTAINER,
+    UI_CONTENT_CONTAINER,
     UI_TEXT_INPUT,
     UI_TEXT_AREA,
     UI_TAB_BAR,
@@ -136,10 +138,10 @@ enum UISizePreference {
     UI_GROW,
 };
 
-enum Icon {
-    ICON_NONE,
-    ICON_PLUS,
-    ICON_FILE,
+enum class Icon : uint8_t {
+    None,
+    Plus,
+    File,
 };
 
 enum UIPositioning {
@@ -246,6 +248,16 @@ union UIExtraData {
 };
 
 struct ContentBlock;
+
+struct Tab {
+    ContentBlock* activeCB;
+
+    uint32_t cursorPosition;
+    uint32_t cursorVAO;
+    uint32_t cursorVBO;
+
+    vector<ContentBlock> cachedContentBlocks;
+};
 
 struct UIElement {
     UIElementType type;

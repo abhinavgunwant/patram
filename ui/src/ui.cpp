@@ -854,7 +854,7 @@ void textInputUnselect(TextInputData * tid, string token) {
 }
 
 void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
-    if (elem->type == UI_SCROLL_AREA) {
+    if (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER) {
         float top, left, bottom, right, thumbStart, thumbEnd;
 
         if (elem->extraData->scrollData.showVerticalScrollbar) {
@@ -1053,6 +1053,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UI_CONTENT_CONTAINER:
         case UI_SCROLL_AREA:
             pref = initPreferences();
             pref->widthPreference = UI_GROW;
@@ -1162,7 +1163,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         0,
         0,
 
-        ICON_NONE,
+        Icon::None,
 
         fontSize,
         borderRadius,
@@ -1500,7 +1501,7 @@ void recalculateLayout(UIElement * elem) {
             cout << "\n    -> Updated dimensions: width: " << elem->width << ", height: " << elem->height;
         #endif
 
-        if (elem->type == UI_SCROLL_AREA) {
+        if (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
 
@@ -1519,6 +1520,323 @@ void recalculateLayout(UIElement * elem) {
     for (uint32_t i=0; i<elem->totalChildren; ++i) {
         recalculateLayout(elem->children[i]);
     }
+}
+
+// NOTE: only for UI_CONTENT_CONTAINER and UI_SCROLL_AREA.
+inline void renderScrollbars(UIElement* elem) {
+    #define SCROLL_DATA elem->extraData->scrollData
+
+    bool update = !SCROLL_DATA.renderedUpdate;
+
+    if (SCROLL_DATA.showVerticalScrollbar) {
+        // WARNING: side effects!
+        float top, left, bottom, right, thumbStart, thumbEnd;
+        bool dimensionsInitialized = false;
+
+        if (SCROLL_DATA.verticalScrollBarVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
+            SCROLL_DATA.verticalScrollBarVAO = 0;
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared vertical scrollbar vertex array";
+            #endif
+
+            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVAO);
+                SCROLL_DATA.verticalScrollBarVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared vertical scrollbar vertex buffers";
+                #endif
+            }
+        }
+
+        if (SCROLL_DATA.verticalScrollBarVAO == 0) {
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nShowing vertical scrollbar. Element width: " << elem->width;
+            #endif
+            // WARNING: side effects!
+            getScrollbarDimensions(
+                elem, top, right, bottom, left,
+                thumbStart, thumbEnd,
+                true
+            );
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\n--> Vertical scrollbar dimensions. top: "
+                    << top << ", left: " << left << ", bottom: "
+                    << bottom << ", right:" << right
+                    << ", thumbStart: " << thumbStart << ", thumbEnd: " << thumbEnd;
+            #endif
+
+            dimensionsInitialized = true;
+
+            float vertices[] = {
+                right, bottom,
+                right, elem->top,
+                left, bottom,
+                left, elem->top,
+            };
+
+            glGenVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
+            glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
+
+            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
+            }
+
+            glGenBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.verticalScrollBarVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+        }
+
+        glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
+        glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+        uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+        glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
+
+        if (darkTheme) {
+            color = SCROLL_BAR_TRACK_COLOR_DARK;
+        }
+
+        glUniform4f(colorU, color.r, color.g, color.b, color.a);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        if (SCROLL_DATA.verticalScrollThumbVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
+            glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
+            SCROLL_DATA.verticalScrollThumbVAO = 0;
+            SCROLL_DATA.verticalScrollThumbVBO = 0;
+        }
+
+        if (SCROLL_DATA.verticalScrollThumbVAO == 0) {
+            if (!dimensionsInitialized) {
+                // WARNING: side effects!
+                getScrollbarDimensions(
+                    elem, top, right, bottom, left,
+                    thumbStart, thumbEnd,
+                    true
+                );
+            }
+
+            float vertices[] = {
+                right, thumbEnd,
+                right, thumbStart,
+                left, thumbEnd,
+                left, thumbStart,
+            };
+
+            glGenVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
+            glBindVertexArray(SCROLL_DATA.verticalScrollThumbVAO);
+
+            if (SCROLL_DATA.verticalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
+            }
+
+            glGenBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.verticalScrollThumbVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            SCROLL_DATA.renderedUpdate = true;
+        }
+
+        glBindVertexArray(SCROLL_DATA.verticalScrollThumbVAO);
+        glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+        colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+        glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    } else {
+        if (SCROLL_DATA.verticalScrollBarVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
+            SCROLL_DATA.verticalScrollBarVAO = 0;
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared vertical scrollbar vertex array";
+            #endif
+
+            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
+                SCROLL_DATA.verticalScrollBarVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared vertical scroll bar vertex buffers";
+                #endif
+            }
+        }
+
+        if (SCROLL_DATA.verticalScrollThumbVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
+            SCROLL_DATA.verticalScrollThumbVAO = 0;
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared vertical scrollbar thumb vertex array";
+            #endif
+
+            if (SCROLL_DATA.verticalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
+                SCROLL_DATA.verticalScrollThumbVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared vertical scroll bar thumb vertex buffers";
+                #endif
+            }
+        }
+    }
+
+    if (SCROLL_DATA.showHorizontalScrollbar) {
+        // WARNING: side effects!
+        float top, left, bottom, right, thumbStart, thumbEnd;
+        bool dimensionsInitialized = false;
+
+        if (SCROLL_DATA.horizontalScrollBarVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollBarVAO);
+            SCROLL_DATA.horizontalScrollBarVAO = 0;
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared horizontal scrollbar vertex array";
+            #endif
+
+            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollBarVAO);
+                SCROLL_DATA.horizontalScrollBarVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared horizontal scrollbar vertex buffers";
+                #endif
+            }
+        }
+
+        if (SCROLL_DATA.horizontalScrollBarVAO == 0) {
+            getScrollbarDimensions(
+                elem, top, right, bottom, left,
+                thumbStart, thumbEnd,
+                false
+            );
+
+            dimensionsInitialized = true;
+
+            float vertices[] = {
+                right, bottom,
+                right, top,
+                left, bottom,
+                left, top,
+            };
+
+            glGenVertexArrays(1, &SCROLL_DATA.horizontalScrollBarVAO);
+            glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
+
+            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollBarVBO);
+            }
+
+            glGenBuffers(1, &SCROLL_DATA.horizontalScrollBarVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.horizontalScrollBarVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+        }
+
+        glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
+        glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+        uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+        glUniform4f(colorU, 0.9f, 0.9f, 0.9f, 1.0f);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        if (SCROLL_DATA.horizontalScrollThumbVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
+            glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+            SCROLL_DATA.horizontalScrollThumbVAO = 0;
+            SCROLL_DATA.horizontalScrollThumbVBO = 0;
+        }
+
+        if (SCROLL_DATA.horizontalScrollThumbVAO == 0) {
+            if (!dimensionsInitialized) {
+                // WARNING: side effects!
+                getScrollbarDimensions(
+                    elem, top, right, bottom, left,
+                    thumbStart, thumbEnd,
+                    false
+                );
+            }
+
+            float vertices[] = {
+                thumbStart, bottom,
+                thumbStart, top,
+                thumbEnd, bottom,
+                thumbEnd, top,
+            };
+
+            glGenVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
+            glBindVertexArray(SCROLL_DATA.horizontalScrollThumbVAO);
+
+            if (SCROLL_DATA.horizontalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+            }
+
+            glGenBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.horizontalScrollThumbVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            SCROLL_DATA.renderedUpdate = true;
+        }
+
+        glBindVertexArray(SCROLL_DATA.horizontalScrollThumbVAO);
+        glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+        colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+        glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    } else {
+        if (SCROLL_DATA.horizontalScrollBarVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
+            SCROLL_DATA.horizontalScrollBarVAO = 0;
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared horizontal scrollbar vertex array";
+            #endif
+
+            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+                SCROLL_DATA.horizontalScrollBarVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared horizontal scroll bar vertex buffers";
+                #endif
+            }
+        }
+
+        if (SCROLL_DATA.horizontalScrollThumbVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
+            SCROLL_DATA.horizontalScrollThumbVAO = 0;
+
+            #ifdef DEBUG_SCROLL_AREA
+                cout << "\nCleared horizontal scrollbar thumb vertex array";
+            #endif
+
+            if (SCROLL_DATA.horizontalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+                SCROLL_DATA.horizontalScrollThumbVBO = 0;
+
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nCleared horizontal scroll bar thumb vertex buffers";
+                #endif
+            }
+        }
+    }
+
+    #undef SCROLL_DATA
 }
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
@@ -1596,6 +1914,52 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             elem.reDraw = false;
 
+            break;
+        }
+
+        case UI_CONTENT_CONTAINER: {
+            if (elem.contentBlocks != nullptr) {
+                if (elem.reDraw) {
+                    elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
+                    elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+
+                    #ifdef DEBUG_SCROLL_AREA
+                        cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
+                        cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
+                    #endif
+                }
+
+                elem.reDraw = false;
+
+                float width = elem.width;
+                float height = elem.height;
+
+                if (elem.extraData->scrollData.showVerticalScrollbar) {
+                    width -= SCROLL_BAR_THICKNESS;
+                }
+
+                if (elem.extraData->scrollData.showHorizontalScrollbar) {
+                    height -= SCROLL_BAR_THICKNESS;
+                }
+
+                glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
+                glEnable(GL_SCISSOR_TEST);
+
+                renderContentBlockHighlight();
+
+                ContentBlock* temp = elem.contentBlocks;
+
+                while (temp != nullptr) {
+                    renderContentBlock(&elem, temp, resolution, cursor);
+                    temp = temp->next;
+                }
+
+                renderCBMoveMarker();
+
+                glDisable(GL_SCISSOR_TEST);
+
+                renderScrollbars(&elem);
+            }
             break;
         }
 
@@ -1752,7 +2116,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             // TODO: Render the rectangle with background colors. If borders
             // are set, then render borders.
 
-            if (elem.totalChildren || elem.contentBlocks != nullptr) {
+            if (elem.totalChildren) {
                 if (elem.reDraw) {
                     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
                     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
@@ -1785,16 +2149,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 // highlightedContentBlock.show = false;
 
-                renderContentBlockHighlight();
+                // renderContentBlockHighlight();
 
-                ContentBlock* temp = elem.contentBlocks;
+                // ContentBlock* temp = elem.contentBlocks;
 
-                while (temp != nullptr) {
-                    renderContentBlock(&elem, temp, resolution, cursor);
-                    temp = temp->next;
-                }
+                // while (temp != nullptr) {
+                //     renderContentBlock(&elem, temp, resolution, cursor);
+                //     temp = temp->next;
+                // }
 
-                renderCBMoveMarker();
+                // renderCBMoveMarker();
 
                 // if (!highlightedContentBlock.show && highlightedContentBlock.backgroundVAO) {
                     // glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVAO);
@@ -1810,316 +2174,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 // }
 
                 glDisable(GL_SCISSOR_TEST);
-
-                bool update = !elem.extraData->scrollData.renderedUpdate;
-
-                if (elem.extraData->scrollData.showVerticalScrollbar) {
-                    // WARNING: side effects!
-                    float top, left, bottom, right, thumbStart, thumbEnd;
-                    bool dimensionsInitialized = false;
-
-                    if (elem.extraData->scrollData.verticalScrollBarVAO != 0 && update) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
-                        elem.extraData->scrollData.verticalScrollBarVAO = 0;
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared vertical scrollbar vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVAO);
-                            elem.extraData->scrollData.verticalScrollBarVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared vertical scrollbar vertex buffers";
-                            #endif
-                        }
-                    }
-
-                    if (elem.extraData->scrollData.verticalScrollBarVAO == 0) {
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nShowing vertical scrollbar. Element width: " << elem.width;
-                        #endif
-                        // WARNING: side effects!
-                        getScrollbarDimensions(
-                            &elem, top, right, bottom, left,
-                            thumbStart, thumbEnd,
-                            true
-                        );
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\n--> Vertical scrollbar dimensions. top: "
-                                << top << ", left: " << left << ", bottom: "
-                                << bottom << ", right:" << right
-                                << ", thumbStart: " << thumbStart << ", thumbEnd: " << thumbEnd;
-                        #endif
-
-                        dimensionsInitialized = true;
-
-                        float vertices[] = {
-                            right, bottom,
-                            right, elem.top,
-                            left, bottom,
-                            left, elem.top,
-                        };
-
-                        glGenVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
-                        glBindVertexArray(elem.extraData->scrollData.verticalScrollBarVAO);
-
-                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
-                        }
-
-                        glGenBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.verticalScrollBarVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
-                    }
-
-                    glBindVertexArray(elem.extraData->scrollData.verticalScrollBarVAO);
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
-                    glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
-
-                    if (darkTheme) {
-                        color = SCROLL_BAR_TRACK_COLOR_DARK;
-                    }
-
-                    glUniform4f(colorU, color.r, color.g, color.b, color.a);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                    if (elem.extraData->scrollData.verticalScrollThumbVAO != 0 && update) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
-                        glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
-                        elem.extraData->scrollData.verticalScrollThumbVAO = 0;
-                        elem.extraData->scrollData.verticalScrollThumbVBO = 0;
-                    }
-
-                    if (elem.extraData->scrollData.verticalScrollThumbVAO == 0) {
-                        if (!dimensionsInitialized) {
-                            // WARNING: side effects!
-                            getScrollbarDimensions(
-                                &elem, top, right, bottom, left,
-                                thumbStart, thumbEnd,
-                                true
-                            );
-                        }
-
-                        float vertices[] = {
-                            right, thumbEnd,
-                            right, thumbStart,
-                            left, thumbEnd,
-                            left, thumbStart,
-                        };
-
-                        glGenVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
-                        glBindVertexArray(elem.extraData->scrollData.verticalScrollThumbVAO);
-
-                        if (elem.extraData->scrollData.verticalScrollThumbVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
-                        }
-
-                        glGenBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.verticalScrollThumbVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
-                        elem.extraData->scrollData.renderedUpdate = true;
-                    }
-
-                    glBindVertexArray(elem.extraData->scrollData.verticalScrollThumbVAO);
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-                    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-                } else {
-                    if (elem.extraData->scrollData.verticalScrollBarVAO != 0) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollBarVAO);
-                        elem.extraData->scrollData.verticalScrollBarVAO = 0;
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared vertical scrollbar vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.verticalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollBarVBO);
-                            elem.extraData->scrollData.verticalScrollBarVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared vertical scroll bar vertex buffers";
-                            #endif
-                        }
-                    }
-
-                    if (elem.extraData->scrollData.verticalScrollThumbVAO != 0) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.verticalScrollThumbVAO);
-                        elem.extraData->scrollData.verticalScrollThumbVAO = 0;
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared vertical scrollbar thumb vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.verticalScrollThumbVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.verticalScrollThumbVBO);
-                            elem.extraData->scrollData.verticalScrollThumbVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared vertical scroll bar thumb vertex buffers";
-                            #endif
-                        }
-                    }
-                }
-
-                if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                    // WARNING: side effects!
-                    float top, left, bottom, right, thumbStart, thumbEnd;
-                    bool dimensionsInitialized = false;
-
-                    if (elem.extraData->scrollData.horizontalScrollBarVAO != 0 && update) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollBarVAO);
-                        elem.extraData->scrollData.horizontalScrollBarVAO = 0;
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared horizontal scrollbar vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.horizontalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollBarVAO);
-                            elem.extraData->scrollData.horizontalScrollBarVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared horizontal scrollbar vertex buffers";
-                            #endif
-                        }
-                    }
-
-                    if (elem.extraData->scrollData.horizontalScrollBarVAO == 0) {
-                        getScrollbarDimensions(
-                            &elem, top, right, bottom, left,
-                            thumbStart, thumbEnd,
-                            false
-                        );
-
-                        dimensionsInitialized = true;
-
-                        float vertices[] = {
-                            right, bottom,
-                            right, top,
-                            left, bottom,
-                            left, top,
-                        };
-
-                        glGenVertexArrays(1, &elem.extraData->scrollData.horizontalScrollBarVAO);
-                        glBindVertexArray(elem.extraData->scrollData.horizontalScrollBarVAO);
-
-                        if (elem.extraData->scrollData.horizontalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollBarVBO);
-                        }
-
-                        glGenBuffers(1, &elem.extraData->scrollData.horizontalScrollBarVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.horizontalScrollBarVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
-                    }
-
-                    glBindVertexArray(elem.extraData->scrollData.horizontalScrollBarVAO);
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
-                    glUniform4f(colorU, 0.9f, 0.9f, 0.9f, 1.0f);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                    if (elem.extraData->scrollData.horizontalScrollThumbVAO != 0 && update) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
-                        glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
-                        elem.extraData->scrollData.horizontalScrollThumbVAO = 0;
-                        elem.extraData->scrollData.horizontalScrollThumbVBO = 0;
-                    }
-
-                    if (elem.extraData->scrollData.horizontalScrollThumbVAO == 0) {
-                        if (!dimensionsInitialized) {
-                            // WARNING: side effects!
-                            getScrollbarDimensions(
-                                &elem, top, right, bottom, left,
-                                thumbStart, thumbEnd,
-                                false
-                            );
-                        }
-
-                        float vertices[] = {
-                            thumbStart, bottom,
-                            thumbStart, top,
-                            thumbEnd, bottom,
-                            thumbEnd, top,
-                        };
-
-                        glGenVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
-                        glBindVertexArray(elem.extraData->scrollData.horizontalScrollThumbVAO);
-
-                        if (elem.extraData->scrollData.horizontalScrollThumbVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
-                        }
-
-                        glGenBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, elem.extraData->scrollData.horizontalScrollThumbVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
-                        elem.extraData->scrollData.renderedUpdate = true;
-                    }
-
-                    glBindVertexArray(elem.extraData->scrollData.horizontalScrollThumbVAO);
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-                    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-                } else {
-                    if (elem.extraData->scrollData.horizontalScrollBarVAO != 0) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
-                        elem.extraData->scrollData.horizontalScrollBarVAO = 0;
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared horizontal scrollbar vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.horizontalScrollBarVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
-                            elem.extraData->scrollData.horizontalScrollBarVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared horizontal scroll bar vertex buffers";
-                            #endif
-                        }
-                    }
-
-                    if (elem.extraData->scrollData.horizontalScrollThumbVAO != 0) {
-                        glDeleteVertexArrays(1, &elem.extraData->scrollData.horizontalScrollThumbVAO);
-                        elem.extraData->scrollData.horizontalScrollThumbVAO = 0;
-
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nCleared horizontal scrollbar thumb vertex array";
-                        #endif
-
-                        if (elem.extraData->scrollData.horizontalScrollThumbVBO != 0) {
-                            glDeleteBuffers(1, &elem.extraData->scrollData.horizontalScrollThumbVBO);
-                            elem.extraData->scrollData.horizontalScrollThumbVBO = 0;
-
-                            #ifdef DEBUG_SCROLL_AREA
-                                cout << "\nCleared horizontal scroll bar thumb vertex buffers";
-                            #endif
-                        }
-                    }
-                }
+                renderScrollbars(&elem);
             }
             break;
         }
@@ -2210,7 +2265,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glUniform1f(widthU, elem.width);
             glUniform1f(heightU, elem.height);
 
-            if (elem.icon != ICON_NONE) {
+            if (elem.icon != Icon::None) {
                 if (elem.texture == 0) {
                     glGenTextures(1, &elem.texture);
                     glBindTexture(GL_TEXTURE_2D, elem.texture);
@@ -3267,6 +3322,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         if (
             elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT
             || elem->type == UI_TEXT_AREA || elem->type == UI_SCROLL_AREA
+            || elem->type == UI_CONTENT_CONTAINER
         ) {
             if (
                 x > elem->left && x < elem->left + elem->width
@@ -3399,9 +3455,9 @@ string getIconLocation(Icon icon) {
     string path = "assets/images/";
 
     switch (icon) {
-        case ICON_NONE: return "";
-        case ICON_PLUS: path += "plus.png"; break;
-        case ICON_FILE: path += "file.png"; break;
+        case Icon::None: return "";
+        case Icon::Plus: path += "plus.png"; break;
+        case Icon::File: path += "file.png"; break;
     }
 
     return path;

@@ -384,7 +384,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
     bool verticalScroll = !shiftPressed && yOffset != 0;
 
-    if (elem != nullptr && elem->type == UI_SCROLL_AREA) {
+    if (elem != nullptr && (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER)) {
         bool scrolled = false;
 
         if (verticalScroll) {
@@ -591,7 +591,7 @@ void setupUI(bool isDarkTheme) {
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
     initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(*contentScroll, UI_SCROLL_AREA, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(*contentScroll, UI_CONTENT_CONTAINER, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
     // initElement(*testLabel, UI_LABEL, 1200.0f, 8.0f, 256.0f, 48.0f);
 
     if (darkTheme) {
@@ -612,9 +612,9 @@ void setupUI(bool isDarkTheme) {
     menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
 
     newButton->text = "New";
-    newButton->icon = ICON_PLUS;
+    newButton->icon = Icon::Plus;
 
-    openButton->icon = ICON_FILE;
+    openButton->icon = Icon::File;
     openButton->text = "Open";
 
     contentScroll->text = "Main Scroll Area";
