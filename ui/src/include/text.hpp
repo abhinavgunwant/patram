@@ -64,6 +64,15 @@ extern unsigned int textVAO, textVBO;
 
 void initTextRendering(uint16_t width, uint16_t height);
 
+glm::vec4 renderContentRope(
+    Rope* rope,
+    glm::vec2 pos,
+    glm::vec2& res,
+    glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
+    uint8_t fontSize = 16,
+    UIElement* parent = nullptr
+);
+
 /**
  * Renders text
  *

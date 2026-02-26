@@ -87,6 +87,133 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glBindVertexArray(0);
 }
 
+glm::vec4 renderContentRope(
+    Rope* rope,
+    glm::vec2 pos,
+    glm::vec2& res,
+    glm::fvec3 color,
+    uint8_t fontSize,
+    UIElement* parent
+) {
+    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
+    glUseProgram(shaders[SHADER_TEXT].programId);
+
+    glUniform3f(
+        glGetUniformLocation(shaders[SHADER_TEXT].programId, "textColor"),
+        color.r,
+        color.g,
+        color.b
+    );
+    glUniform2f(glGetUniformLocation(shaders[SHADER_TEXT].programId, "resolution"), res.x, res.y);
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(textVAO);
+
+    float xpos = pos.x;
+    float yNet = pos.y;
+
+    RopeTraverser rt(rope);
+
+    while (rt.hasNext()) {
+        Rope* r = rt.next();
+
+        // iterate through all characters in the leaf rope
+        for (const char c : r->text) {
+            Character* ch = &characters[(int)c];
+
+            #ifdef DEBUG_TEXT
+            if (debugTextFirstRenderPrint) {
+                cout << "\n--> Rendering character: '" << (char) c << "'";
+            }
+            #endif
+
+            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+
+            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+
+            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
+            float glyphWidth = glyphHeight * aspectRatio;
+
+            float widthRatio = glyphWidth / ch->width;
+            float heightRatio = glyphHeight / ch->height;
+
+            float bearingTop = ch->bearingTop * heightRatio;
+            float bearingLeft = ch->bearingLeft * widthRatio;
+
+            if (bearingLeft != bearingLeft) {
+                bearingLeft = 0.0f;
+            }
+
+            if (bearingTop != bearingTop) {
+                bearingTop = 0.0f;
+            }
+
+            xpos += bearingLeft;
+
+            if (
+                parent != nullptr
+                && (
+                    parent->width < 800.0f
+                    && xpos + glyphWidth > parent->width - CONTENT_HORIZONTAL_MARGIN
+                    || xpos + glyphWidth > contentRight
+                )
+            ) {
+                yNet += fontSize + 4.0f;
+                xpos = pos.x;
+            }
+
+            float ypos = yNet + glyphHeight - bearingTop + fontSize;
+
+            if (glyphDescender < 0) {
+                dimensions.z = ypos - pos.y - (glyphDescender * fontSize);
+            } else {
+                dimensions.z = ypos - pos.y;
+            }
+
+            float xpos_plus_w = xpos + glyphWidth;
+            float ypos_plus_h = ypos - glyphHeight; // ypos + h
+
+            #ifdef DEBUG_TEXT
+            if (debugTextFirstRenderPrint) {
+                cout << "; x: " << xpos << " y: " << ypos << " x + w: "
+                    << xpos_plus_w << " y + h: " << ypos_plus_h
+                    << " bearingLeft: " << bearingLeft
+                    << " bearingTop: " << bearingTop
+                    << " widthRatio: " << widthRatio
+                    << " heightRatio: " << heightRatio;
+            }
+            #endif
+
+            float vertices[6][4] = {
+                { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
+                { xpos,         ypos,           ch->textureX1, ch->textureY2 },
+                { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
+                { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
+                { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
+                { xpos_plus_w,  ypos_plus_h,    ch->textureX2, ch->textureY1 },
+            };
+
+            // render glyph texture over quad
+            glBindTexture(GL_TEXTURE_2D, fontTextureID);
+            // update content of textVBO memory
+            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            // render quad
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+        }
+    }
+
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    dimensions.w = pos.x;
+
+    return dimensions;
+}
+
 // render line of text
 glm::vec4 renderText(
     string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
