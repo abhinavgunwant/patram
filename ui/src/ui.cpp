@@ -33,8 +33,7 @@ float contentLeft = CONTENT_HORIZONTAL_MARGIN;
 float contentRight = 550.0f;
 
 HighlightedContentBlock highlightedContentBlock = {
-    .cb = nullptr,
-    .parentElement = nullptr,
+    .cbIndex = 0,
     .show =  false,
     .updated =  false,
     .mouseDown = false,
@@ -48,7 +47,11 @@ HighlightedContentBlock highlightedContentBlock = {
     .dragTabVBO = 0,
 };
 
-ContentBlockMoveMarker cbMove = { nullptr, 0, 0, 0, false, true,  };
+ContentBlockMoveMarker cbMove = { 0, 0, 0, 0, false, true };
+
+vector<ContentTab> tabs;
+uint8_t activeTabIndex;
+UIElement* contentContainer;
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -1174,116 +1177,93 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     };
 }
 
-ContentBlock* initContentBlock(ContentBlockType type, string text) {
-    return new ContentBlock {
-        .type = type,
-        .flags = CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, uint32_t index) {
+    if (tabIndex >= tabs.size()) {
+        return;
+    }
 
-        .top = 0.0f,
-        .left = 0.0f,
-        .height = 0.0f,
+    ContentTab* tab = &tabs[tabIndex];
 
-        .rope = new Rope(text),
-
-        .prev = nullptr,
-        .next = nullptr,
+    ContentBlock cb = ContentBlock {
+        type,
+        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        0.0f,
+        0.0f,
+        0.0f,
+        new Rope(text),
     };
+
+    auto itr = tab->contentBlocks.begin() + index;
+
+    tab->contentBlocks.insert(itr, cb);
 }
 
-ContentBlock* addContentBlock(UIElement& parentElement, ContentBlockType type, string text, ContentBlock* addAfter) {
-    if (parentElement.contentBlocks == nullptr) {
-        parentElement.contentBlocks = initContentBlock(type, text);
-        return parentElement.contentBlocks;
+void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
+    if (tabIndex >= tabs.size()) {
+        return;
     }
 
-    ContentBlock* block = initContentBlock(type, text);
-
-    if (addAfter != nullptr) {
-        block->prev = addAfter;
-        block->next = addAfter->next;
-
-        addAfter->next = block;
-        return block;
-    }
-
-    ContentBlock* last = parentElement.contentBlocks;
-
-    LAST_IN_LIST(last);
-
-    last->next = block;
-    block->prev = last;
-
-    return block;
+    tabs[tabIndex].contentBlocks.push_back(ContentBlock {
+        type,
+        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        0.0f,
+        0.0f,
+        0.0f,
+        new Rope(text),
+    });
 }
 
-void moveContentBlock(UIElement* parentElement, ContentBlock* cb, ContentBlock* before = nullptr) {
-    if (parentElement->contentBlocks == nullptr) {
-        cout << "\nError: There are no content blocks in the parent element!";
+void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
+    if (tabIndex >= tabs.size()) {
+        cerr << "\nError: Invalid tab!";
         return;
     }
 
-    if (cb == nullptr) {
-        cout << "\nError: There is no content block to move!";
+    if (newIndex == oldIndex) {
         return;
     }
 
-    if (cb == before) {
+    ContentTab* tab = &tabs[tabIndex];
+
+    if (abs(static_cast<int64_t>(newIndex) - static_cast<int64_t>(oldIndex)) == 1) {
+        ContentBlock temp = tab->contentBlocks[newIndex];
+        tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
+        tab->contentBlocks[oldIndex] = temp;
         return;
     }
 
-    if (before != nullptr && before->prev == cb) {
-        cout << "\nThis element is in the right place. Aborting...";
-        return;
-    }
+    if (newIndex < oldIndex) {
+        ContentBlock temp = tab->contentBlocks[newIndex];
+        tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
 
-    cb->flags |= CONTENT_BLOCK_REDRAW;
-
-    if (cb->prev != nullptr) {
-        cb->prev->next = cb->next;
-    }
-
-    if (cb->next != nullptr) {
-        cb->next->prev = cb->prev;
-    }
-
-    if (before == nullptr) {
-        cout << "\nMoving after last element.";
-        auto last = parentElement->contentBlocks;
-
-        while (last->next != nullptr) {
-            last = last->next;
+        for (
+            auto itr = tab->contentBlocks.begin() + newIndex + 1;
+            itr != tab->contentBlocks.begin() + oldIndex + 1;
+            ++itr
+        ) {
+            ContentBlock temp2 = *itr;
+            *itr = temp;
+            temp = temp2;
         }
 
-        last->next = cb;
-        cb->prev = last;
-        cb->next = nullptr;
         return;
     }
 
-    before->flags |= CONTENT_BLOCK_REDRAW;
+    ContentBlock temp = tab->contentBlocks[oldIndex];
+    tab->contentBlocks[oldIndex] = tab->contentBlocks[newIndex];
 
-    if (before == parentElement->contentBlocks) {
-        cb->next = parentElement->contentBlocks->next;
-        cb->prev = parentElement->contentBlocks;
-        parentElement->contentBlocks->next->prev = cb;
-        parentElement->contentBlocks->next = cb;
-        cout << "\nError: There is no content block in the \"before\"!";
-        return;
+    for (
+        auto itr = tab->contentBlocks.begin() + oldIndex + 1;
+        itr != tab->contentBlocks.begin() + newIndex + 1;
+        ++itr
+    ) {
+        ContentBlock temp2 = *itr;
+        *itr = temp;
+        temp = temp2;
     }
-
-    cb->next = before;
-
-    if (before->prev != nullptr) {
-        before->prev->next = cb;
-        cb->prev = before->prev;
-    }
-
-    before->prev = cb;
-
-    cout << "\nFinished moving content block!";
 
     #ifdef DEBUG_CONTENT_BLOCKS
-        printContentBlocks(parentElement);
+        printContentBlocks(activeTabIndex);
     #endif
 }
 
@@ -1505,8 +1485,8 @@ void recalculateLayout(UIElement * elem) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
 
-            if (elem->contentBlocks != nullptr) {
-                reDrawAllContentBlocks(elem);
+            if (!tabs[activeTabIndex].contentBlocks.empty()) {
+                reDrawAllContentBlocks();
 
                 elem->extraData->scrollData.height = 0;
             }
@@ -1918,48 +1898,47 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_CONTENT_CONTAINER: {
-            if (elem.contentBlocks != nullptr) {
-                if (elem.reDraw) {
-                    elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
-                    elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+            if (elem.reDraw) {
+                elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
+                elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
 
-                    #ifdef DEBUG_SCROLL_AREA
-                        cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
-                        cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
-                    #endif
-                }
-
-                elem.reDraw = false;
-
-                float width = elem.width;
-                float height = elem.height;
-
-                if (elem.extraData->scrollData.showVerticalScrollbar) {
-                    width -= SCROLL_BAR_THICKNESS;
-                }
-
-                if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                    height -= SCROLL_BAR_THICKNESS;
-                }
-
-                glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
-                glEnable(GL_SCISSOR_TEST);
-
-                renderContentBlockHighlight();
-
-                ContentBlock* temp = elem.contentBlocks;
-
-                while (temp != nullptr) {
-                    renderContentBlock(&elem, temp, resolution, cursor);
-                    temp = temp->next;
-                }
-
-                renderCBMoveMarker();
-
-                glDisable(GL_SCISSOR_TEST);
-
-                renderScrollbars(&elem);
+                #ifdef DEBUG_SCROLL_AREA
+                    cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
+                    cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
+                #endif
             }
+
+            elem.reDraw = false;
+
+            float width = elem.width;
+            float height = elem.height;
+
+            if (elem.extraData->scrollData.showVerticalScrollbar) {
+                width -= SCROLL_BAR_THICKNESS;
+            }
+
+            if (elem.extraData->scrollData.showHorizontalScrollbar) {
+                height -= SCROLL_BAR_THICKNESS;
+            }
+
+            glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
+            glEnable(GL_SCISSOR_TEST);
+
+            renderContentBlockHighlight();
+
+            for (
+                auto itr = tabs[activeTabIndex].contentBlocks.begin();
+                itr != tabs[activeTabIndex].contentBlocks.end();
+                ++itr
+            ) {
+                renderContentBlock(itr, resolution, cursor);
+            }
+
+            renderCBMoveMarker();
+
+            glDisable(GL_SCISSOR_TEST);
+
+            renderScrollbars(&elem);
             break;
         }
 
@@ -2146,32 +2125,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     renderElement(*elem.children[i], resolution, cursor);
                 }
-
-                // highlightedContentBlock.show = false;
-
-                // renderContentBlockHighlight();
-
-                // ContentBlock* temp = elem.contentBlocks;
-
-                // while (temp != nullptr) {
-                //     renderContentBlock(&elem, temp, resolution, cursor);
-                //     temp = temp->next;
-                // }
-
-                // renderCBMoveMarker();
-
-                // if (!highlightedContentBlock.show && highlightedContentBlock.backgroundVAO) {
-                    // glDeleteVertexArrays(1, &highlightedContentBlock.backgroundVAO);
-                    // glDeleteBuffers(1, &highlightedContentBlock.backgroundVBO);
-
-                    // glDeleteVertexArrays(1, &highlightedContentBlock.dragTabVAO);
-                    // glDeleteBuffers(1, &highlightedContentBlock.dragTabVBO);
-
-                    // highlightedContentBlock.backgroundVAO = 0;
-                    // highlightedContentBlock.backgroundVBO = 0;
-                    // highlightedContentBlock.dragTabVAO = 0;
-                    // highlightedContentBlock.dragTabVBO = 0;
-                // }
 
                 glDisable(GL_SCISSOR_TEST);
                 renderScrollbars(&elem);
@@ -2888,14 +2841,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 }
 
 void renderContentBlock(
-    UIElement* parentElement,
-    ContentBlock* cb,
+    vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
     glm::vec2 &cursor
 ) {
     // NOTE: Assuming parent element will always be of type UI_SCROLL_AREA.
  
-    if (cb == nullptr || !(cb->flags & CONTENT_BLOCK_VISIBLE)) {
+    if (!((*cb).flags & CONTENT_BLOCK_VISIBLE)) {
         cout << "\nContent block not visible";
         return;
     }
@@ -2903,7 +2855,7 @@ void renderContentBlock(
     uint8_t fontSize = 16;
     float topMargin = 0.0f;
 
-    switch (cb->type) {
+    switch ((*cb).type) {
         case ContentBlockType::Heading1: fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
         case ContentBlockType::Heading2: fontSize = 40; topMargin = CONTENT_BLOCK_MARGIN; break;
         case ContentBlockType::Heading3: fontSize = 32; topMargin = CONTENT_BLOCK_MARGIN; break;
@@ -2914,19 +2866,21 @@ void renderContentBlock(
         case ContentBlockType::Title:  fontSize = 48; topMargin = 5.0f; break;
     }
 
-    if (parentElement->extraData == nullptr) {
+    if (contentContainer->extraData == nullptr) {
         cout << "\nRender Error: UIElement's parent is NULL!";
         return;
     }
 
     glm::vec4 dim;
 
-    if ((cb->flags & CONTENT_BLOCK_REDRAW) != 0) {
-        if (cb->prev != nullptr) {
-            cb->top = cb->prev->top + cb->prev->height + 8.0f;
-            cb->left = cb->prev->left;
+    if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
+        if (cb > tabs[activeTabIndex].contentBlocks.begin() && cb - 1 >= tabs[activeTabIndex].contentBlocks.begin()) {
+            auto prev = cb - 1;
 
-            switch (cb->prev->type) {
+            (*cb).top = (*prev).top + (*prev).height + 8.0f;
+            (*cb).left = (*prev).left;
+
+            switch ((*prev).type) {
                 case ContentBlockType::Heading1:
                 case ContentBlockType::Heading2:
                 case ContentBlockType::Heading3:
@@ -2941,15 +2895,15 @@ void renderContentBlock(
                     break;
             }
 
-            cb->top += topMargin;
+            (*cb).top += topMargin;
         } else {
-            cb->top = parentElement->top;
-            cb->left = parentElement->left;
+            (*cb).top = contentContainer->top;
+            (*cb).left = contentContainer->left;
         }
     }
 
-    float top = cb->top - parentElement->extraData->scrollData.yOffset;
-    float left = cb->left - parentElement->extraData->scrollData.xOffset;
+    float top = (*cb).top - contentContainer->extraData->scrollData.yOffset;
+    float left = (*cb).left - contentContainer->extraData->scrollData.xOffset;
 
     if (resolution.x >= CONTENT_BREAKPOINT) {
         left += contentLeft;
@@ -2958,27 +2912,27 @@ void renderContentBlock(
     }
 
     dim = renderContentRope(
-        cb->rope,
+        (*cb).rope,
         glm::vec2(left, top),
         resolution,
         darkTheme ? WHITE : BLACK,
         fontSize,
-        parentElement
+        contentContainer
     );
 
-    if ((cb->flags & CONTENT_BLOCK_REDRAW) != 0) {
-        cb->height = dim[2];
-        cb->flags &= ~(CONTENT_BLOCK_REDRAW);
+    if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
+        (*cb).height = dim[2];
+        (*cb).flags &= ~(CONTENT_BLOCK_REDRAW);
     }
 
-    if (parentElement->extraData->scrollData.height < cb->top + cb->height) {
+    if (contentContainer->extraData->scrollData.height < (*cb).top + (*cb).height) {
         #ifdef DEBUG_SCROLL_AREA
             cout << "\nScroll height less than dim.z " << dim.z;
         #endif
 
-        parentElement->extraData->scrollData.height = cb->top + cb->height;
-        parentElement->extraData->scrollData.renderedUpdate = false;
-        parentElement->reDraw = true;
+        contentContainer->extraData->scrollData.height = (*cb).top + (*cb).height;
+        contentContainer->extraData->scrollData.renderedUpdate = false;
+        contentContainer->reDraw = true;
     }
 }
 
@@ -3091,11 +3045,10 @@ void renderContentBlockHighlight() {
 }
 
 void renderCBMoveMarker() {
-    #define GET_TOP(block) block->top - 1.5f - highlightedContentBlock.parentElement->extraData->scrollData.yOffset
+    #define GET_TOP(block) block->top - 1.5f - contentContainer->extraData->scrollData.yOffset
 
     if (
         highlightedContentBlock.mouseDown
-        && highlightedContentBlock.parentElement != nullptr
         && cbMove.show
     ) {
         if (cbMove.updated) {
@@ -3105,14 +3058,14 @@ void renderCBMoveMarker() {
 
             float top;
 
-            if (cbMove.targetBlock == nullptr) {
-                ContentBlock* last = highlightedContentBlock.parentElement->contentBlocks;
-
-                LAST_IN_LIST(last);
+            if (cbMove.targetIndex == 0) {
+                uint32_t index = tabs[activeTabIndex].contentBlocks.size() - 1;
+                ContentBlock* last = &tabs[activeTabIndex].contentBlocks[index];
 
                 top = GET_TOP(last) + last->height;
             } else {
-                top = GET_TOP(cbMove.targetBlock);
+                ContentBlock* last = &tabs[activeTabIndex].contentBlocks[cbMove.targetIndex];
+                top = GET_TOP(last);
             }
 
             float bottom = top + 3.0f;
@@ -3166,19 +3119,16 @@ void hideCBMoveMarker() {
 
     cbMove.vao = 0;
     cbMove.vbo = 0;
-    cbMove.targetBlock = nullptr;
+    cbMove.targetIndex = 0;
 }
 
-void reDrawAllContentBlocks(UIElement* parentElement) {
-    if (parentElement->contentBlocks == nullptr) {
-        return;
-    }
-
-    ContentBlock* temp = parentElement->contentBlocks;
-
-    while (temp != nullptr) {
-        temp->flags |= CONTENT_BLOCK_REDRAW;
-        temp = temp->next;
+void reDrawAllContentBlocks() {
+    for (
+        auto itr = tabs[activeTabIndex].contentBlocks.begin();
+        itr != tabs[activeTabIndex].contentBlocks.end();
+        ++itr
+    ) {
+        (*itr).flags |= CONTENT_BLOCK_REDRAW;
     }
 }
 
@@ -3583,18 +3533,17 @@ string elementType(UIElement *elem) {
 
 #ifdef DEBUG_CONTENT_BLOCKS
 
-void printContentBlocks(UIElement* parentElement) {
-    cout << "\nContent Blocks: ";
-
-    if (parentElement->contentBlocks == nullptr) {
+void printContentBlocks(uint32_t tabIndex) {
+    if (tabIndex >= tabs.size()) {
+        cerr << "\nError: Invalid tab index.";
         return;
     }
 
-    ContentBlock* temp = parentElement->contentBlocks;
+    cout << "\nContent Blocks: ";
 
-    while (temp != nullptr) {
+    for (auto itr = tabs[tabIndex].contentBlocks.begin(); itr != tabs[tabIndex].contentBlocks.end(); ++itr) {
         cout << "\n  ";
-        switch (temp->type) {
+        switch ((*itr).type) {
             case ContentBlockType::Title: cout << "Title"; break;
             case ContentBlockType::Heading1: cout << "Heading1"; break;
             case ContentBlockType::Heading2: cout << "Heading2"; break;
@@ -3605,8 +3554,7 @@ void printContentBlocks(UIElement* parentElement) {
             case ContentBlockType::Paragraph: cout << "Paragraph"; break;
         }
 
-        cout << " -> " << temp->rope->text.substr(0, 10);
-        temp = temp->next;
+        cout << " -> " << (*itr).rope->text.substr(0, 10);
     }
 }
 

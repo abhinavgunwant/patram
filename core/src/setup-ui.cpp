@@ -113,32 +113,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
 
             if (highlightedContentBlock.show) {
-                if (highlightedContentBlock.parentElement == nullptr) {
-                    highlightedContentBlock.show = false;
-                    highlightedContentBlock.mouseDown = false;
-
-                    if (highlightedContentBlock.cb != nullptr) {
-                        highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
-                    }
-
-                    hideCBMoveMarker();
-
-                    return;
-                }
-
                 if (
                     mouseX >= highlightedContentBlock.left - 20.0f
                     && mouseX <= highlightedContentBlock.left
                     && mouseY >= highlightedContentBlock.top
                     && mouseY <= highlightedContentBlock.bottom
-                    && highlightedContentBlock.cb != nullptr
+                    && highlightedContentBlock.cbIndex >= tabs[activeTabIndex].contentBlocks.size()
                 ) {
-                    highlightedContentBlock.cb->flags |= CONTENT_BLOCK_DRAGGING;
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags |= CONTENT_BLOCK_DRAGGING;
                     highlightedContentBlock.mouseDown = true;
                 } else {
-                    highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
                     highlightedContentBlock.mouseDown = false;
-                    cbMove.targetBlock = nullptr;
+                    cbMove.targetIndex = 0;
                 }
             }
         } else if (action == GLFW_RELEASE) {
@@ -148,24 +135,22 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouse1Down = false;
 
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
-                if (highlightedContentBlock.cb != nullptr) {
-                    cout << "\nHighlighted content block RELEASE target: ";
+                cout << "\nHighlighted content block RELEASE target: ";
 
-                    if (cbMove.targetBlock != nullptr) {
-                        cout << cbMove.targetBlock->rope->text.substr(0, 10);
-                    } else {
-                        cout << "NULL";
-                    }
-
-                    moveContentBlock(
-                        highlightedContentBlock.parentElement,
-                        highlightedContentBlock.cb,
-                        cbMove.targetBlock
-                    );
-
-                    highlightedContentBlock.cb->flags &= ~(CONTENT_BLOCK_DRAGGING);
-                    reDrawAllContentBlocks(highlightedContentBlock.parentElement);
+                if (cbMove.targetIndex != 0) {
+                    cout << tabs[activeTabIndex].contentBlocks[cbMove.targetIndex].rope->text.substr(0, 10);
+                } else {
+                    cout << "NULL";
                 }
+
+                moveContentBlock(
+                    activeTabIndex,
+                    highlightedContentBlock.cbIndex,
+                    cbMove.targetIndex
+                );
+
+                tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
+                reDrawAllContentBlocks();
 
                 highlightedContentBlock.mouseDown = false;
                 hideCBMoveMarker();
@@ -256,16 +241,19 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
 
-    if (highlightedContentBlock.parentElement != nullptr && !highlightedContentBlock.mouseDown) {
-        ContentBlock* cb = highlightedContentBlock.parentElement->contentBlocks;
-
+    if (!highlightedContentBlock.mouseDown) {
         float top;
+        highlightedContentBlock.show = false;
 
-        while (cb != nullptr) {
-            top = cb->top - highlightedContentBlock.parentElement->extraData->scrollData.yOffset;
+        for (
+            auto itr = tabs[activeTabIndex].contentBlocks.begin();
+            itr != tabs[activeTabIndex].contentBlocks.end();
+            ++itr
+        ) {
+            top = (*itr).top - contentContainer->extraData->scrollData.yOffset;
 
-            if (ypos > top && ypos < top + cb->height) {
-                if (cb->type == ContentBlockType::Title) {
+            if (ypos > top && ypos < top + (*itr).height) {
+                if ((*itr).type == ContentBlockType::Title) {
                     highlightedContentBlock.show = false;
                     break;
                 }
@@ -276,54 +264,50 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 highlightedContentBlock.top = top;
 
                 if (glyphDescender < 0) {
-                    highlightedContentBlock.bottom = top + cb->height - glyphDescender;
+                    highlightedContentBlock.bottom = top + (*itr).height - glyphDescender;
                 } else {
-                    highlightedContentBlock.bottom = top + cb->height;
+                    highlightedContentBlock.bottom = top + (*itr).height;
                 }
 
                 highlightedContentBlock.right = contentRight;
 
-                if (highlightedContentBlock.cb != cb) {
+                uint32_t index = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
+
+                if (highlightedContentBlock.cbIndex != index) {
                     highlightedContentBlock.updated = true;
                 }
 
-                highlightedContentBlock.cb = cb;
+                highlightedContentBlock.cbIndex = index;
                 break;
             }
-
-            cb = cb->next;
-        }
-
-        if (cb == nullptr) {
-            highlightedContentBlock.show = false;
         }
     }
 
-    if (
-        highlightedContentBlock.show
-        && highlightedContentBlock.parentElement != nullptr
-        && highlightedContentBlock.mouseDown
-    ) {
-        #define SCROLL_DATA highlightedContentBlock.parentElement->extraData->scrollData
+    if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
+        #define SCROLL_DATA contentContainer->extraData->scrollData
 
-        ContentBlock* temp = highlightedContentBlock.parentElement->contentBlocks;
+        for (
+            auto itr = tabs[activeTabIndex].contentBlocks.begin();
+            itr != tabs[activeTabIndex].contentBlocks.end();
+            ++itr
+        ) {
+            float top = (*itr).top - SCROLL_DATA.yOffset;
 
-        while (temp != nullptr) {
-            float top = temp->top - SCROLL_DATA.yOffset;
+            uint32_t index = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
 
             if (
-                temp != highlightedContentBlock.cb
+                highlightedContentBlock.cbIndex != index
                 && mouseY > top
-                && mouseY < top + temp->height
+                && mouseY < top + (*itr).height
             ) {
                 if (
-                    temp == cbMove.targetBlock
-                    && mouseY > top + temp->height/2
+                    index == cbMove.targetIndex
+                    && mouseY > top + (*itr).height/2
                 ) {
-                    cbMove.targetBlock = temp->next;
+                    cbMove.targetIndex = index + 1;
                 } else {
-                    if (temp != cbMove.targetBlock && mouseY < top + temp->height/2) {
-                        cbMove.targetBlock = temp;
+                    if (index != cbMove.targetIndex && mouseY < top + (*itr).height/2) {
+                        cbMove.targetIndex = index;
                     }
                 }
 
@@ -331,8 +315,6 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 cbMove.updated = true;
                 break;
             }
-
-            temp = temp->next;
         }
 
         if (mouseY > resolution.y - 50.0f) {
@@ -577,7 +559,7 @@ void setupUI(bool isDarkTheme) {
     UIElement* menuBar = &elements[0];
     UIElement* newButton = &elements[1];
     UIElement* openButton = &elements[2];
-    UIElement* contentScroll = &elements[3];
+    contentContainer = &elements[3];
     // UIElement* cbTitle = &elements[4];
     // UIElement* para1 = &elements[5];
     // UIElement* para2 = &elements[6];
@@ -591,7 +573,8 @@ void setupUI(bool isDarkTheme) {
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
     initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(*contentScroll, UI_CONTENT_CONTAINER, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(*contentContainer, UI_CONTENT_CONTAINER, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+
     // initElement(*testLabel, UI_LABEL, 1200.0f, 8.0f, 256.0f, 48.0f);
 
     if (darkTheme) {
@@ -617,21 +600,26 @@ void setupUI(bool isDarkTheme) {
     openButton->icon = Icon::File;
     openButton->text = "Open";
 
-    contentScroll->text = "Main Scroll Area";
-    contentScroll->extraData->scrollData.width = WINDOW_WIDTH;
-    contentScroll->extraData->scrollData.height = WINDOW_HEIGHT - 64;
-    contentScroll->preferences->widthPreference = UI_FULL;
-    contentScroll->preferences->heightPreference = UI_STRETCH;
+    contentContainer->text = "Main Scroll Area";
+    contentContainer->extraData->scrollData.width = WINDOW_WIDTH;
+    contentContainer->extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    contentContainer->preferences->widthPreference = UI_FULL;
+    contentContainer->preferences->heightPreference = UI_STRETCH;
+
+    vector<ContentBlock> content;
+
+    tabs.push_back(ContentTab { 0, 0, 0, 0, content });
+    activeTabIndex = 0;
 
     ContentBlock* temp;
-    temp = addContentBlock(*contentScroll, ContentBlockType::Title, "This is a test note title!");
-    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.", temp);
-    addContentBlock(*contentScroll, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
-    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
-    addContentBlock(*contentScroll, ContentBlockType::Heading2, "Praesent rutrum odio in neque commodo pretium.");
-    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
-    addContentBlock(*contentScroll, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
-    addContentBlock(*contentScroll, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
+    appendContentBlock(0, ContentBlockType::Title, "This is a test note title!");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.");
+    appendContentBlock(0, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
+    appendContentBlock(0, ContentBlockType::Heading2, "Praesent rutrum odio in neque commodo pretium.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
+    appendContentBlock(0, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
 
     // testLabel->text = "Testing the scroll area for full width";
     // testLabel->fontSize = 48.0f;
@@ -641,16 +629,14 @@ void setupUI(bool isDarkTheme) {
     addChild(menuBar, openButton);
 
     addChild(&rootContainer, menuBar);
-    addChild(&rootContainer, contentScroll);
-
-    highlightedContentBlock.parentElement = contentScroll;
+    addChild(&rootContainer, contentContainer);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 
     initFontTexture(getFontAtlasPath(0).string());
 
     #ifdef DEBUG_CONTENT_BLOCKS
-        printContentBlocks(contentScroll);
+        printContentBlocks(0);
     #endif
 }
 
