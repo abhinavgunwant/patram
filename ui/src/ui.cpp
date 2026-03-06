@@ -1,6 +1,9 @@
 #include <algorithm>
 #include <iostream>
-#include <stack>
+
+#ifdef DEBUG_TEXT_INPUT
+    #include <string_view>
+#endif
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -52,6 +55,7 @@ ContentBlockMoveMarker cbMove = { 0, 0, 0, 0, false, true };
 vector<ContentTab> tabs;
 uint8_t activeTabIndex;
 UIElement* contentContainer;
+UIElement* activeElement = nullptr;
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -63,6 +67,294 @@ void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
 
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
     cout << "\nDefault mouse up/down callback executed!";
+}
+
+void cbKeyCallback(int key, int action, int mod) {
+    ContentTab* tab = &tabs[activeTabIndex];
+    ContentBlock* cb = &tab->contentBlocks[tab->activeCBIndex];
+
+    bool alt = mod & GLFW_MOD_ALT;
+    bool shift = mod & GLFW_MOD_SHIFT;
+    bool ctrl = mod & GLFW_MOD_CONTROL;
+    bool capsLck = mod & GLFW_MOD_CAPS_LOCK;
+    bool numLck = mod & GLFW_MOD_NUM_LOCK;
+
+    #ifdef DEBUG_TEXT_INPUT
+        cout << "\n Key: ";
+
+        if (alt) {
+            cout << "Alt + ";
+        }
+
+        if (shift) {
+            cout << "Shift + ";
+        }
+
+        if (ctrl) {
+            cout << "Control + ";
+        }
+
+        if (capsLck) {
+            cout << "Caps Lock + ";
+        }
+
+        if (numLck) {
+            cout << "Num Lock + ";
+        }
+
+        cout << key;
+    #endif
+
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        #define TYPE(c) processCBCommand(ContentCommand {\
+                c, "", CommandType::Type, 0, 0, 0, 0, tab->cursorPosition\
+            });\
+            tab->lastCursorTime = static_cast<float>(glfwGetTime());\
+            tab->cursorPosition++;\
+            tab->redrawCursor = true
+        #define BASIC_CMD(type) ContentCommand { "", "", type, 0, 0, 0, 0, tab->cursorPosition }
+        #define INCR_CURSOR() if (tab->cursorPosition < cb->rope->length()) { tab->cursorPosition++; }
+        #define DECR_CURSOR() if (tab->cursorPosition > 0) { tab->cursorPosition--; }
+        #define CUR_POS tab->cursorPosition
+        #define UPDATE() tab->lastCursorTime = static_cast<float>(glfwGetTime()); tab->redrawCursor = true
+        #define UNSELECT() tab->textSelected = false; tab->selStartRow = 0;\
+            tab->selStartCol = 0; tab->selEndRow = 0; tab->selEndCol = 0
+
+        switch (key) {
+            case GLFW_KEY_ESCAPE:
+                if (tab->textSelected) {
+                    UNSELECT();
+                } else {
+                    tab->showCursor = false;
+                }
+                break;
+
+            case GLFW_KEY_LEFT:
+                if (shift) {
+                    if (tab->textSelected) {
+                        if (tab->cursorPosition - 1 == tab->initialCursorPosition) {
+                            UNSELECT();
+                        } else if (tab->cursorPosition > tab->initialCursorPosition) {
+                            tab->selEndCol -= 1;
+                        } else {
+                            tab->selStartCol -= 1;
+                        }
+                    } else {
+                        tab->textSelected = true;
+                        tab->initialCursorPosition = tab->cursorPosition;
+                        tab->selStartCol = tab->cursorPosition - 1;
+                        tab->selEndCol = tab->cursorPosition;
+                    }
+
+                    tab->redrawSel = true;
+                } else {
+                    UNSELECT();
+                }
+
+                DECR_CURSOR();
+                UPDATE();
+                break;
+
+            case GLFW_KEY_RIGHT:
+                if (shift) {
+                    if (tab->textSelected) {
+                        if (tab->cursorPosition + 1 == tab->initialCursorPosition) {
+                            UNSELECT();
+                        } else if (tab->cursorPosition > tab->initialCursorPosition) {
+                            tab->selEndCol += 1;
+                        } else {
+                            tab->selStartCol += 1;
+                        }
+                    } else {
+                        tab->textSelected = true;
+                        tab->initialCursorPosition = tab->cursorPosition;
+                        tab->selEndCol = tab->cursorPosition + 1;
+                        tab->selStartCol = tab->cursorPosition;
+                    }
+
+                    tab->redrawSel = true;
+                } else {
+                    UNSELECT();
+                }
+
+                INCR_CURSOR();
+                UPDATE();
+                break;
+
+            case GLFW_KEY_UP:
+                // TODO: implement!
+                break;
+
+            case GLFW_KEY_DOWN:
+                // TODO: implement!
+                break;
+
+            case GLFW_KEY_ENTER:
+                #ifdef DEBUG_TEXT_INPUT
+                    cout << "\nEnter pressed";
+                #endif
+
+                processCBCommand(ContentCommand {
+                    "", "", CommandType::NewLine, 0, 0, 0, 0, tab->cursorPosition,
+                    tab->cursorCBIndex
+                });
+                tab->redrawCursor = true;
+                break;
+
+            case GLFW_KEY_END:
+                // TODO: make the cursor go to the end of the line here...
+                // CUR_POS = static_cast<uint32_t>(elem->text.length());
+                UPDATE();
+                break;
+
+            case GLFW_KEY_HOME:
+                // TODO: make the cursor go to the start of the line here...
+                CUR_POS = 0;
+                UPDATE();
+                break;
+
+            case GLFW_KEY_BACKSPACE:
+                if (
+                    CUR_POS <= cb->rope->length() && CUR_POS > 0
+                    || tab->textSelected
+                ) {
+                    if (tab->textSelected){
+                        // TODO: prevString here should be the selected text
+                        processCBCommand(BASIC_CMD(CommandType::Backspace));
+                    } else {
+                        processCBCommand(ContentCommand {
+                            "",
+                            to_string((*cb->rope)[CUR_POS - 1]),
+                            CommandType::Backspace, 0, 0, 0, 0, CUR_POS
+                        });
+                    }
+
+                    if (!tab->textSelected && CUR_POS != 0) {
+                        DECR_CURSOR();
+                    }
+
+                    UPDATE();
+                }
+                break;
+
+            case GLFW_KEY_DELETE:
+                if (
+                    CUR_POS < cb->rope->length() && CUR_POS >= 0
+                    || tab->textSelected
+                ) {
+                    if (tab->textSelected) {
+                        processCBCommand(BASIC_CMD(CommandType::Delete));
+                    } else {
+                        processCBCommand(ContentCommand { to_string((*cb->rope)[CUR_POS - 1]), "", CommandType::Delete, 0, 0, 0, 0, CUR_POS });
+                    }
+
+                    UPDATE();
+                }
+                break;
+
+            case GLFW_KEY_A:
+                if (ctrl) {
+                    const uint32_t len = cb->rope->length();
+                    tab->textSelected = true;
+                    tab->initialCursorPosition = tab->cursorPosition;
+                    tab->selStartCol = 0;
+                    tab->selEndCol = len;
+                    tab->redrawSel = true;
+                    tab->cursorPosition = len;
+                } else if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
+
+                break;
+
+            case GLFW_KEY_B: if (capsLck || shift) { TYPE("B"); } else { TYPE("b"); } break;
+            case GLFW_KEY_C: if (capsLck || shift) { TYPE("C"); } else { TYPE("c"); } break;
+            case GLFW_KEY_D: if (capsLck || shift) { TYPE("D"); } else { TYPE("d"); } break;
+            case GLFW_KEY_E: if (capsLck || shift) { TYPE("E"); } else { TYPE("e"); } break;
+            case GLFW_KEY_F: if (capsLck || shift) { TYPE("F"); } else { TYPE("f"); } break;
+            case GLFW_KEY_G: if (capsLck || shift) { TYPE("G"); } else { TYPE("g"); } break;
+            case GLFW_KEY_H: if (capsLck || shift) { TYPE("H"); } else { TYPE("h"); } break;
+            case GLFW_KEY_I: if (capsLck || shift) { TYPE("I"); } else { TYPE("i"); } break;
+            case GLFW_KEY_J: if (capsLck || shift) { TYPE("J"); } else { TYPE("j"); } break;
+            case GLFW_KEY_K: if (capsLck || shift) { TYPE("K"); } else { TYPE("k"); } break;
+            case GLFW_KEY_L: if (capsLck || shift) { TYPE("L"); } else { TYPE("l"); } break;
+            case GLFW_KEY_M: if (capsLck || shift) { TYPE("M"); } else { TYPE("m"); } break;
+            case GLFW_KEY_N: if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); } break;
+            case GLFW_KEY_O: if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
+            case GLFW_KEY_P: if (capsLck || shift) { TYPE("P"); } else { TYPE("p"); } break;
+            case GLFW_KEY_Q: if (capsLck || shift) { TYPE("Q"); } else { TYPE("q"); } break;
+            case GLFW_KEY_R: if (capsLck || shift) { TYPE("R"); } else { TYPE("r"); } break;
+            case GLFW_KEY_S: if (capsLck || shift) { TYPE("S"); } else { TYPE("s"); } break;
+            case GLFW_KEY_T: if (capsLck || shift) { TYPE("T"); } else { TYPE("t"); } break;
+            case GLFW_KEY_U: if (capsLck || shift) { TYPE("U"); } else { TYPE("u"); } break;
+            case GLFW_KEY_V: if (capsLck || shift) { TYPE("V"); } else { TYPE("v"); } break;
+            case GLFW_KEY_W: if (capsLck || shift) { TYPE("W"); } else { TYPE("w"); } break;
+            case GLFW_KEY_X: if (capsLck || shift) { TYPE("X"); } else { TYPE("x"); } break;
+
+            case GLFW_KEY_Y:
+                if (ctrl) {
+                    processCBCommand(BASIC_CMD(CommandType::Redo));
+                } else {
+                    if (capsLck || shift) { TYPE("Y"); } else { TYPE("y"); }
+                }
+                break;
+
+            case GLFW_KEY_Z:
+                if (ctrl) {
+                    processCBCommand(BASIC_CMD(CommandType::Undo));
+                } else {
+                    if (capsLck || shift) { TYPE("Z"); } else { TYPE("z"); }
+                }
+                break;
+            case GLFW_KEY_0: if (shift) { TYPE(")"); } else { TYPE("0"); } break;
+            case GLFW_KEY_1: if (shift) { TYPE("!"); } else { TYPE("1"); } break;
+            case GLFW_KEY_2: if (shift) { TYPE("@"); } else { TYPE("2"); } break;
+            case GLFW_KEY_3: if (shift) { TYPE("#"); } else { TYPE("3"); } break;
+            case GLFW_KEY_4: if (shift) { TYPE("$"); } else { TYPE("4"); } break;
+            case GLFW_KEY_5: if (shift) { TYPE("%"); } else { TYPE("5"); } break;
+            case GLFW_KEY_6: if (shift) { TYPE("^"); } else { TYPE("6"); } break;
+            case GLFW_KEY_7: if (shift) { TYPE("&"); } else { TYPE("7"); } break;
+            case GLFW_KEY_8: if (shift) { TYPE("*"); } else { TYPE("8"); } break;
+            case GLFW_KEY_9: if (shift) { TYPE("("); } else { TYPE("9"); } break;
+            case GLFW_KEY_MINUS: if (shift) { TYPE("_"); } else { TYPE("-"); } break;
+            case GLFW_KEY_EQUAL: if (shift) { TYPE("+"); } else { TYPE("="); } break;
+            case GLFW_KEY_PERIOD: if (shift) { TYPE(">"); } else { TYPE("."); } break;
+            case GLFW_KEY_COMMA: if (shift) { TYPE("<"); } else { TYPE(","); } break;
+            case GLFW_KEY_SLASH: if (shift) { TYPE("?"); } else { TYPE("/"); } break;
+            case GLFW_KEY_BACKSLASH: if (shift) { TYPE("|"); } else { TYPE("\\"); } break;
+            case GLFW_KEY_LEFT_BRACKET: if (shift) { TYPE("{"); } else { TYPE("["); } break;
+            case GLFW_KEY_RIGHT_BRACKET: if (shift) { TYPE("}"); } else { TYPE("]"); } break;
+            case GLFW_KEY_SEMICOLON: if (shift) { TYPE(":"); } else { TYPE(";"); } break;
+            case GLFW_KEY_APOSTROPHE: if (shift) { TYPE("\""); } else { TYPE("'"); } break;
+            case GLFW_KEY_GRAVE_ACCENT: if (shift) { TYPE("~"); } else { TYPE("`"); } break;
+            case GLFW_KEY_KP_0: if (numLck) { TYPE("0"); } break;
+            case GLFW_KEY_KP_1: if (numLck) { TYPE("1"); } break;
+            case GLFW_KEY_KP_2: if (numLck) { TYPE("2"); } break;
+            case GLFW_KEY_KP_3: if (numLck) { TYPE("3"); } break;
+            case GLFW_KEY_KP_4: if (numLck) { TYPE("4"); } break;
+            case GLFW_KEY_KP_5: if (numLck) { TYPE("5"); } break;
+            case GLFW_KEY_KP_6: if (numLck) { TYPE("6"); } break;
+            case GLFW_KEY_KP_7: if (numLck) { TYPE("7"); } break;
+            case GLFW_KEY_KP_8: if (numLck) { TYPE("8"); } break;
+            case GLFW_KEY_KP_9: if (numLck) { TYPE("9"); } break;
+            case GLFW_KEY_KP_DECIMAL: if (numLck) { TYPE("."); } break;
+            case GLFW_KEY_KP_DIVIDE: TYPE("/"); break;
+            case GLFW_KEY_KP_MULTIPLY: TYPE("*"); break;
+            case GLFW_KEY_KP_SUBTRACT: TYPE("-"); break;
+            case GLFW_KEY_KP_ADD: TYPE("+"); break;
+            case GLFW_KEY_KP_EQUAL: TYPE("="); break;
+            case GLFW_KEY_SPACE: TYPE(" "); break;
+
+            default: {
+                // Nothing!
+            }
+        }
+        #undef TYPE
+        #undef BASIC_CMD
+        #undef INCR_CURSOR
+        #undef DECR_CURSOR
+        #undef CUR_POS
+        #undef UPDATE
+        #undef UNSELECT
+    }
 }
 
 void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
@@ -99,7 +391,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     #endif
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCommand(elem, new Command(COMMAND_TYPE, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
+        #define TYPE(c) processCommand(elem, new Command(CommandType::Type, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
         #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
         #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
         #define CUR_POS elem->extraData->textInputData.cursorPosition
@@ -223,7 +515,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                     bool shouldDecrementCursor = !tid->textSelected;
 
-                    processCommand(elem, new Command(COMMAND_BACKSPACE, d, CUR_POS));
+                    processCommand(elem, new Command(CommandType::Backspace, d, CUR_POS));
 
                     if (shouldDecrementCursor && CUR_POS != 0) {
                         DECR_CURSOR();
@@ -250,7 +542,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                         d = elem->text[CUR_POS];
                     }
 
-                    processCommand(elem, new Command(COMMAND_DELETE, d, CUR_POS));
+                    processCommand(elem, new Command(CommandType::Delete, d, CUR_POS));
                     UPDATE_CURSOR_TIME();
                 }
 
@@ -388,7 +680,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_Y:
                 if (ctrl) {
-                    processCommand(elem, new Command(COMMAND_REDO, "", CUR_POS));
+                    processCommand(elem, new Command(CommandType::Redo, "", CUR_POS));
                 } else if (capsLck || shift) {
                     TYPE("Y");
                     INCR_CURSOR();
@@ -400,7 +692,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_Z:
                 if (ctrl) {
-                    processCommand(elem, new Command(COMMAND_UNDO, "", CUR_POS));
+                    processCommand(elem, new Command(CommandType::Undo, "", CUR_POS));
                 } else if (capsLck || shift) {
                     TYPE("Z");
                     INCR_CURSOR();
@@ -615,6 +907,293 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
     textInputUnselect(tid);
 
     return newCommand;
+}
+
+// NOTE: might not need this since the active content block calculation is done
+// with the highlighted content box.
+void activateCBFromScreenCoords(float mouseX, float mouseY) {
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    uint32_t i = 0;
+
+    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr, ++i) {
+        float top = (*itr).top - contentContainer->extraData->scrollData.yOffset;
+
+        if (top <= mouseY && top + (*itr).height >= mouseY) {
+            tab->activeCBIndex = i;
+            tab->cursorCBIndex = i;
+            return;
+        }
+
+        if (top > mouseY) {
+            return;
+        }
+    }
+}
+
+SelectionData getCBTextCursor(glm::vec2 &resolution) {
+    ContentTab* tab = &tabs[activeTabIndex];
+    ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
+
+    RopeTraverser rt(cb->rope);
+
+    uint8_t fontSize = 16;
+
+    switch (cb->type) {
+        case ContentBlockType::Heading1: fontSize = 48; break;
+        case ContentBlockType::Heading2: fontSize = 40; break;
+        case ContentBlockType::Heading3: fontSize = 32; break;
+        case ContentBlockType::Heading4: fontSize = 24; break;
+        case ContentBlockType::Heading5: fontSize = 16; break;
+        case ContentBlockType::Heading6: fontSize = 12; break;
+        case ContentBlockType::Paragraph: fontSize = 16; break;
+        case ContentBlockType::Title:  fontSize = 48; break;
+    }
+
+    float x = (*cb).left - contentContainer->extraData->scrollData.xOffset;
+    float y = (*cb).top - contentContainer->extraData->scrollData.yOffset;
+
+    if (resolution.x >= CONTENT_BREAKPOINT) {
+        x += contentLeft;
+    } else {
+        x += CONTENT_HORIZONTAL_MARGIN;
+    }
+
+    float xpos = x;
+    float yNet = y;
+
+    uint32_t index = 0;
+    uint32_t row = 0;
+    uint32_t col = 0;
+    uint16_t h = static_cast<uint16_t>(static_cast<uint16_t>(fontSize) * glyphDescender);
+    uint32_t i = 0;
+
+    while (rt.hasNext()) {
+        Rope* r = rt.next();
+
+        for (const char c : r->text) {
+            Character* ch = &characters[(int)c];
+
+            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+
+            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+
+            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
+            float glyphWidth = glyphHeight * aspectRatio;
+
+            if (glyphWidth != glyphWidth) {
+                if (ch->width != 0) {
+                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
+                } else {
+                    glyphWidth = 0.0f;
+                }
+            }
+
+            float widthRatio = glyphWidth / ch->width;
+            float heightRatio = glyphHeight / ch->height;
+
+            float bearingTop = ch->bearingTop * heightRatio;
+            float bearingLeft = ch->bearingLeft * widthRatio;
+
+            if (bearingLeft != bearingLeft) {
+                bearingLeft = 0.0f;
+            }
+
+            if (bearingTop != bearingTop) {
+                bearingTop = 0.0f;
+            }
+
+            xpos += bearingLeft;
+
+            float ypos = yNet + static_cast<float>(fontSize);
+
+            if (
+                contentContainer->width < 800.0f
+                && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                || xpos + glyphWidth > contentRight
+            ) {
+                yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
+                xpos = x;
+                ypos = yNet + static_cast<float>(fontSize);
+                ++row;
+                col = 0;
+            }
+
+            if (i == tab->cursorPosition) {
+                cout << "\nDEBUG: Cursor position: " << tab->cursorPosition << " found";
+
+                return SelectionData {
+                    .cursorPosition = i,
+                    .row = row,
+                    .col = col,
+                    .x = xpos,
+                    .y = ypos - fontSize * glyphDescender,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            }
+
+            ++i;
+            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+        }
+    }
+
+    return SelectionData { 0, 0, 0 };
+}
+
+SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::vec2 resolution) {
+    ContentTab* tab = &tabs[activeTabIndex];
+    ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
+
+    RopeTraverser rt(cb->rope);
+
+    uint8_t fontSize = 16;
+
+    switch (cb->type) {
+        case ContentBlockType::Heading1: fontSize = 48; break;
+        case ContentBlockType::Heading2: fontSize = 40; break;
+        case ContentBlockType::Heading3: fontSize = 32; break;
+        case ContentBlockType::Heading4: fontSize = 24; break;
+        case ContentBlockType::Heading5: fontSize = 16; break;
+        case ContentBlockType::Heading6: fontSize = 12; break;
+        case ContentBlockType::Paragraph: fontSize = 16; break;
+        case ContentBlockType::Title:  fontSize = 48; break;
+    }
+
+    float x = (*cb).left - contentContainer->extraData->scrollData.xOffset;
+    float y = (*cb).top - contentContainer->extraData->scrollData.yOffset;
+
+    if (resolution.x >= CONTENT_BREAKPOINT) {
+        x += contentLeft;
+    } else {
+        x += CONTENT_HORIZONTAL_MARGIN;
+    }
+
+    float xpos = x;
+    float yNet = y;
+    float xprev = x;
+
+    uint32_t index = 0;
+    uint32_t row = 0;
+    uint32_t col = 0;
+    uint16_t h = static_cast<uint16_t>(static_cast<uint16_t>(fontSize) * glyphDescender);
+
+    while (rt.hasNext()) {
+        Rope* r = rt.next();
+
+        for (const char c : r->text) {
+            Character* ch = &characters[(int)c];
+
+            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+
+            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+
+            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
+            float glyphWidth = glyphHeight * aspectRatio;
+
+            if (glyphWidth != glyphWidth) {
+                if (ch->width != 0) {
+                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
+                } else {
+                    glyphWidth = 0.0f;
+                }
+            }
+
+            float widthRatio = glyphWidth / ch->width;
+            float heightRatio = glyphHeight / ch->height;
+
+            float bearingTop = ch->bearingTop * heightRatio;
+            float bearingLeft = ch->bearingLeft * widthRatio;
+
+            if (bearingLeft != bearingLeft) {
+                bearingLeft = 0.0f;
+            }
+
+            if (bearingTop != bearingTop) {
+                bearingTop = 0.0f;
+            }
+
+            xpos += bearingLeft;
+
+            // float ypos = yNet + glyphHeight - bearingTop + fontSize;
+            float ypos = yNet + static_cast<float>(fontSize);
+
+            if (
+                contentContainer->width < 800.0f
+                && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                || xpos + glyphWidth > contentRight
+            ) {
+                yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
+                xpos = x;
+                xprev = x;
+                ypos = yNet + static_cast<float>(fontSize);
+                ++row;
+                col = 0;
+            }
+
+            float xpos_plus_w = xpos + glyphWidth;
+            float ypos_plus_h = ypos - glyphHeight; // ypos + h
+
+            #ifdef DEBUG_TEXT
+            if (debugTextFirstRenderPrint) {
+                cout << "; x: " << xpos << " y: " << ypos << " x + w: "
+                    << xpos_plus_w << " y + h: " << ypos_plus_h
+                    << " bearingLeft: " << bearingLeft
+                    << " bearingTop: " << bearingTop
+                    << " widthRatio: " << widthRatio
+                    << " heightRatio: " << heightRatio;
+            }
+            #endif
+
+            if (
+                xpos <= mouseX && xpos + (glyphWidth/2) >= mouseX
+                && ypos >= mouseY && ypos_plus_h <= mouseY
+            ) {
+                cout << "\n2: xpos: " << xpos << ", ypos: " << ypos;
+
+                return SelectionData {
+                    .cursorPosition = index,
+                    .row = row,
+                    .col = col,
+                    .x = xprev,
+                    .y = ypos - fontSize * glyphDescender,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            } else if (
+                xpos + (glyphWidth/2) <= mouseX && xpos_plus_w >= mouseX
+                && ypos >= mouseY && ypos_plus_h <= mouseY
+            ) {
+                cout << "\n3: xpos: " << xpos << ", ypos: " << ypos;
+
+                return SelectionData {
+                    .cursorPosition = index + 1,
+                    .row = row,
+                    .col = col + 1,
+                    .x = xpos_plus_w,
+                    .y = ypos - fontSize * glyphDescender,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            } else if (xpos_plus_w >= mouseX && ypos >= mouseY && ypos - glyphHeight <= mouseY) {
+                cout << "\n4: xpos: " << xpos << ", ypos: " << ypos;
+
+                return SelectionData {
+                    .cursorPosition = index,
+                    .row = row,
+                    .col = col,
+                    .x = xpos,
+                    .y = ypos - fontSize * glyphDescender,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            }
+
+            xprev = xpos_plus_w;
+            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+
+            ++index;
+            ++col;
+        }
+    }
+
+    return SelectionData { 0, 0, 0 };
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -838,6 +1417,7 @@ void textInputMouseUpCallback(
     }
 }
 
+// TODO: reimpl for content block
 void textInputUnselect(TextInputData * tid, string token) {
     if (tid == nullptr) { return; }
 
@@ -984,22 +1564,17 @@ void selectTextWithMouse(
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
     UIExtraData * extraData = nullptr;
-    Rope* rope = nullptr;
+    // Rope* rope = nullptr;
 
     glm::vec4 backgroundColor = TRANSPARENT;
     glm::vec4 hoverColor = TRANSPARENT;
     glm::vec4 color = darkTheme ? WHITE : BLACK;
     uint8_t borderRadius = 0;
-    UIPositioning positioning = UI_POSITIONING_ABSOLUTE;
+    UIPositioning positioning = UIPositioning::Absolute;
 
     uint8_t fontSize = 16;
 
     UIPreferences* pref = nullptr;
-
-    void (*onKey)(UIElement*, int, int, int) = defaultKeyCallback;
-    void (*onMouseDown)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
-    void (*onMouseDrag)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
-    void (*onMouseUp)(UIElement*, float, float, glm::vec2) = defaultOnMouseUpDownCallback;
 
     switch (type) {
         case UI_BUTTON: {
@@ -1076,12 +1651,10 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 color = BLACK;
             }
 
-            onMouseDown = scrollAreaMouseDownCallback;
-            onMouseDrag = scrollAreaMouseDragCallback;
             break;
 
         case UI_TEXT_AREA:
-            rope = new Rope();
+            // rope = new Rope();
         case UI_TEXT_INPUT:
             pref = initPreferences();
 
@@ -1118,10 +1691,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 }
             };
 
-            onMouseDown = textInputMouseDownCallback;
-            onMouseDrag = textInputMouseDragCallback;
-            onMouseUp = textInputMouseUpCallback;
-            onKey = textInputKeyCallback;
             break;
 
         default:
@@ -1142,15 +1711,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         false,
         true,
 
-        defaultCallback,
-        onMouseDown,
-        onMouseDrag,
-        onMouseUp,
-        defaultCallback,
-        onKey,
-
         "",
-        nullptr,
+        // nullptr,
 
         nullptr,
 
@@ -1173,7 +1735,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         positioning,
         pref,
         extraData,
-        nullptr,
     };
 }
 
@@ -1219,7 +1780,7 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
         return;
     }
 
-    if (newIndex == oldIndex) {
+    if (newIndex == oldIndex || newIndex == 0 || oldIndex == 0) {
         return;
     }
 
@@ -1265,6 +1826,47 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(activeTabIndex);
     #endif
+}
+
+void newTab(string title) {
+    vector<ContentBlock> content;
+    vector<ContentCommand> commands;
+
+    commands.reserve(8);
+
+    content.push_back(ContentBlock {
+        ContentBlockType::Title,
+        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        0.0f,
+        0.0f,
+        0.0f,
+        new Rope(title),
+    });
+
+    uint32_t cursorVAO;
+    uint32_t cursorVBO;
+
+    glGenVertexArrays(1, &cursorVAO);
+    glBindVertexArray(cursorVAO);
+
+    glGenBuffers(1, &cursorVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, cursorVBO);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    tabs.push_back(ContentTab {
+        false, false, false, false, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        cursorVAO, cursorVBO, commands, content
+    });
+
+    activeTabIndex = tabs.size() - 1;
 }
 
 UIPreferences* initPreferences() {
@@ -1936,16 +2538,64 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             renderCBMoveMarker();
 
+            ContentTab* tab = CURRENT_TAB;
+
+            if (tab->showCursor) {
+                if (tab->redrawCursor) {
+                    SelectionData sd = getCBTextCursor(resolution);
+
+                    glBindVertexArray(tab->cursorVAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
+
+                    float vertices[] = {
+                        sd.x + 1.0f, sd.y - sd.height,
+                        sd.x + 1.0f, sd.y,
+                        sd.x - 1.0f, sd.y - sd.height,
+                        sd.x - 1.0f, sd.y,
+                    };
+
+                    cout << "\nSetting cursor dimensions (redraw): " << sd.x + 1 << ", "
+                        << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
+                        << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
+
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+                    tab->redrawCursor = false;
+                }
+
+                glBindVertexArray(tab->cursorVAO);
+                glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
+
+                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+
+                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
+                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
+                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
+
+                glm::vec4 color = CURSOR_COLOR;
+
+                if (darkTheme) {
+                    color = CURSOR_COLOR_DARK;
+                }
+
+                glUniform4f(colorU, color.x, color.y, color.z, color.w);
+                glUniform2f(resU, resolution.x, resolution.y);
+                glUniform1f(timeU, TIME() - tab->lastCursorTime);
+
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
+
             glDisable(GL_SCISSOR_TEST);
 
             renderScrollbars(&elem);
+
             break;
         }
 
         case UI_LABEL: {
             glm::vec4 dim;
 
-            if (elem.positioning == UI_POSITIONING_RELATIVE) {
+            if (elem.positioning == UIPositioning::Relative) {
                 float top = elem.parent->top + elem.top;
                 float left = elem.parent->left + elem.left;
 
@@ -2845,8 +3495,6 @@ void renderContentBlock(
     glm::vec2 &resolution,
     glm::vec2 &cursor
 ) {
-    // NOTE: Assuming parent element will always be of type UI_SCROLL_AREA.
- 
     if (!((*cb).flags & CONTENT_BLOCK_VISIBLE)) {
         cout << "\nContent block not visible";
         return;
@@ -3004,8 +3652,8 @@ void renderContentBlockHighlight() {
         float vertices[] = {
             highlightedContentBlock.left, highlightedContentBlock.top,
             highlightedContentBlock.left, highlightedContentBlock.bottom,
-            highlightedContentBlock.left - 20.0f, highlightedContentBlock.top,
-            highlightedContentBlock.left - 20.0f, highlightedContentBlock.bottom,
+            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.top,
+            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.bottom,
         };
 
         glGenBuffers(1, &highlightedContentBlock.dragTabVBO);
@@ -3042,6 +3690,47 @@ void renderContentBlockHighlight() {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     highlightedContentBlock.updated = false;
+}
+
+void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    cout << "\nDEBUG: Mouse down on content block!";
+
+    contentContainer->active = true;
+    activeElement = contentContainer;
+
+    activateCBFromScreenCoords(mouseX, mouseY);
+
+    SelectionData sd = getCBTextCursorFromScreenCoords(mouseX, mouseY, res);
+
+    cout << "\nSelectionData: mouseX: " << mouseX << ", mouseY: " << mouseY
+        << " cursorPosition: " << sd.cursorPosition << ", row: " << sd.row
+        << ", col: " << sd.col;
+
+    ContentTab* currentTab = CURRENT_TAB;
+
+    currentTab->cursorPosition = sd.cursorPosition;
+    currentTab->showCursor = true;
+    currentTab->redrawCursor = false;
+    currentTab->lastCursorTime = TIME();
+
+    glBindVertexArray(currentTab->cursorVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, currentTab->cursorVBO);
+
+    float vertices[] = {
+        sd.x + 1.0f, sd.y - sd.height,
+        sd.x + 1.0f, sd.y,
+        sd.x - 1.0f, sd.y - sd.height,
+        sd.x - 1.0f, sd.y,
+    };
+
+    cout << "\nSetting cursor dimensions: " << sd.x + 1 << ", "
+        << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
+        << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
+
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void renderCBMoveMarker() {
@@ -3147,7 +3836,7 @@ void processRedo(UIElement* element) {
     cmd = CUR_CMD;
 
     switch (cmd->type) {
-        case COMMAND_TYPE: {
+        case CommandType::Type: {
             // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
             if (cmd->cursorPos == element->text.length()) {
                 // cout << "\nAppending at the end! " << cmd->str.length();
@@ -3161,19 +3850,19 @@ void processRedo(UIElement* element) {
             break;
         }
 
-        case COMMAND_DELETE: {
+        case CommandType::Delete: {
             element->text.erase(cmd->cursorPos, 1);
             CUR_POS = cmd->cursorPos;
             break;
         }
 
-        case COMMAND_BACKSPACE: {
+        case CommandType::Backspace: {
             element->text.erase(cmd->cursorPos-1, 1);
             CUR_POS = cmd->cursorPos - 1;
             break;
         }
 
-        case COMMAND_REPLACE: {
+        case CommandType::Replace: {
             TextInputData* tid = &element->extraData->textInputData;
             element->text.erase(tid->textSelectStartCol, cmd->replace.prevString.length());
 
@@ -3208,7 +3897,7 @@ void processUndo(UIElement* element) {
     textInputUnselect(tid);
 
     switch (currentCmd->type) {
-        case COMMAND_TYPE: {
+        case CommandType::Type: {
             element->text.erase(currentCmd->cursorPos, 1);
             moveToPrevCommand(tid->cmdList);
             CUR_POS = currentCmd->cursorPos;
@@ -3225,20 +3914,20 @@ void processUndo(UIElement* element) {
             }
             break;
         }
-        case COMMAND_BACKSPACE: {
+        case CommandType::Backspace: {
             element->text.insert(currentCmd->cursorPos-1, currentCmd->str);
             moveToPrevCommand(tid->cmdList);
             CUR_POS = currentCmd->cursorPos;
             break;
         }
-        case COMMAND_DELETE: {
+        case CommandType::Delete: {
             element->text.insert(currentCmd->cursorPos, currentCmd->str);
             moveToPrevCommand(tid->cmdList);
             CUR_POS = currentCmd->cursorPos;
             break;
         }
 
-        case COMMAND_REPLACE: {
+        case CommandType::Replace: {
             element->text.erase(currentCmd->replace.selectColStart, currentCmd->replace.newString.length());
             element->text.insert(currentCmd->replace.selectColStart, currentCmd->replace.prevString);
             moveToPrevCommand(tid->cmdList);
@@ -3294,6 +3983,119 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     return nullptr;
 }
 
+void processCBCommand(ContentCommand cmd) {
+    #ifdef DEBUG_TEXT_INPUT
+        cout << "\nProcessing command \"";
+
+        switch (cmd.type) {
+            case CommandType::None: cout << "None"; break;
+            case CommandType::Type: cout << "Type"; break;
+            case CommandType::NewLine: cout << "NewLine"; break;
+            case CommandType::Delete: cout << "Delete"; break;
+            case CommandType::Backspace: cout << "Backspace"; break;
+            case CommandType::Undo: cout << "Undo"; break;
+            case CommandType::Redo: cout << "Redo"; break;
+            case CommandType::Replace: cout << "Replace"; break;
+        }
+
+        cout << "\"\n  -> str: \"" << cmd.str << "\", prevString: \""
+            << cmd.prevString << "\", selectRowStart: " << cmd.selectRowStart
+            << ", selectRowEnd: " << cmd.selectRowEnd << ", selectColStart: "
+            << cmd.selectColStart << ", selectColEnd: " << cmd.selectColEnd
+            << ", cursorPos: " << cmd.cursorPos;
+    #endif
+
+    ContentTab* tab = &tabs[activeTabIndex];
+    ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
+    bool append = false;
+
+    switch (cmd.type) {
+        case CommandType::Type:
+            if (cmd.str != "") {
+                if (tab->cursorPosition == cb->rope->length()) {
+                    cb->rope->append(cmd.str);
+                } else {
+                    cb->rope->insert(tab->cursorPosition, cmd.str);
+                }
+
+                vector<ContentBlock>::iterator itr = tab->contentBlocks.begin() + tab->cursorCBIndex;
+
+                (*itr).flags = (*itr).flags | CONTENT_BLOCK_REDRAW;
+
+                if (!tab->commands.empty()) {
+                    if (tab->commands.back().type == CommandType::Type) {
+                        auto itr = tab->commands.end() - 1;
+                        (*itr).str += cmd.str;
+                    } else {
+                        append = true;
+                    }
+                } else {
+                    append = true;
+                }
+            }
+            break;
+
+        case CommandType::NewLine:
+            if (cb->rope != nullptr) {
+                tuple<Rope*, Rope*> result = cb->rope->split(tab->cursorPosition);
+                Rope* rope = get<1>(result);
+
+                if (rope != nullptr) {
+                    ++tab->cursorCBIndex;
+
+                    tab->contentBlocks.insert(
+                        tab->contentBlocks.begin() + tab->cursorCBIndex,
+                        ContentBlock {
+                            cb->type,
+                            CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                            0.0f, 0.0f, 0.0f,
+                            rope
+                    });
+
+                    cb->rope->pick(rope);
+                }
+            } else {
+                tab->contentBlocks.insert(
+                    tab->contentBlocks.begin() + tab->cursorCBIndex,
+                    ContentBlock {
+                        cb->type,
+                        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                        0.0f, 0.0f, 0.0f,
+                        nullptr
+                    });
+            }
+
+            tab->cursorPosition = 0;
+
+            for (
+                auto itr = tab->contentBlocks.begin() + tab->cursorCBIndex - 1;
+                itr != tab->contentBlocks.end();
+                ++itr
+            ) {
+                (*itr).flags |= CONTENT_BLOCK_REDRAW;
+            }
+            append = true;
+            break;
+
+        case CommandType::Backspace: 
+            if (cmd.prevString == "") {
+                if (tab->cursorPosition == 0 && tab->activeCBIndex > 1) {
+                    // TODO: remove the content block
+                }
+            } else {
+                // TODO: default backspace behaviour
+            }
+    }
+
+    if (append) {
+        if (!tab->commands.empty()) {
+            ++tab->currentCommand;
+        }
+
+        tab->commands.push_back(cmd);
+    }
+}
+
 void processCommand(UIElement* elem, Command* cmd) {
     #define CUR_POS elem->extraData->textInputData.cursorPosition
     if (
@@ -3305,8 +4107,8 @@ void processCommand(UIElement* elem, Command* cmd) {
         TextInputData * tid = &elem->extraData->textInputData;
 
         switch(cmd->type) {
-            case COMMAND_NONE: break;
-            case COMMAND_TYPE: {
+            case CommandType::None: break;
+            case CommandType::Type: {
                 if (tid->textSelected) {
                     cmd = replaceSelectedText(elem, cmd);
                 } else {
@@ -3333,7 +4135,11 @@ void processCommand(UIElement* elem, Command* cmd) {
                 break;
             }
 
-            case COMMAND_DELETE: {
+            case CommandType::NewLine: {
+                break;
+            }
+
+            case CommandType::Delete: {
                 uint32_t newLines = 0;
 
                 for (char c: cmd->str) {
@@ -3355,7 +4161,7 @@ void processCommand(UIElement* elem, Command* cmd) {
                 break;
             }
 
-            case COMMAND_BACKSPACE: {
+            case CommandType::Backspace: {
                 uint32_t newLines = 0;
 
                 for (char c: cmd->str) {
@@ -3377,11 +4183,11 @@ void processCommand(UIElement* elem, Command* cmd) {
                 break;
             }
 
-            case COMMAND_UNDO:
+            case CommandType::Undo:
                 processUndo(elem);
                 break;
 
-            case COMMAND_REDO:
+            case CommandType::Redo:
                 processRedo(elem);
                 break;
 

@@ -22,6 +22,7 @@ class Rope {
         ~Rope();
         Rope();
         Rope(string);
+        Rope(char*);
         Rope(Rope* r1, Rope* r2);
         Rope(Rope r1, Rope r2);
 
@@ -39,6 +40,8 @@ class Rope {
         uint32_t length();
         void append(string s);
         void prepend(string s);
+        tuple<Rope*,Rope*> split(uint32_t index);
+        void pick(Rope* leaf);
         void remove(uint32_t startIndex, uint32_t length);
         void clear();
         void balance();

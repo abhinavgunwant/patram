@@ -29,7 +29,6 @@ bool showFps = false;
 GLFWcursor* textCursor;
 
 UIElement elements[16];
-UIElement* activeElement = nullptr;
 
 uint16_t windowHeight = WINDOW_HEIGHT;
 uint16_t windowWidth = WINDOW_WIDTH;
@@ -93,12 +92,31 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouseDownX = mouseX;
             mouseDownY = mouseY;
 
+            if (highlightedContentBlock.show) {
+                if (
+                    mouseX >= highlightedContentBlock.left - 20.0f
+                    && mouseX <= highlightedContentBlock.left
+                    && mouseY >= highlightedContentBlock.top
+                    && mouseY <= highlightedContentBlock.bottom
+                    && highlightedContentBlock.cbIndex < tabs[activeTabIndex].contentBlocks.size()
+                ) {
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags |= CONTENT_BLOCK_DRAGGING;
+                    highlightedContentBlock.mouseDown = true;
+                    return;
+                } else {
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
+                    highlightedContentBlock.mouseDown = false;
+                    cbMove.targetIndex = 0;
+                }
+            }
+
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
             if (elem != nullptr) {
                 #ifdef DEBUG_MOUSE_BUTTON
                     cout << " for " << elementType(elem);
                 #endif
+
                 if (activeElement != nullptr) {
                     activeElement->active = false;
                 }
@@ -106,27 +124,23 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 activeElement = elem;
                 elem->active = true;
 
-                elem->onMouseDown(elem, mouseX, mouseY, resolution);
+                switch (activeElement->type) {
+                    case UI_CONTENT_CONTAINER:
+                        contentBlockMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                    case UI_SCROLL_AREA:
+                        scrollAreaMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                    case UI_TEXT_AREA:
+                    case UI_TEXT_INPUT:
+                        textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                }
+
+                // elem->onMouseDown(elem, mouseX, mouseY, resolution);
             } else if (activeElement != nullptr) {
                 activeElement->active = false;
                 activeElement = nullptr;
-            }
-
-            if (highlightedContentBlock.show) {
-                if (
-                    mouseX >= highlightedContentBlock.left - 20.0f
-                    && mouseX <= highlightedContentBlock.left
-                    && mouseY >= highlightedContentBlock.top
-                    && mouseY <= highlightedContentBlock.bottom
-                    && highlightedContentBlock.cbIndex >= tabs[activeTabIndex].contentBlocks.size()
-                ) {
-                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags |= CONTENT_BLOCK_DRAGGING;
-                    highlightedContentBlock.mouseDown = true;
-                } else {
-                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
-                    highlightedContentBlock.mouseDown = false;
-                    cbMove.targetIndex = 0;
-                }
             }
         } else if (action == GLFW_RELEASE) {
             #ifdef DEBUG_MOUSE_BUTTON
@@ -159,13 +173,16 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
             if (elem != nullptr) {
-                if (elem == activeElement) {
-                    elem->onMouseUp(elem, mouseX, mouseY, resolution);
+                switch (activeElement->type) {
+                    case UI_TEXT_AREA:
+                    case UI_TEXT_INPUT:
+                        textInputMouseUpCallback(elem, mouseX, mouseY, resolution);
+                        break;
                 }
 
-                if (mouseDownX == mouseX && mouseDownY == mouseY) {
-                    elem->onClick(elem);
-                }
+                // if (mouseDownX == mouseX && mouseDownY == mouseY) {
+                //     elem->onClick(elem);
+                // }
             }
         }
     }
@@ -177,7 +194,7 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
             << ", Action: " << action << ", Modifier Keys: " << mods;
     #endif
 
-    if (action == GLFW_PRESS) {
+    if (action == GLFW_PRESS && activeElement->type != UI_CONTENT_CONTAINER) {
         switch (key) {
             case GLFW_KEY_ESCAPE: {
                 if (activeElement != nullptr && activeElement->type != UI_TEXT_INPUT) {
@@ -195,7 +212,11 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
     }
 
     if (activeElement != nullptr) {
-        activeElement->onKey(activeElement, key, action, mods);
+        switch (activeElement->type) {
+            case UI_CONTENT_CONTAINER: cbKeyCallback(key, action, mods); break;
+            case UI_TEXT_INPUT:
+            case UI_TEXT_AREA: textInputKeyCallback(activeElement, key, action, mods); break;
+        }
 
         if (!activeElement->active) {
             activeElement = nullptr;
@@ -233,6 +254,12 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     resolution = glm::vec2(width, height);
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
+    ContentTab* tab = CURRENT_TAB;
+
+    if (tab->showCursor) {
+        tab->redrawCursor = true;
+    }
+
     renderElement(rootContainer, resolution, cursor);
     glfwSwapBuffers(window);
 }
@@ -262,6 +289,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 highlightedContentBlock.show = true;
                 highlightedContentBlock.left = contentLeft;
                 highlightedContentBlock.top = top;
+
+                tabs[activeTabIndex].activeCBIndex = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
 
                 if (glyphDescender < 0) {
                     highlightedContentBlock.bottom = top + (*itr).height - glyphDescender;
@@ -342,7 +371,15 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         activeElement != nullptr
         && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS
     ) {
-        activeElement->onMouseDrag(activeElement, mouseX, mouseY, resolution);
+        switch (activeElement->type) {
+            case UI_SCROLL_AREA:
+                scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
+                break;
+            case UI_TEXT_AREA:
+            case UI_TEXT_INPUT:
+                textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
+                break;
+        }
     }
 
     throttleUpdateCursorShape();
@@ -407,6 +444,12 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
         if (scrolled) {
             elem->extraData->scrollData.lastScrolled = glfwGetTime();
             elem->extraData->scrollData.renderedUpdate = false;
+
+            ContentTab* tab = CURRENT_TAB;
+
+            if (tab->showCursor) {
+                tab->redrawCursor = true;
+            }
         }
     }
 
@@ -606,13 +649,8 @@ void setupUI(bool isDarkTheme) {
     contentContainer->preferences->widthPreference = UI_FULL;
     contentContainer->preferences->heightPreference = UI_STRETCH;
 
-    vector<ContentBlock> content;
+    newTab("This is a test note title!");
 
-    tabs.push_back(ContentTab { 0, 0, 0, 0, content });
-    activeTabIndex = 0;
-
-    ContentBlock* temp;
-    appendContentBlock(0, ContentBlockType::Title, "This is a test note title!");
     appendContentBlock(0, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.");
     appendContentBlock(0, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
     appendContentBlock(0, ContentBlockType::Paragraph, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");

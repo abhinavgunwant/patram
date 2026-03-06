@@ -235,6 +235,7 @@ string fragmentShaders[] = {
     "uniform vec4 color;\n"
     "uniform float time;\n"
     "void main() {\n"
+        // "FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);"
         "FragColor = vec4(color.r, color.g, color.b, cos(time * 8) * color.a);\n"
         // "FragColor = color;\n"
     "}\0",

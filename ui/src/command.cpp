@@ -63,20 +63,22 @@ void deleteCommand(Command* c) {
 
 string commandStr(Command* c) {
     switch (c->type) {
-        case COMMAND_NONE:
-            return "COMMAND_NONE";
-        case COMMAND_TYPE:
-            return "COMMAND_TYPE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
-        case COMMAND_UNDO:
-            return "COMMAND_UNDO, cursorPos: " + to_string(c->cursorPos);
-        case COMMAND_REDO:
-            return "COMMAND_REDO, cursorPos: " + to_string(c->cursorPos);
-        case COMMAND_DELETE:
-            return "COMMAND_DELETE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
-        case COMMAND_BACKSPACE:
-            return "COMMAND_BACKSPACE \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
-        case COMMAND_REPLACE:
-            return "COMMAND_REPLACE \"" + c->replace.prevString + "\" -> \"" + c->replace.newString + "\"";
+        case CommandType::None:
+            return "CommandType::None";
+        case CommandType::Type:
+            return "CommandType::Type \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case CommandType::NewLine:
+            return "CommandType::NewLine \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case CommandType::Undo:
+            return "CommandType::Undo, cursorPos: " + to_string(c->cursorPos);
+        case CommandType::Redo:
+            return "CommandType::Redo, cursorPos: " + to_string(c->cursorPos);
+        case CommandType::Delete:
+            return "CommandType::Delete \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case CommandType::Backspace:
+            return "CommandType::Backspace \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case CommandType::Replace:
+            return "CommandType::Replace \"" + c->replace.prevString + "\" -> \"" + c->replace.newString + "\"";
     }
 
     return "ERR: NO_COMMAND";

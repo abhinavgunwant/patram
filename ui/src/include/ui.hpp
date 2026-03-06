@@ -20,6 +20,7 @@
 
 #define CONTENT_BLOCK_MARGIN        1.0f
 #define CONTENT_BLOCK_TITLE_MARGIN  5.0f
+#define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
 #define CONTENT_HORIZONTAL_MARGIN   20.0f
@@ -32,6 +33,8 @@
 #define CONTENT_BLOCK_REDRAW        0b00000010
 #define CONTENT_BLOCK_DRAGGING      0b00000100
 #define CONTENT_BLOCK_EDITING       0b00001000
+
+#define CURRENT_TAB                 (&tabs[activeTabIndex])
 
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
@@ -104,6 +107,7 @@ extern ContentBlockMoveMarker cbMove;
 extern vector<ContentTab> tabs;
 extern uint8_t activeTabIndex;
 extern UIElement* contentContainer;
+extern UIElement* activeElement;
 
 enum UIElementType {
     UI_LABEL,
@@ -151,10 +155,10 @@ enum class Icon : uint8_t {
     File,
 };
 
-enum UIPositioning {
-    UI_POSITIONING_ABSOLUTE,
-    UI_POSITIONING_RELATIVE,
-    UI_POSITIONING_RELATIVE_SIBLING,
+enum class UIPositioning: uint8_t {
+    Absolute,
+    Relative,
+    Relative_sibling,
 };
 
 struct UIPreferences {
@@ -220,6 +224,9 @@ struct SelectionData {
     uint32_t cursorPosition;
     uint32_t row;
     uint32_t col;
+    float x;
+    float y;
+    uint16_t height;
 };
 
 struct ScrollData {
@@ -269,27 +276,14 @@ struct UIElement {
     bool autosizeChildren;
     bool reDraw;
 
-    /**
-     * Click behaviour for buttons.
-     */
-    void (*onClick)(UIElement*);
-    void (*onMouseDown)(UIElement*, float, float, glm::vec2);
-    void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
-    void (*onMouseUp)(UIElement*, float, float, glm::vec2);
-    void (*onHover)(UIElement*);
-
-    /**
-     *
-     * Params:
-     *  - UIElement* elem the element this event was called on
-     *  - int key the key code
-     *  - int mods the modifier keys
-     */
-    void (*onKey)(UIElement*, int, int, int);
+    // void (*onClick)(UIElement*);
+    // void (*onMouseDown)(UIElement*, float, float, glm::vec2);
+    // void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
+    // void (*onMouseUp)(UIElement*, float, float, glm::vec2);
 
     string text;
 
-    Rope* rope;
+    // Rope* rope;
 
     UIElement* parent;
 
@@ -316,8 +310,6 @@ struct UIElement {
 
     UIPreferences * preferences;
     UIExtraData * extraData;
-
-    ContentBlock * contentBlocks;
 };
 
 struct ContentBlock {
@@ -361,11 +353,34 @@ struct ContentBlockMoveMarker {
 };
 
 struct ContentTab {
+    bool showCursor;
+    bool redrawCursor;
+    bool textSelected;
+    bool redrawSel;
+
+    float lastCursorTime;
+
+    uint32_t activeCBIndex;
+    uint32_t cursorCBIndex;
     uint32_t cursorPosition;
+    uint32_t initialCursorPosition;
+
+    // selection
+    uint32_t selStartRow;
+    uint32_t selStartCol;
+    uint32_t selEndRow;
+    uint32_t selEndCol;
+
+    uint32_t selVAO;
+    uint32_t selVBO;
+
+    uint16_t cursorX;
+    uint32_t currentCommand;
+
     uint32_t cursorVAO;
     uint32_t cursorVBO;
-    uint32_t activeCBIndex;
 
+    vector<ContentCommand> commands;
     vector<ContentBlock> contentBlocks;
 };
 
@@ -373,6 +388,7 @@ void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
 
+void cbKeyCallback(int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
@@ -390,6 +406,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, uint32_t index);
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
+void newTab(string title = "Untitled");
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
@@ -398,10 +415,12 @@ void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlock(vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
+void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void renderCBMoveMarker();
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
+void processCBCommand(ContentCommand cmd);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
 

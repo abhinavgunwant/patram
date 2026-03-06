@@ -9,14 +9,29 @@
 
 using namespace std;
 
-enum CommandType {
-    COMMAND_NONE,
-    COMMAND_TYPE,
-    COMMAND_DELETE,
-    COMMAND_BACKSPACE,
-    COMMAND_UNDO,
-    COMMAND_REDO,
-    COMMAND_REPLACE,
+enum class CommandType : uint8_t {
+    None,
+    Type,
+    NewLine,
+    Delete,
+    Backspace,
+    Undo,
+    Redo,
+    Replace,
+};
+
+struct ContentCommand {
+    string str;
+    string prevString; // old string. Useful for undo.
+
+    CommandType type;
+
+    uint32_t selectRowStart;
+    uint32_t selectRowEnd;
+    uint32_t selectColStart;
+    uint32_t selectColEnd;
+    uint32_t cursorPos;
+    uint32_t cbIndex;
 };
 
 /**
@@ -52,7 +67,7 @@ struct Command {
     Command* next;
 
     Command():
-        type(COMMAND_NONE), str(""), cursorPos(0), prev(nullptr), next(nullptr) {}
+        type(CommandType::None), str(""), cursorPos(0), prev(nullptr), next(nullptr) {}
 
     Command(CommandType type, string strData, uint32_t cursorPos):
         type(type), cursorPos(cursorPos), str(strData), prev(nullptr), next(nullptr) {}
@@ -62,11 +77,11 @@ struct Command {
         uint32_t colStart, uint32_t colEnd,
         string newString, string prevString, uint32_t cursorPos
     ):
-        type(COMMAND_REPLACE), cursorPos(cursorPos), prev(nullptr), next(nullptr),
+        type(CommandType::Replace), cursorPos(cursorPos), prev(nullptr), next(nullptr),
         replace({ rowStart, rowEnd, colStart, colEnd, prevString, newString }) {}
 
     ~Command() {
-        if (type == COMMAND_REPLACE) {
+        if (type == CommandType::Replace) {
             replace.newString.~string();
             replace.prevString.~string();
         } else {

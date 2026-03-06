@@ -133,6 +133,14 @@ glm::vec4 renderContentRope(
             float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
             float glyphWidth = glyphHeight * aspectRatio;
 
+            if (glyphWidth != glyphWidth) {
+                if (ch->width != 0) {
+                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
+                } else {
+                    glyphWidth = 0.0f;
+                }
+            }
+
             float widthRatio = glyphWidth / ch->width;
             float heightRatio = glyphHeight / ch->height;
 
@@ -157,7 +165,7 @@ glm::vec4 renderContentRope(
                     || xpos + glyphWidth > contentRight
                 )
             ) {
-                yNet += fontSize + 4.0f;
+                yNet += fontSize - fontSize * glyphDescender;
                 xpos = pos.x;
             }
 
@@ -411,13 +419,27 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
     float bearingTop = ch.bearingTop * heightRatio;
     float bearingLeft = ch.bearingLeft * widthRatio;
 
-    if (isnan(bearingLeft)) {
-        bearingLeft = 0;
+    if (bearingLeft != bearingLeft) {
+        bearingLeft = 0.0f;
+    }
+
+    if (bearingTop != bearingTop) {
+        bearingTop = 0.0f;
     }
 
     float xpos = x + bearingLeft;
-    // float ypos = y + (glyphHeight - bearingTop) + fontSize;
-    float ypos = y + glyphHeight - bearingTop + 0.75*fontSize;
+    float yNet = y;
+
+    if (
+        contentContainer->width < 800.0f
+        && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+        || xpos + glyphWidth > contentRight
+    ) {
+        yNet += fontSize + 4.0f;
+        xpos = x;
+    }
+
+    float ypos = yNet + glyphHeight - bearingTop + fontSize;
 
     // float xpos_plus_w = xpos + glyphWidth;
     // float ypos_plus_h = ypos - glyphHeight; // ypos + h
