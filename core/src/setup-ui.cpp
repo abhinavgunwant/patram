@@ -268,6 +268,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
 
+    ContentTab* tab = &tabs[activeTabIndex];
+
     if (!highlightedContentBlock.mouseDown) {
         float top;
         highlightedContentBlock.show = false;
@@ -277,7 +279,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             itr != tabs[activeTabIndex].contentBlocks.end();
             ++itr
         ) {
-            top = (*itr).top - contentContainer->extraData->scrollData.yOffset;
+            top = (*itr).top - tab->scrollOffsetY;
 
             if (ypos > top && ypos < top + (*itr).height) {
                 if ((*itr).type == ContentBlockType::Title) {
@@ -290,7 +292,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 highlightedContentBlock.left = contentLeft;
                 highlightedContentBlock.top = top;
 
-                tabs[activeTabIndex].activeCBIndex = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
+                tab->activeCBIndex = std::distance(tab->contentBlocks.begin(), itr);
 
                 if (glyphDescender < 0) {
                     highlightedContentBlock.bottom = top + (*itr).height - glyphDescender;
@@ -316,13 +318,13 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         #define SCROLL_DATA contentContainer->extraData->scrollData
 
         for (
-            auto itr = tabs[activeTabIndex].contentBlocks.begin();
-            itr != tabs[activeTabIndex].contentBlocks.end();
+            auto itr = tab->contentBlocks.begin();
+            itr != tab->contentBlocks.end();
             ++itr
         ) {
             float top = (*itr).top - SCROLL_DATA.yOffset;
 
-            uint32_t index = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
+            uint32_t index = std::distance(tab->contentBlocks.begin(), itr);
 
             if (
                 highlightedContentBlock.cbIndex != index
@@ -397,59 +399,79 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     highlightedContentBlock.updated = true;
     UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
-    bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
-        || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    if (elem != nullptr) {
+        switch (elem->type) {
+            case UI_SCROLL_AREA: {
+                bool scrolled = false;
+                bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+                    || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+                bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
+                bool verticalScroll = !shiftPressed && yOffset != 0;
 
-    bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
-    bool verticalScroll = !shiftPressed && yOffset != 0;
+                if (verticalScroll) {
+                    if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
+                        Y_OFFSET += SCROLL_AMOUNT;
+                    } else if (yOffset > 0) {
+                        Y_OFFSET -= SCROLL_AMOUNT;
+                    }
 
-    if (elem != nullptr && (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER)) {
-        bool scrolled = false;
+                    if (Y_OFFSET < 0) {
+                        Y_OFFSET = 0;
+                    } else if (Y_OFFSET > elem->extraData->scrollData.height) {
+                        Y_OFFSET = elem->extraData->scrollData.height - elem->height;
+                    }
 
-        if (verticalScroll) {
-            if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
-                Y_OFFSET += SCROLL_AMOUNT;
+                    scrolled = true;
+                }
+
+                if (horizontalScroll) {
+                    if (
+                        elem->width + X_OFFSET < elem->extraData->scrollData.width
+                        && (!shiftPressed && xOffset < 0 || yOffset < 0)
+                    ) {
+                        X_OFFSET += SCROLL_AMOUNT;
+                    } else if (
+                        X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
+                    ) {
+                        X_OFFSET -= SCROLL_AMOUNT;
+                    }
+
+                    if (X_OFFSET < 0) {
+                        X_OFFSET = 0;
+                    }
+
+                    scrolled = true;
+                }
+
+                if (scrolled) {
+                    elem->extraData->scrollData.lastScrolled = glfwGetTime();
+                    elem->extraData->scrollData.renderedUpdate = false;
+                }
+            }
+            break;
+
+        case UI_CONTENT_CONTAINER:
+            ContentTab* tab = &tabs[activeTabIndex];
+
+            if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
+                tab->scrollOffsetY += SCROLL_AMOUNT;
             } else if (yOffset > 0) {
-                Y_OFFSET -= SCROLL_AMOUNT;
+                tab->scrollOffsetY -= SCROLL_AMOUNT;
             }
 
-            if (Y_OFFSET < 0) {
-                Y_OFFSET = 0;
-            } else if (Y_OFFSET > elem->extraData->scrollData.height) {
-                Y_OFFSET = elem->extraData->scrollData.height - elem->height;
+            if (tab->scrollOffsetY < 0) {
+                tab->scrollOffsetY = 0;
+            } else if (tab->scrollOffsetY > tab->maxHeight) {
+                tab->scrollOffsetY = tab->maxHeight - elem->height;
             }
-
-            scrolled = true;
-        }
-
-        if (horizontalScroll) {
-            if (
-                elem->width + X_OFFSET < elem->extraData->scrollData.width
-                && (!shiftPressed && xOffset < 0 || yOffset < 0)
-            ) {
-                X_OFFSET += SCROLL_AMOUNT;
-            } else if (
-                X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
-            ) {
-                X_OFFSET -= SCROLL_AMOUNT;
-            }
-
-            if (X_OFFSET < 0) {
-                X_OFFSET = 0;
-            }
-
-            scrolled = true;
-        }
-
-        if (scrolled) {
-            elem->extraData->scrollData.lastScrolled = glfwGetTime();
-            elem->extraData->scrollData.renderedUpdate = false;
-
-            ContentTab* tab = CURRENT_TAB;
 
             if (tab->showCursor) {
                 tab->redrawCursor = true;
             }
+
+            tab->scrollbarUpdated = false;
+
+            break;
         }
     }
 
@@ -508,6 +530,24 @@ void setupUI(bool isDarkTheme) {
     glEnable(GL_BLEND);
     glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    glGenVertexArrays(1, &highlightedContentBlock.backgroundVAO);
+    glBindVertexArray(highlightedContentBlock.backgroundVAO);
+    glGenBuffers(1, &highlightedContentBlock.backgroundVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glGenVertexArrays(1, &highlightedContentBlock.dragTabVAO);
+    glBindVertexArray(highlightedContentBlock.dragTabVAO);
+    glGenBuffers(1, &highlightedContentBlock.dragTabVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
     // UIElement* menuBar = &elements[0];
     // UIElement* newButton = &elements[1];

@@ -357,28 +357,35 @@ struct ContentTab {
     bool redrawCursor;
     bool textSelected;
     bool redrawSel;
+    bool showScrollbar;
+    bool scrollbarUpdated;
 
     float lastCursorTime;
+    float lastScrolled;
+    float scrollOffsetY;
+    float maxHeight;
 
     uint32_t activeCBIndex;
     uint32_t cursorCBIndex;
     uint32_t cursorPosition;
     uint32_t initialCursorPosition;
 
-    // selection
     uint32_t selStartRow;
     uint32_t selStartCol;
     uint32_t selEndRow;
     uint32_t selEndCol;
 
-    uint32_t selVAO;
-    uint32_t selVBO;
-
     uint16_t cursorX;
     uint32_t currentCommand;
 
+    uint32_t selVAO;
+    uint32_t selVBO;
     uint32_t cursorVAO;
     uint32_t cursorVBO;
+    uint32_t scrollbarVAO;
+    uint32_t scrollbarVBO;
+    uint32_t scrollThumbVAO;
+    uint32_t scrollThumbVBO;
 
     vector<ContentCommand> commands;
     vector<ContentBlock> contentBlocks;
@@ -407,13 +414,14 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
 void newTab(string title = "Untitled");
+void closeTab(uint32_t index);
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
-void renderContentBlock(vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
+void renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void renderCBMoveMarker();
@@ -431,6 +439,11 @@ void getScrollbarDimensions(
     float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd,
     bool vertical
+);
+
+void getCBScrollbarDimensions(
+    ContentTab* tab, float& top, float& right, float& bottom, float& left,
+    float& thumbStart, float& thumbEnd
 );
 
 /** Returns string representation of the element type. */

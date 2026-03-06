@@ -71,7 +71,7 @@ void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
 
 void cbKeyCallback(int key, int action, int mod) {
     ContentTab* tab = &tabs[activeTabIndex];
-    ContentBlock* cb = &tab->contentBlocks[tab->activeCBIndex];
+    ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
 
     bool alt = mod & GLFW_MOD_ALT;
     bool shift = mod & GLFW_MOD_SHIFT;
@@ -914,14 +914,14 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
 void activateCBFromScreenCoords(float mouseX, float mouseY) {
     ContentTab* tab = &tabs[activeTabIndex];
 
-    uint32_t i = 0;
-
-    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr, ++i) {
-        float top = (*itr).top - contentContainer->extraData->scrollData.yOffset;
+    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
+        float top = (*itr).top - tab->scrollOffsetY;
 
         if (top <= mouseY && top + (*itr).height >= mouseY) {
-            tab->activeCBIndex = i;
-            tab->cursorCBIndex = i;
+            uint32_t index = distance(tab->contentBlocks.begin(), itr);
+
+            tab->activeCBIndex = index;
+            tab->cursorCBIndex = index;
             return;
         }
 
@@ -950,8 +950,8 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
         case ContentBlockType::Title:  fontSize = 48; break;
     }
 
-    float x = (*cb).left - contentContainer->extraData->scrollData.xOffset;
-    float y = (*cb).top - contentContainer->extraData->scrollData.yOffset;
+    float x = (*cb).left;
+    float y = (*cb).top - tab->scrollOffsetY;
 
     if (resolution.x >= CONTENT_BREAKPOINT) {
         x += contentLeft;
@@ -1059,8 +1059,8 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::
         case ContentBlockType::Title:  fontSize = 48; break;
     }
 
-    float x = (*cb).left - contentContainer->extraData->scrollData.xOffset;
-    float y = (*cb).top - contentContainer->extraData->scrollData.yOffset;
+    float x = (*cb).left;
+    float y = (*cb).top - tab->scrollOffsetY;
 
     if (resolution.x >= CONTENT_BREAKPOINT) {
         x += contentLeft;
@@ -1837,36 +1837,80 @@ void newTab(string title) {
     content.push_back(ContentBlock {
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f,
-        0.0f,
-        0.0f,
+        0.0f, 0.0f, 0.0f,
         new Rope(title),
     });
 
-    uint32_t cursorVAO;
-    uint32_t cursorVBO;
-
-    glGenVertexArrays(1, &cursorVAO);
-    glBindVertexArray(cursorVAO);
-
-    glGenBuffers(1, &cursorVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, cursorVBO);
+    uint32_t vao[4];
+    uint32_t vbo[4];
 
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    for (int i=0; i<4; ++i) {
+        glGenVertexArrays(1, &vao[i]);
+        glBindVertexArray(vao[i]);
 
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glGenBuffers(1, &vbo[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+    }
 
     tabs.push_back(ContentTab {
-        false, false, false, false, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        cursorVAO, cursorVBO, commands, content
+        false, false, false, false, false, false,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
+        commands, content
     });
 
     activeTabIndex = tabs.size() - 1;
+}
+
+void closeTab(uint32_t index) {
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    if (tab->selVAO != 0) {
+        glDeleteVertexArrays(1, &tab->selVAO);
+    }
+
+    if (tab->selVBO != 0) {
+        glDeleteBuffers(1, &tab->selVBO);
+    }
+
+    if (tab->cursorVAO != 0) {
+        glDeleteVertexArrays(1, &tab->cursorVAO);
+    }
+
+    if (tab->cursorVBO != 0) {
+        glDeleteBuffers(1, &tab->cursorVBO);
+    }
+
+    if (tab->scrollbarVAO != 0) {
+        glDeleteVertexArrays(1, &tab->scrollbarVAO);
+    }
+
+    if (tab->scrollbarVAO != 0) {
+        glDeleteBuffers(1, &tab->scrollbarVAO);
+    }
+
+    if (tab->scrollThumbVAO != 0) {
+        glDeleteVertexArrays(1, &tab->scrollThumbVAO);
+    }
+
+    if (tab->scrollThumbVAO != 0) {
+        glDeleteBuffers(1, &tab->scrollThumbVAO);
+    }
+
+    for (auto cbIter = tab->contentBlocks.begin(); cbIter != tab->contentBlocks.end(); ++cbIter) {
+        delete (*cbIter).rope;
+    }
+
+    auto itr = tabs.begin() + index;
+
+    tabs.erase(itr, itr + 1);
 }
 
 UIPreferences* initPreferences() {
@@ -2421,6 +2465,84 @@ inline void renderScrollbars(UIElement* elem) {
     #undef SCROLL_DATA
 }
 
+// NOTE: only for UI_CONTENT_CONTAINER.
+inline void renderCBScrollbar() {
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    bool update = !tab->scrollbarUpdated;
+
+    // WARNING: side effects!
+    float top, left, bottom, right, thumbStart, thumbEnd;
+
+    if (update) {
+        // WARNING: side effects!
+        getCBScrollbarDimensions(
+            tab, top, right, bottom, left,
+            thumbStart, thumbEnd
+        );
+    }
+
+    #ifdef DEBUG_SCROLL_AREA
+        cout << "\nShowing vertical scrollbar. Element width: " << elem->width;
+
+        cout << "\n--> Vertical scrollbar dimensions. top: "
+            << top << ", left: " << left << ", bottom: "
+            << bottom << ", right:" << right
+            << ", thumbStart: " << thumbStart << ", thumbEnd: " << thumbEnd;
+    #endif
+
+    glBindVertexArray(tab->scrollbarVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, tab->scrollbarVBO);
+
+    if (update) {
+        float vertices[] = {
+            right, bottom,
+            right, contentContainer->top,
+            left, bottom,
+            left, contentContainer->top,
+        };
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    }
+
+    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+
+    glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
+
+    if (darkTheme) {
+        color = SCROLL_BAR_TRACK_COLOR_DARK;
+    }
+
+    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glBindVertexArray(tab->scrollThumbVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, tab->scrollThumbVBO);
+
+    if (update) {
+        float vertices[] = {
+            right, thumbEnd,
+            right, thumbStart,
+            left, thumbEnd,
+            left, thumbStart,
+        };
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    }
+
+    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
+    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    tab->scrollbarUpdated = true;
+}
+
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
     // cout << "resolution: " << resolution.x << "x" << resolution.y;
     switch (elem.type) {
@@ -2500,22 +2622,27 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_CONTENT_CONTAINER: {
-            if (elem.reDraw) {
-                elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
-                elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+            // if (elem.reDraw) {
+            //     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
+            //     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
 
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
-                    cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
-                #endif
-            }
+            //     #ifdef DEBUG_SCROLL_AREA
+            //         cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
+            //         cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
+            //     #endif
+            // }
 
             elem.reDraw = false;
+
+            ContentTab* tab = CURRENT_TAB;
 
             float width = elem.width;
             float height = elem.height;
 
-            if (elem.extraData->scrollData.showVerticalScrollbar) {
+            bool showScrollbar = tab->maxHeight > elem.height;
+
+            // if (elem.extraData->scrollData.showVerticalScrollbar) {
+            if (showScrollbar) {
                 width -= SCROLL_BAR_THICKNESS;
             }
 
@@ -2529,16 +2656,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             renderContentBlockHighlight();
 
             for (
-                auto itr = tabs[activeTabIndex].contentBlocks.begin();
-                itr != tabs[activeTabIndex].contentBlocks.end();
+                auto itr = tab->contentBlocks.begin();
+                itr != tab->contentBlocks.end();
                 ++itr
             ) {
-                renderContentBlock(itr, resolution, cursor);
+                renderContentBlock(tab, itr, resolution, cursor);
             }
 
             renderCBMoveMarker();
-
-            ContentTab* tab = CURRENT_TAB;
 
             if (tab->showCursor) {
                 if (tab->redrawCursor) {
@@ -2587,8 +2712,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDisable(GL_SCISSOR_TEST);
 
-            renderScrollbars(&elem);
-
+            renderCBScrollbar();
             break;
         }
 
@@ -3491,6 +3615,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 }
 
 void renderContentBlock(
+    ContentTab* tab,
     vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
     glm::vec2 &cursor
@@ -3550,8 +3675,8 @@ void renderContentBlock(
         }
     }
 
-    float top = (*cb).top - contentContainer->extraData->scrollData.yOffset;
-    float left = (*cb).left - contentContainer->extraData->scrollData.xOffset;
+    float top = (*cb).top - tab->scrollOffsetY;
+    float left = (*cb).left;
 
     if (resolution.x >= CONTENT_BREAKPOINT) {
         left += contentLeft;
@@ -3573,13 +3698,13 @@ void renderContentBlock(
         (*cb).flags &= ~(CONTENT_BLOCK_REDRAW);
     }
 
-    if (contentContainer->extraData->scrollData.height < (*cb).top + (*cb).height) {
+    if (tab->maxHeight < (*cb).top + (*cb).height) {
         #ifdef DEBUG_SCROLL_AREA
             cout << "\nScroll height less than dim.z " << dim.z;
         #endif
 
-        contentContainer->extraData->scrollData.height = (*cb).top + (*cb).height;
-        contentContainer->extraData->scrollData.renderedUpdate = false;
+        tab->maxHeight = (*cb).top + (*cb).height;
+        tab->scrollbarUpdated = false;
         contentContainer->reDraw = true;
     }
 }
@@ -3591,15 +3716,10 @@ void renderContentBlockHighlight() {
 
     uint32_t colorU;
 
-    if (highlightedContentBlock.backgroundVAO == 0) {
-        glGenVertexArrays(1, &highlightedContentBlock.backgroundVAO);
-        glBindVertexArray(highlightedContentBlock.backgroundVAO);
+    glBindVertexArray(highlightedContentBlock.backgroundVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
 
-        if (highlightedContentBlock.backgroundVBO) {
-            glDeleteBuffers(1, &highlightedContentBlock.backgroundVBO);
-            highlightedContentBlock.backgroundVBO = 0;
-        }
-
+    if (highlightedContentBlock.updated) {
         float vertices[] = {
             highlightedContentBlock.right, highlightedContentBlock.top,
             highlightedContentBlock.right, highlightedContentBlock.bottom,
@@ -3607,25 +3727,9 @@ void renderContentBlockHighlight() {
             highlightedContentBlock.left, highlightedContentBlock.bottom,
         };
 
-        glGenBuffers(1, &highlightedContentBlock.backgroundVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-    } else if (highlightedContentBlock.updated) {
-        float vertices[] = {
-            highlightedContentBlock.right, highlightedContentBlock.top,
-            highlightedContentBlock.right, highlightedContentBlock.bottom,
-            highlightedContentBlock.left, highlightedContentBlock.top,
-            highlightedContentBlock.left, highlightedContentBlock.bottom,
-        };
-
-        glBindVertexArray(highlightedContentBlock.backgroundVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     }
 
-    glBindVertexArray(highlightedContentBlock.backgroundVAO);
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
     colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
@@ -3640,28 +3744,10 @@ void renderContentBlockHighlight() {
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    if (highlightedContentBlock.dragTabVAO == 0) {
-        glGenVertexArrays(1, &highlightedContentBlock.dragTabVAO);
-        glBindVertexArray(highlightedContentBlock.dragTabVAO);
+    glBindVertexArray(highlightedContentBlock.dragTabVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
 
-        if (highlightedContentBlock.dragTabVBO) {
-            glDeleteBuffers(1, &highlightedContentBlock.dragTabVBO);
-            highlightedContentBlock.dragTabVBO = 0;
-        }
-
-        float vertices[] = {
-            highlightedContentBlock.left, highlightedContentBlock.top,
-            highlightedContentBlock.left, highlightedContentBlock.bottom,
-            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.top,
-            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.bottom,
-        };
-
-        glGenBuffers(1, &highlightedContentBlock.dragTabVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-    } else if (highlightedContentBlock.updated) {
+    if (highlightedContentBlock.updated) {
         float vertices[] = {
             highlightedContentBlock.left, highlightedContentBlock.top,
             highlightedContentBlock.left, highlightedContentBlock.bottom,
@@ -3669,12 +3755,9 @@ void renderContentBlockHighlight() {
             highlightedContentBlock.left - 20.0f, highlightedContentBlock.bottom,
         };
 
-        glBindVertexArray(highlightedContentBlock.dragTabVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     }
 
-    glBindVertexArray(highlightedContentBlock.dragTabVAO);
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
     colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
@@ -4079,7 +4162,7 @@ void processCBCommand(ContentCommand cmd) {
 
         case CommandType::Backspace: 
             if (cmd.prevString == "") {
-                if (tab->cursorPosition == 0 && tab->activeCBIndex > 1) {
+                if (tab->cursorPosition == 0 && tab->cursorCBIndex > 1) {
                     // TODO: remove the content block
                 }
             } else {
@@ -4272,6 +4355,28 @@ void getScrollbarDimensions(
         float barWidth = thumbEnd - thumbStart;
 
         thumbEnd = left + width;
+        thumbStart = thumbEnd - barWidth;
+    }
+}
+
+void getCBScrollbarDimensions(
+    ContentTab* tab,
+    float& top, float& right, float& bottom, float& left,
+    float& thumbStart, float& thumbEnd
+) {
+    float height = contentContainer->height;
+    top = contentContainer->top;
+    right = contentContainer->left + contentContainer->width;
+    left = right - SCROLL_BAR_THICKNESS;
+    bottom = top + height;
+
+    thumbStart = top + tab->scrollOffsetY / tab->maxHeight * height;
+    thumbEnd = thumbStart + contentContainer->height / tab->maxHeight * height;
+
+    if (thumbEnd > top + height) {
+        float barWidth = thumbEnd - thumbStart;
+
+        thumbEnd = top + height;
         thumbStart = thumbEnd - barWidth;
     }
 }
