@@ -18,6 +18,7 @@
 
 #define TOTAL_ICONS                 3
 
+#define TAB_BAR_HEIGHT              64.0f
 #define CONTENT_BLOCK_MARGIN        1.0f
 #define CONTENT_BLOCK_TITLE_MARGIN  5.0f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
@@ -108,6 +109,9 @@ extern vector<ContentTab> tabs;
 extern uint8_t activeTabIndex;
 extern UIElement* contentContainer;
 extern UIElement* activeElement;
+extern glm::vec2 resolution;
+extern uint16_t windowHeight;
+extern uint16_t windowWidth;
 
 enum UIElementType {
     UI_LABEL,
@@ -375,7 +379,9 @@ struct ContentTab {
     uint32_t selEndRow;
     uint32_t selEndCol;
 
+    uint32_t cursorRow;
     uint16_t cursorX;
+    uint16_t cursorY;
     uint32_t currentCommand;
 
     uint32_t selVAO;
@@ -420,7 +426,9 @@ void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
 void recalculateLayout(UIElement * elem);
+void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+glm::vec2 getActiveContentDimensions();
 void renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
@@ -441,10 +449,13 @@ void getScrollbarDimensions(
     bool vertical
 );
 
+uint8_t getCBFontSize(ContentBlockType cbType);
 void getCBScrollbarDimensions(
     ContentTab* tab, float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd
 );
+SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::vec2 resolution);
+SelectionData getCBTextCursorVertical(ContentTab* tab, bool up);
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);

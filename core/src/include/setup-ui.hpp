@@ -18,9 +18,6 @@ extern UIElement rootContainer;
 extern bool minimized;
 extern bool focused;
 extern bool showFps;
-extern uint16_t windowHeight;
-extern uint16_t windowWidth;
-extern glm::vec2 resolution;
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);

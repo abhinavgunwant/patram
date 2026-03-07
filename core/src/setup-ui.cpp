@@ -30,9 +30,7 @@ GLFWcursor* textCursor;
 
 UIElement elements[16];
 
-uint16_t windowHeight = WINDOW_HEIGHT;
-uint16_t windowWidth = WINDOW_WIDTH;
-glm::vec2 resolution = glm::vec2(windowWidth, windowHeight);
+// glm::vec2 resolution = glm::vec2(windowWidth, windowHeight);
 float mouseX = 25000;
 float mouseY = 25000;
 float mouseDownX = 25000;
@@ -190,7 +188,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
     #ifdef DEBUG_TEXT_INPUT
-        cout << "\nKeyboard event. Key: " << key << ", Scan code:" << scanCode
+        cout << "\nKeyboard event. Key: " << key << ", Scan code: " << scanCode
             << ", Action: " << action << ", Modifier Keys: " << mods;
     #endif
 
@@ -525,6 +523,10 @@ void testOnClick(UIElement* elem) {
  * **Note:** For now this contains test values. This will change.
  */
 void setupUI(bool isDarkTheme) {
+    windowHeight = WINDOW_HEIGHT;
+    windowWidth = WINDOW_WIDTH;
+    resolution = glm::vec2(windowWidth, windowHeight);
+
     initTextRendering(windowWidth, windowHeight);
 
     glEnable(GL_BLEND);
