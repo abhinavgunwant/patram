@@ -158,9 +158,18 @@ void cbKeyCallback(int key, int action, int mod) {
                     tab->redrawSel = true;
                 } else {
                     UNSELECT();
+
+                    if (tab->cursorPosition == 0 && tab->cursorCBIndex > 0) {
+                        --tab->cursorCBIndex;
+                        ContentBlock* newCB = &tab->contentBlocks[tab->cursorCBIndex];
+
+                        tab->cursorPosition = newCB->rope->length();
+                        tab->cursorRow = newCB->rows - 1;
+                    } else {
+                        DECR_CURSOR();
+                    }
                 }
 
-                DECR_CURSOR();
                 UPDATE();
                 break;
 
@@ -184,9 +193,19 @@ void cbKeyCallback(int key, int action, int mod) {
                     tab->redrawSel = true;
                 } else {
                     UNSELECT();
+
+                    if (
+                        tab->cursorPosition == cb->rope->length()
+                        && tab->cursorCBIndex < tab->contentBlocks.size() - 1
+                    ) {
+                        tab->cursorPosition = 0;
+                        tab->cursorRow = 0;
+                        ++tab->cursorCBIndex;
+                    } else {
+                        INCR_CURSOR();
+                    }
                 }
 
-                INCR_CURSOR();
                 UPDATE();
                 break;
 
