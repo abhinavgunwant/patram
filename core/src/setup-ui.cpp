@@ -258,6 +258,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         tab->redrawCursor = true;
     }
 
+    tab->scrollbarUpdated = false;
+
     renderElement(rootContainer, resolution, cursor);
     glfwSwapBuffers(window);
 }

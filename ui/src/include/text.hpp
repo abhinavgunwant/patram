@@ -64,7 +64,15 @@ extern unsigned int textVAO, textVBO;
 
 void initTextRendering(uint16_t width, uint16_t height);
 
-glm::vec4 renderContentRope(
+struct RopeRenderResult {
+    float x;
+    float y;
+    float height;
+    float width;
+    uint32_t rows;
+};
+
+RopeRenderResult renderContentRope(
     Rope* rope,
     glm::vec2 pos,
     glm::vec2& res,

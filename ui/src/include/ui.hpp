@@ -224,13 +224,22 @@ struct TextInputData {
     }
 };
 
+enum class SelectionCBPosition : uint8_t {
+    None,
+    Current,
+    Previous,
+    Next,
+};
+
 struct SelectionData {
     uint32_t cursorPosition;
     uint32_t row;
     uint32_t col;
+    uint32_t cursorCBIndex;
     float x;
     float y;
     uint16_t height;
+    SelectionCBPosition cbPos;
 };
 
 struct ScrollData {
@@ -325,6 +334,8 @@ struct ContentBlock {
     float left;
     float height;
 
+    uint32_t rows;
+
     Rope* rope;
 };
 
@@ -374,10 +385,10 @@ struct ContentTab {
     uint32_t cursorPosition;
     uint32_t initialCursorPosition;
 
-    uint32_t selStartRow;
-    uint32_t selStartCol;
-    uint32_t selEndRow;
-    uint32_t selEndCol;
+    uint32_t selStartCBIndex;
+    uint32_t selStartCursorPosition;
+    uint32_t selEndCBIndex;
+    uint32_t selEndCursorPosition;
 
     uint32_t cursorRow;
     uint16_t cursorX;

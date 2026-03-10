@@ -87,7 +87,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glBindVertexArray(0);
 }
 
-glm::vec4 renderContentRope(
+RopeRenderResult renderContentRope(
     Rope* rope,
     glm::vec2 pos,
     glm::vec2& res,
@@ -95,7 +95,7 @@ glm::vec4 renderContentRope(
     uint8_t fontSize,
     UIElement* parent
 ) {
-    glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
+    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0 };
     glUseProgram(shaders[SHADER_TEXT].programId);
 
     glUniform3f(
@@ -167,14 +167,15 @@ glm::vec4 renderContentRope(
             ) {
                 yNet += fontSize - fontSize * glyphDescender;
                 xpos = pos.x;
+                result.rows++;
             }
 
             float ypos = yNet + glyphHeight - bearingTop + fontSize;
 
             if (glyphDescender < 0) {
-                dimensions.z = ypos - pos.y - (glyphDescender * fontSize);
+                result.height = ypos - pos.y - (glyphDescender * fontSize);
             } else {
-                dimensions.z = ypos - pos.y;
+                result.height = ypos - pos.y;
             }
 
             float xpos_plus_w = xpos + glyphWidth;
@@ -217,9 +218,13 @@ glm::vec4 renderContentRope(
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    dimensions.w = pos.x;
+    result.width = pos.x;
 
-    return dimensions;
+    if (result.rows) {
+        ++result.rows;
+    }
+
+    return result;
 }
 
 // render line of text

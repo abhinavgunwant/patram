@@ -2,6 +2,7 @@
 #define PATRAM_CORE_UI
 
 #include <string>
+#include <vector>
 #include <iostream>
 
 #define MAX_COMMANDS 16
@@ -9,11 +10,14 @@
 
 using namespace std;
 
+struct ContentBlock;
+
 enum class CommandType : uint8_t {
     None,
     Type,
     NewLine,
     Delete,
+    DeleteSelected,
     Backspace,
     Undo,
     Redo,
@@ -21,17 +25,17 @@ enum class CommandType : uint8_t {
 };
 
 struct ContentCommand {
-    string str;
-    string prevString; // old string. Useful for undo.
-
     CommandType type;
 
-    uint32_t selectRowStart;
-    uint32_t selectRowEnd;
-    uint32_t selectColStart;
-    uint32_t selectColEnd;
-    uint32_t cursorPos;
-    uint32_t cbIndex;
+    string str;
+    string prevString;                      // probably useful for undo.
+
+    uint32_t startCBIndex;
+    uint32_t startCursorPos;
+    uint32_t endCBIndex;                    // for CommandType::DeleteSelected
+    uint32_t endCursorPos;                  // for CommandType::DeleteSelected
+
+    vector<ContentBlock> deletedBlocks;     // for CommandType::DeleteSelected
 };
 
 /**
