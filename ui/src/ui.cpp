@@ -1319,7 +1319,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::
 
 SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
     #define UP_AND_TOP_ROW          up && tab->cursorRow == 0
-    #define DOWN_AND_BOTTOM_ROW     !up && tab->cursorRow == cb->rows
+    #define DOWN_AND_BOTTOM_ROW     !up && tab->cursorRow == cb->rows - 1
 
     SelectionData sd = {
         tab->cursorPosition,
@@ -1458,10 +1458,15 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     uint32_t cursorCBIndex;
 
-                    if (tab->cursorRow == 0 && tab->cursorCBIndex > 0) {
-                        cursorCBIndex = tab->cursorCBIndex - 1;
-                    } else {
-                        cursorCBIndex = tab->cursorCBIndex;
+                    switch (sd.cbPos) {
+                        case SelectionCBPosition::Next:
+                            cursorCBIndex = tab->cursorCBIndex + 1;
+                            break;
+                        case SelectionCBPosition::Previous:
+                            cursorCBIndex = tab->cursorCBIndex - 1;
+                            break;
+                        default:
+                            cursorCBIndex = tab->cursorCBIndex;
                     }
 
                     return SelectionData {
@@ -1479,10 +1484,15 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     uint32_t cursorCBIndex;
 
-                    if (tab->cursorRow == 0 && tab->cursorCBIndex > 0) {
-                        cursorCBIndex = tab->cursorCBIndex - 1;
-                    } else {
-                        cursorCBIndex = tab->cursorCBIndex;
+                    switch (sd.cbPos) {
+                        case SelectionCBPosition::Next:
+                            cursorCBIndex = tab->cursorCBIndex + 1;
+                            break;
+                        case SelectionCBPosition::Previous:
+                            cursorCBIndex = tab->cursorCBIndex - 1;
+                            break;
+                        default:
+                            cursorCBIndex = tab->cursorCBIndex;
                     }
 
                     return SelectionData {
@@ -1500,10 +1510,15 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     uint32_t cursorCBIndex;
 
-                    if (tab->cursorRow == 0 && tab->cursorCBIndex > 0) {
-                        cursorCBIndex = tab->cursorCBIndex - 1;
-                    } else {
-                        cursorCBIndex = tab->cursorCBIndex;
+                    switch (sd.cbPos) {
+                        case SelectionCBPosition::Next:
+                            cursorCBIndex = tab->cursorCBIndex + 1;
+                            break;
+                        case SelectionCBPosition::Previous:
+                            cursorCBIndex = tab->cursorCBIndex - 1;
+                            break;
+                        default:
+                            cursorCBIndex = tab->cursorCBIndex;
                     }
 
                     return SelectionData {
@@ -1530,10 +1545,15 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
     if (foundRow) {
         uint32_t cursorCBIndex;
 
-        if (tab->cursorRow == 0 && tab->cursorCBIndex > 0) {
-            cursorCBIndex = tab->cursorCBIndex - 1;
-        } else {
-            cursorCBIndex = tab->cursorCBIndex;
+        switch (sd.cbPos) {
+            case SelectionCBPosition::Next:
+                cursorCBIndex = tab->cursorCBIndex + 1;
+                break;
+            case SelectionCBPosition::Previous:
+                cursorCBIndex = tab->cursorCBIndex - 1;
+                break;
+            default:
+                cursorCBIndex = tab->cursorCBIndex;
         }
 
         return SelectionData {
