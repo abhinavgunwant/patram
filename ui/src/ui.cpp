@@ -2957,6 +2957,18 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         return;
     }
 
+    tab->cursorX = static_cast<uint16_t>(sd.x);
+    tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
+
+    if (sd.y > contentContainer->height + contentContainer->top) {
+        tab->scrollOffsetY += sd.y - contentContainer->height - contentContainer->top;
+        tab->redrawCursor = true;
+        highlightedContentBlock.show = false;
+    } else if (sd.y - sd.height < contentContainer->top) {
+        tab->scrollOffsetY -= contentContainer->top - sd.y + sd.height;
+        tab->redrawCursor = true;
+    }
+
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
@@ -3081,13 +3093,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             bool showScrollbar = tab->maxHeight > elem.height;
 
-            // if (elem.extraData->scrollData.showVerticalScrollbar) {
             if (showScrollbar) {
                 width -= SCROLL_BAR_THICKNESS;
-            }
-
-            if (elem.extraData->scrollData.showHorizontalScrollbar) {
-                height -= SCROLL_BAR_THICKNESS;
             }
 
             glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);

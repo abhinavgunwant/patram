@@ -462,7 +462,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             if (tab->scrollOffsetY < 0) {
                 tab->scrollOffsetY = 0;
             } else if (tab->scrollOffsetY > tab->maxHeight) {
-                tab->scrollOffsetY = tab->maxHeight - elem->height;
+                tab->scrollOffsetY = tab->maxHeight - contentContainer->height;
             }
 
             if (tab->showCursor) {
@@ -470,6 +470,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             }
 
             tab->scrollbarUpdated = false;
+
+            cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
 
             break;
         }
