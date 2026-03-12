@@ -192,6 +192,10 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
             << ", Action: " << action << ", Modifier Keys: " << mods;
     #endif
 
+    if (activeElement == nullptr) {
+        return;
+    }
+
     if (action == GLFW_PRESS && activeElement->type != UI_CONTENT_CONTAINER) {
         switch (key) {
             case GLFW_KEY_ESCAPE: {
@@ -209,16 +213,14 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
         }
     }
 
-    if (activeElement != nullptr) {
-        switch (activeElement->type) {
-            case UI_CONTENT_CONTAINER: cbKeyCallback(key, action, mods); break;
-            case UI_TEXT_INPUT:
-            case UI_TEXT_AREA: textInputKeyCallback(activeElement, key, action, mods); break;
-        }
+    switch (activeElement->type) {
+        case UI_CONTENT_CONTAINER: cbKeyCallback(key, action, mods); break;
+        case UI_TEXT_INPUT:
+        case UI_TEXT_AREA: textInputKeyCallback(activeElement, key, action, mods); break;
+    }
 
-        if (!activeElement->active) {
-            activeElement = nullptr;
-        }
+    if (!activeElement->active) {
+        activeElement = nullptr;
     }
 }
 

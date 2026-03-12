@@ -1,5 +1,5 @@
-#include <algorithm>
 #include <iostream>
+#include <stack>
 
 #ifdef DEBUG_TEXT_INPUT
     #include <string_view>
@@ -139,7 +139,72 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_LEFT:
-                if (shift) {
+                if (ctrl) {
+                    uint32_t i = cb->rope->length();
+                    uint32_t cumulativeLen = i;
+                    --i;
+
+                    ReverseRopeTraverser rt(cb->rope);
+
+                    bool found = false;
+
+                    while (rt.hasNext()) {
+                        Rope* rope = rt.next();
+
+                        if (cumulativeLen - rope->length() > tab->cursorPosition) {
+                            cumulativeLen -= rope->length();
+                            continue;
+                        }
+
+                        if (cumulativeLen >= 0) {
+                            i = cumulativeLen - 1;
+                        }
+
+                        // for (char c: rope->text) {
+                        for (string::reverse_iterator c = rope->text.rbegin(); c != rope->text.rend(); ++c) {
+                            if (i >= tab->cursorPosition) {
+                                --i;
+                                continue;
+                            }
+
+                            if (*c == ' ') {
+                                found = true;
+                                break;
+                            }
+
+                            if (!isalnum(*c)) {
+                                found = true;
+                                break;
+                            }
+
+                            --i;
+                        }
+
+                        if (found) {
+                            tab->cursorPosition = i;
+                            cout << "\nCTRL + LEFT: cursorPosition = " << i;
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        if (tab->cursorPosition > 0) {
+                            tab->cursorPosition = 0;
+                        } else if (tab->cursorPosition == 0) {
+                            UNSELECT();
+
+                            if (tab->cursorPosition == 0 && tab->cursorCBIndex > 0) {
+                                --tab->cursorCBIndex;
+                                ContentBlock* newCB = &tab->contentBlocks[tab->cursorCBIndex];
+
+                                tab->cursorPosition = newCB->rope->length();
+                                tab->cursorRow = newCB->rows - 1;
+                            } else {
+                                DECR_CURSOR();
+                            }
+                        }
+                    }
+                } else if (shift) {
                     if (tab->textSelected) {
                         if (tab->cursorPosition - 1 == tab->initialCursorPosition) {
                             UNSELECT();
@@ -174,7 +239,69 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_RIGHT:
-                if (shift) {
+                if (ctrl) {
+                    uint32_t i = 0;
+                    uint32_t cumulativeLen = 0;
+
+                    RopeTraverser rt(cb->rope);
+
+                    bool found = false;
+
+                    while (rt.hasNext()) {
+                        Rope* rope = rt.next();
+
+                        if (cumulativeLen + rope->length() < tab->cursorPosition) {
+                            cumulativeLen += rope->length();
+                            continue;
+                        }
+
+                        if (cumulativeLen > 0) {
+                            i = cumulativeLen - 1;
+                        }
+
+                        for (char c: rope->text) {
+                            if (i <= tab->cursorPosition) {
+                                ++i;
+                                continue;
+                            }
+
+                            if (c == ' ') {
+                                ++i;
+                                found = true;
+                                break;
+                            }
+
+                            if (!isalnum(c)) {
+                                // --i;
+                                found = true;
+                                break;
+                            }
+
+                            ++i;
+                        }
+
+                        if (found) {
+                            tab->cursorPosition = i;
+                            cout << "\nCTRL + RIGHT: cursorPosition = " << i;
+                            break;
+                        }
+                    }
+
+                    if (!found && tab->cursorPosition <= cb->rope->length()) {
+                        UNSELECT();
+
+                        if (
+                            tab->cursorPosition == cb->rope->length()
+                            && tab->cursorCBIndex < tab->contentBlocks.size() - 1
+                        ) {
+                            tab->cursorPosition = 0;
+                            tab->cursorRow = 0;
+                            ++tab->cursorCBIndex;
+                        } else {
+                            INCR_CURSOR();
+                        }
+                    }
+                } else if (shift) {
                     if (tab->textSelected) {
                         if (tab->cursorPosition + 1 == tab->initialCursorPosition) {
                             UNSELECT();
@@ -300,6 +427,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
 
                     tab->scrollbarUpdated = false;
+                    highlightedContentBlock.show = false;
                     UPDATE();
                 }
                 break;
@@ -314,6 +442,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
 
                     tab->scrollbarUpdated = false;
+                    highlightedContentBlock.show = false;
                     UPDATE();
                 }
                 break;
@@ -2964,9 +3093,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         tab->scrollOffsetY += sd.y - contentContainer->height - contentContainer->top;
         tab->redrawCursor = true;
         highlightedContentBlock.show = false;
+        tab->scrollbarUpdated = false;
     } else if (sd.y - sd.height < contentContainer->top) {
         tab->scrollOffsetY -= contentContainer->top - sd.y + sd.height;
         tab->redrawCursor = true;
+        tab->scrollbarUpdated = false;
     }
 
     tab->cursorPosition = sd.cursorPosition;
@@ -4527,11 +4658,11 @@ void processCBCommand(ContentCommand cmd) {
     switch (cmd.type) {
         case CommandType::Type:
             if (cmd.str != "") {
-                if (tab->cursorPosition == cb->rope->length()) {
-                    cb->rope->append(cmd.str);
-                } else {
+                // if (tab->cursorPosition == cb->rope->length()) {
+                //     cb->rope->append(cmd.str);
+                // } else {
                     cb->rope->insert(tab->cursorPosition, cmd.str);
-                }
+                // }
 
                 vector<ContentBlock>::iterator itr = tab->contentBlocks.begin() + tab->cursorCBIndex;
 
@@ -4552,23 +4683,30 @@ void processCBCommand(ContentCommand cmd) {
 
         case CommandType::NewLine:
             if (cb->rope != nullptr) {
-                tuple<Rope*, Rope*> result = cb->rope->split(tab->cursorPosition);
-                Rope* rope = get<1>(result);
+                Rope* result = cb->rope->split(tab->cursorPosition);
 
-                if (rope != nullptr) {
-                    ++tab->cursorCBIndex;
+                if (result != nullptr) {
+                    Rope* rope = result->right;
 
-                    tab->contentBlocks.insert(
-                        tab->contentBlocks.begin() + tab->cursorCBIndex,
-                        ContentBlock {
-                            cb->type,
-                            CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                            0.0f, 0.0f, 0.0f,
-                            0,
-                            rope
-                    });
+                    if (rope != nullptr) {
+                        ++tab->cursorCBIndex;
 
-                    cb->rope->pick(rope);
+                        tab->contentBlocks.insert(
+                            tab->contentBlocks.begin() + tab->cursorCBIndex,
+                            ContentBlock {
+                                cb->type,
+                                CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                                0.0f, 0.0f, 0.0f,
+                                0,
+                                rope
+                        });
+
+                        if (tab->cursorCBIndex == 0) {
+                            (*tab->contentBlocks.begin()).rope->pick(rope);
+                        } else {
+                            (*(tab->contentBlocks.begin() + tab->cursorCBIndex - 1)).rope->pick(rope);
+                        }
+                    }
                 }
             } else {
                 tab->contentBlocks.insert(

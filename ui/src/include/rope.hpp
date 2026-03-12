@@ -2,7 +2,6 @@
 #define PATRAM_UI_ROPE
 
 #include <string>
-#include <stack>
 #include <tuple>
 
 using namespace std;
@@ -32,6 +31,7 @@ class Rope {
         void recalculateLenLeft();
 
         Rope* rightSiblingOrAncestor(Rope* node);
+        Rope* leftSiblingOrAncestor(Rope* node);
         /**
          * Returns the leaf node and the relative index to that node.
          */
@@ -40,7 +40,7 @@ class Rope {
         uint32_t length();
         void append(string s);
         void prepend(string s);
-        tuple<Rope*,Rope*> split(uint32_t index);
+        Rope* split(uint32_t index);
         void pick(Rope* leaf);
         void remove(uint32_t startIndex, uint32_t length);
         void clear();
@@ -58,6 +58,19 @@ class RopeTraverser {
 
     public:
         RopeTraverser(Rope* root);
+        bool hasNext();
+        Rope* next();
+        void reset();
+};
+
+class ReverseRopeTraverser {
+    private:
+        Rope* root;
+        Rope* current;
+        Rope* nextInQueue;
+
+    public:
+        ReverseRopeTraverser(Rope* root);
         bool hasNext();
         Rope* next();
         void reset();

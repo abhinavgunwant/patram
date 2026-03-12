@@ -98,6 +98,29 @@ Rope* Rope::rightSiblingOrAncestor(Rope* node) {
     return node->parent->right;
 }
 
+Rope* Rope::leftSiblingOrAncestor(Rope* node) {
+    if (node == nullptr || node->parent == nullptr || node == this) {
+        return nullptr;
+    }
+
+    if (node == node->parent->right && node->parent->left != nullptr) {
+        return node->parent->left;
+    }
+
+    while (
+        node != nullptr && node->parent != nullptr && node != this
+        && node != this->right && (node == node->parent->right || node->parent->right == nullptr)
+    ) {
+        node = node->parent;
+    }
+
+    if (node == nullptr || node == this || node == this->right || node->parent == nullptr) {
+        return nullptr;
+    }
+
+    return node->parent->left;
+}
+
 string Rope::getString() {
     stringstream ss;
     Rope* node = this;
@@ -124,33 +147,105 @@ string Rope::getString() {
 }
 
 void Rope::recalculateLenLeft() {
+    #define STACK_SIZE 16
+
+    Rope* stack[STACK_SIZE];
+    uint32_t llStack[STACK_SIZE];
+
+    for (int i = 0; i<STACK_SIZE; ++i) {
+        llStack[i] = 0;
+    }
+
+    uint16_t top = 0;
+    uint32_t totalLen = 0;
+
     if (left != nullptr) {
+        stack[0] = this;
+        top = 1;
         lenLeft = 0;
         Rope* node = left;
 
+        bool firstPassToRoot = false;
+
         while (node != this) {
             if (node->isLeaf()) {
-                lenLeft += node->text.length();
+                uint32_t len = node->text.length();
+                node->lenLeft = len;
+                llStack[top - 1] = len;
 
-                node = rightSiblingOrAncestor(node);
+                int i = top - 2;
 
-                if (node == right || node == nullptr) {
-                    break;
+                while (i >= 0) {
+                    if (stack[i + 1] == stack[i]->left) {
+                        llStack[i] += len;
+                    }
+                    --i;
+                }
+
+                if (node == stack[top-1]->left) {
+                    stack[top - 1]->lenLeft = node->lenLeft;
+
+                    if (stack[top - 1]->right != nullptr) {
+                        node = stack[top-1]->right;
+                    }
+
+                    continue;
+                }
+
+                while (top > 0 && node == stack[top - 1]->right) {
+                    node = stack[top - 1];
+                    --top;
+                    stack[top]->lenLeft = llStack[top];
+
+                    if (top == 0) {
+                        return;
+                    }
+                }
+
+                if (top > 0 && node == stack[top - 1]->left) {
+                    stack[top - 1]->lenLeft = llStack[top - 1];
+                    node = stack[top - 1]->right;
                 }
 
                 continue;
             }
 
+            if (node == this) {
+                if (firstPassToRoot) {
+                    return;
+                } else {
+                    firstPassToRoot = true;
+                }
+            }
+
             if (node->left != nullptr) {
-                node = node->left;
+                if (top <= STACK_SIZE) {
+                    stack[top] = node;
+                    llStack[top] = 0;
+                    ++top;
+                    node = node->left;
+                } else {
+                    cerr << "\nError: Stack size is too large!";
+                    return;
+                }
                 continue;
             }
 
             if (node->right != nullptr) {
-                node = node->right;
+                if (top <= STACK_SIZE) {
+                    stack[top] = node;
+                    llStack[top] = 0;
+                    ++top;
+                    node = node->right;
+                } else {
+                    cerr << "\nError: Stack size is too large!";
+                    return;
+                }
             }
         }
     }
+
+    #undef STACK_SIZE
 }
 
 char Rope::operator[](uint32_t i) {
@@ -264,7 +359,7 @@ void Rope::prepend(string s) {
     node->right = newRight;
 }
 
-tuple<Rope*,Rope*> Rope::split(uint32_t index) {
+Rope* Rope::split(uint32_t index) {
     if (isLeaf()) {
         string secondText = text.substr(index, text.length() - index);
         text.erase(index, text.length() - index);
@@ -272,11 +367,12 @@ tuple<Rope*,Rope*> Rope::split(uint32_t index) {
         right = new Rope(secondText);
         left->parent = this;
         right->parent = this;
-        lenLeft = left->text.length();
         text.clear();
         text.resize(0);
 
-        return tuple(left, right);
+        recalculateLenLeft();
+
+        return this;
     }
 
     RopeTraverser rt(this);
@@ -286,7 +382,7 @@ tuple<Rope*,Rope*> Rope::split(uint32_t index) {
     while (rt.hasNext()) {
         Rope* node = rt.next();
 
-        if (node->lenLeft < i) {
+        if (node->lenLeft <= i) {
             i -= node->lenLeft;
             continue;
         }
@@ -295,34 +391,39 @@ tuple<Rope*,Rope*> Rope::split(uint32_t index) {
 
         node->text.erase(i, node->text.length() - i);
         node->left = new Rope(node->text);
+        node->left->parent = node;
         node->right = new Rope(secondText);
-        node->lenLeft = node->left->text.length();
+        node->right->parent = node;
         node->text.clear();
         node->text.resize(0);
 
-        return tuple(node->left, node->right);
+        recalculateLenLeft();
+
+        return node;
     }
 
-    return tuple(nullptr, nullptr);
+    return nullptr;
 }
 
 void Rope::pick(Rope* leaf) {
-    Rope* parent = leaf->parent;
+    Rope* p = leaf->parent;
 
-    if (leaf == parent->left) {
-        parent->text = parent->right->text;
-        parent->lenLeft = parent->right->lenLeft;
-        delete parent->right;
-        parent->right = nullptr;
-        parent->left = nullptr;
+    if (leaf == p->left) {
+        p->text = p->right->text;
+        delete p->right;
+        p->right = nullptr;
+        p->left = nullptr;
+
+        recalculateLenLeft();
         return;
     }
 
-    parent->text = parent->left->text;
-    parent->lenLeft = parent->left->lenLeft;
-    delete parent->left;
-    parent->right = nullptr;
-    parent->left = nullptr;
+    p->text = p->left->text;
+    delete p->left;
+    p->right = nullptr;
+    p->left = nullptr;
+
+    recalculateLenLeft();
 }
 
 void Rope::insert(uint32_t i, string s) {
@@ -346,6 +447,13 @@ void Rope::insert(uint32_t i, string s) {
 
     uint32_t len = oldLeaf->text.length();
     uint32_t indx = get<1>(oldLeafTuple);
+
+    if ((indx == 0 || indx == len) && oldLeaf->parent->left != nullptr) {
+        Rope* node = oldLeaf->parent->left;
+        node->text.append(s);
+        this->recalculateLenLeft();
+        return;
+    }
 
     string str1 = oldLeaf->text.substr(0, indx);
     string str2 = oldLeaf->text.substr(indx, len - indx);
@@ -760,6 +868,65 @@ Rope* RopeTraverser::next() {
 }
 
 void RopeTraverser::reset() {
+    current = root;
+
+    if (current->isLeaf()) {
+        nextInQueue = current;
+        return;
+    }
+
+    Rope* node = current;
+
+    while (node != nullptr) {
+        if (node->isLeaf()) {
+            nextInQueue = node;
+            return;
+        }
+
+        if (node->left != nullptr) {
+            node = node->left;
+            continue;
+        }
+
+        if (node->right != nullptr) {
+            node = node->right;
+        }
+    }
+}
+
+ReverseRopeTraverser::ReverseRopeTraverser(Rope* root) {
+    this->root = root;
+    reset();
+}
+
+bool ReverseRopeTraverser::hasNext() { return nextInQueue != nullptr; }
+
+Rope* ReverseRopeTraverser::next() {
+    current = nextInQueue;
+    nextInQueue = nullptr;
+
+    Rope* node = root->leftSiblingOrAncestor(current);
+
+    while (node != nullptr && node != root) {
+        if (node->isLeaf()) {
+            nextInQueue = node;
+            break;
+        }
+
+        if (node->left != nullptr) {
+            node = node->left;
+            continue;
+        }
+
+        if (node->right != nullptr) {
+            node = node->right;
+        }
+    }
+
+    return current;
+}
+
+void ReverseRopeTraverser::reset() {
     current = root;
 
     if (current->isLeaf()) {
