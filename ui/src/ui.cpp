@@ -235,6 +235,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
                 }
 
+                tab->updateCursorX = true;
                 UPDATE();
                 break;
 
@@ -333,6 +334,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
                 }
 
+                tab->updateCursorX = true;
                 UPDATE();
                 break;
 
@@ -409,11 +411,13 @@ void cbKeyCallback(int key, int action, int mod) {
 
             case GLFW_KEY_END:
                 CUR_POS = static_cast<uint32_t>(cb->rope->length());
+                tab->updateCursorX = true;
                 UPDATE();
                 break;
 
             case GLFW_KEY_HOME:
                 CUR_POS = 0;
+                tab->updateCursorX = true;
                 UPDATE();
                 break;
 
@@ -2479,7 +2483,7 @@ void newTab(string title) {
     }
 
     tabs.push_back(ContentTab {
-        false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
@@ -3175,7 +3179,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         return;
     }
 
-    tab->cursorX = static_cast<uint16_t>(sd.x);
+    if (tab->updateCursorX) {
+        tab->cursorX = static_cast<uint16_t>(sd.x);
+        tab->updateCursorX = false;
+    }
+
     tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
 
     if (sd.y > contentContainer->height + contentContainer->top) {
@@ -3192,7 +3200,7 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
-    tab->cursorX = static_cast<uint16_t>(sd.x);
+    // tab->cursorX = static_cast<uint16_t>(sd.x);
     tab->cursorCBIndex = sd.cursorCBIndex;
 
     glBindVertexArray(tab->cursorVAO);
@@ -3336,7 +3344,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         sd.x - 1.0f, sd.y,
                     };
 
-                    tab->cursorX = static_cast<uint16_t>(sd.x);
+                    if (tab->updateCursorX) {
+                        tab->cursorX = static_cast<uint16_t>(sd.x);
+                        tab->updateCursorX = false;
+                    }
                     tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
                     tab->cursorRow = sd.row;
 
@@ -4456,6 +4467,7 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
         << " cursorPosition: " << sd.cursorPosition << ", row: " << sd.row
         << ", col: " << sd.col;
 
+    tabs[activeTabIndex].updateCursorX = true;
     updateCBCursor(CURRENT_TAB, sd);
 }
 

@@ -374,6 +374,7 @@ struct ContentTab {
     bool redrawSel;
     bool showScrollbar;
     bool scrollbarUpdated;
+    bool updateCursorX;
 
     float lastCursorTime;
     float lastScrolled;
