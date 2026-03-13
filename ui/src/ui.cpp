@@ -337,7 +337,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_UP: {
-                    SelectionData sd = getCBTextCursorVertical(tab, true);
+                    SelectionData sd = getCBTextCursorVertical(tab, false, true);
 
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
@@ -368,7 +368,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_DOWN: {
-                    SelectionData sd = getCBTextCursorVertical(tab, false);
+                    SelectionData sd = getCBTextCursorVertical(tab, false, false);
 
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
@@ -426,6 +426,21 @@ void cbKeyCallback(int key, int action, int mod) {
                         tab->scrollOffsetY = 0;
                     }
 
+                    vector<ContentBlock>::iterator fvcb = getFirstVisibleCB(tab);
+
+                    if (fvcb != tab->contentBlocks.begin()) {
+                        int64_t dist = distance(tab->contentBlocks.begin(), fvcb) - 1;
+
+                        if (dist > -1) {
+                            tab->cursorCBIndex = static_cast<uint32_t>(dist);
+                        } else {
+                            tab->cursorCBIndex = 0;
+                        }
+                    }
+
+                    SelectionData sd = getCBTextCursorVertical(tab, true, true);
+                    updateCBCursor(tab, sd);
+
                     tab->scrollbarUpdated = false;
                     highlightedContentBlock.show = false;
                     UPDATE();
@@ -440,6 +455,21 @@ void cbKeyCallback(int key, int action, int mod) {
                     } else {
                         tab->scrollOffsetY = tab->maxHeight - contentContainer->height;
                     }
+
+                    vector<ContentBlock>::iterator fvcb = getLastVisibleCB(tab);
+
+                    if (fvcb != tab->contentBlocks.begin()) {
+                        int64_t dist = distance(tab->contentBlocks.begin(), fvcb) + 1;
+
+                        if (dist < tab->contentBlocks.size()) {
+                            tab->cursorCBIndex = static_cast<uint32_t>(dist);
+                        } else {
+                            tab->cursorCBIndex = tab->contentBlocks.size() - 1;
+                        }
+                    }
+
+                    SelectionData sd = getCBTextCursorVertical(tab, true, false);
+                    updateCBCursor(tab, sd);
 
                     tab->scrollbarUpdated = false;
                     highlightedContentBlock.show = false;
@@ -1465,7 +1495,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::
     };
 }
 
-SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
+SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
     #define UP_AND_TOP_ROW          up && tab->cursorRow == 0
     #define DOWN_AND_BOTTOM_ROW     !up && tab->cursorRow == cb->rows - 1
 
@@ -1482,6 +1512,10 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
 
+    if (page && !up) {
+        sd.row = cb->rows - 1;
+    }
+
     if (
         UP_AND_TOP_ROW && tab->activeCBIndex < 2
         || DOWN_AND_BOTTOM_ROW && tab->cursorCBIndex == tab->contentBlocks.size() - 1
@@ -1489,23 +1523,25 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
         return sd;
     }
 
-    if (UP_AND_TOP_ROW && tab->cursorCBIndex > 0) {
-        sd.cbPos = SelectionCBPosition::Previous;
-        cb = &tab->contentBlocks[tab->cursorCBIndex - 1];
+    if (!page) {
+        if (UP_AND_TOP_ROW && tab->cursorCBIndex > 0) {
+            sd.cbPos = SelectionCBPosition::Previous;
+            cb = &tab->contentBlocks[tab->cursorCBIndex - 1];
 
-        if (cb->rows > 0) {
-            sd.row = cb->rows - 1;
+            if (cb->rows > 0) {
+                sd.row = cb->rows - 1;
+            }
+        } else if (DOWN_AND_BOTTOM_ROW) {
+            sd.cbPos = SelectionCBPosition::Next;
+            sd.row = 0;
+            cb = &tab->contentBlocks[tab->cursorCBIndex + 1];
+        } else if (up) {
+            if (tab->cursorRow > 0) {
+                sd.row = tab->cursorRow - 1;
+            }
+        } else {
+            sd.row = tab->cursorRow + 1;
         }
-    } else if (DOWN_AND_BOTTOM_ROW) {
-        sd.cbPos = SelectionCBPosition::Next;
-        sd.row = 0;
-        cb = &tab->contentBlocks[tab->cursorCBIndex + 1];
-    } else if (up) {
-        if (tab->cursorRow > 0) {
-            sd.row = tab->cursorRow - 1;
-        }
-    } else {
-        sd.row = tab->cursorRow + 1;
     }
 
     float x = (*cb).left;
@@ -1531,6 +1567,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
     RopeTraverser rt(cb->rope);
 
     bool foundRow = false;
+    bool visibleRow = y > TAB_BAR_HEIGHT;
 
     while (rt.hasNext()) {
         Rope* r = rt.next();
@@ -1582,6 +1619,17 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
                 ypos = yNet + static_cast<float>(fontSize);
                 ++row;
                 col = 0;
+                visibleRow = ypos > TAB_BAR_HEIGHT && ypos < windowHeight;
+            }
+
+            if (page) {
+                if (ypos > windowHeight) {
+                    break;
+                }
+
+                if (!visibleRow) {
+                    continue;
+                }
             }
 
             float xpos_plus_w = xpos + glyphWidth;
@@ -1598,7 +1646,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
             }
             #endif
 
-            if (row == sd.row) {
+            if (row == sd.row || page && up) {
                 foundRow = true;
 
                 if (xpos <= tab->cursorX && xpos + (glyphWidth/2) >= tab->cursorX) {
@@ -1619,7 +1667,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     return SelectionData {
                         .cursorPosition = index,
-                        .row = sd.row,
+                        .row = row,
                         .col = col,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xprev,
@@ -1645,7 +1693,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     return SelectionData {
                         .cursorPosition = index + 1,
-                        .row = sd.row,
+                        .row = row,
                         .col = col + 1,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xpos_plus_w,
@@ -1671,7 +1719,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
                     return SelectionData {
                         .cursorPosition = index,
-                        .row = sd.row,
+                        .row = row,
                         .col = col,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xpos,
@@ -1722,6 +1770,47 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool up) {
 
     #undef UP_AND_TOP_ROW
     #undef DOWN_AND_BOTTOM_ROW
+}
+
+vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab) {
+    vector<ContentBlock>::reverse_iterator cbIter = tab->contentBlocks.rbegin()
+        + (tab->contentBlocks.size() - tab->cursorCBIndex);
+
+    vector<ContentBlock>::reverse_iterator lastVisibleIter = tab->contentBlocks.rend();
+
+    for (; cbIter != tab->contentBlocks.rend(); ++cbIter) {
+        float top = (*cbIter).top - tab->scrollOffsetY;
+
+        if (
+            top > TAB_BAR_HEIGHT && top < windowHeight
+            || top < TAB_BAR_HEIGHT && top + (*cbIter).height + TAB_BAR_HEIGHT > windowHeight
+        ) {
+            cout << "\nContent block \"" << (*cbIter).rope->getString().substr(0, 16) << " is visible";
+            lastVisibleIter = cbIter;
+        }
+    }
+
+    return lastVisibleIter.base();
+}
+
+vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab) {
+    vector<ContentBlock>::iterator cbIter = tab->contentBlocks.begin() + tab->cursorCBIndex;
+
+    vector<ContentBlock>::iterator lastVisibleIter = tab->contentBlocks.end();
+
+    for (; cbIter != tab->contentBlocks.end(); ++cbIter) {
+        float top = (*cbIter).top - tab->scrollOffsetY;
+
+        if (
+            top > TAB_BAR_HEIGHT && top < windowHeight
+            || top < TAB_BAR_HEIGHT && top + (*cbIter).height + TAB_BAR_HEIGHT > windowHeight
+        ) {
+            cout << "\nContent block \"" << (*cbIter).rope->getString().substr(0, 16) << " is visible";
+            lastVisibleIter = cbIter;
+        }
+    }
+
+    return lastVisibleIter;
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -3205,16 +3294,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UI_CONTENT_CONTAINER: {
-            // if (elem.reDraw) {
-            //     elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
-            //     elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
-
-            //     #ifdef DEBUG_SCROLL_AREA
-            //         cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
-            //         cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
-            //     #endif
-            // }
-
             elem.reDraw = false;
 
             ContentTab* tab = CURRENT_TAB;

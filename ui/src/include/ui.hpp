@@ -465,8 +465,12 @@ void getCBScrollbarDimensions(
     ContentTab* tab, float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd
 );
+
 SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::vec2 resolution);
-SelectionData getCBTextCursorVertical(ContentTab* tab, bool up);
+SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up);
+
+vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab);
+vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
