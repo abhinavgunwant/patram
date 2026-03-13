@@ -1,10 +1,6 @@
 #ifndef PATRAM_CORE_ARGPARSER
 #define PATRAM_CORE_ARGPARSER
 
-#include <string>
-
-using namespace std;
-
 enum CmdLineArgs {
     CMD_LINE_RUN,
     CMD_LINE_RUN_DARK, // dark theme

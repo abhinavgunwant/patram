@@ -4,12 +4,17 @@
 #include <string>
 #include <vector>
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "command.hpp"
 #include "rope.hpp"
+
+#define WINDOW_WIDTH 550
+#define WINDOW_HEIGHT 600
 
 #define INITIAL_PARENT_CAPACITY     8
 #define GROWTH_FACTOR               2
@@ -87,6 +92,15 @@
 // #define DEBUG_LAYOUT
 // #define DEBUG_RENDER
 #define DEBUG_CONTENT_BLOCKS
+#define DEBUG_SCROLL
+
+#define MENU_BAR 0
+#define SCROLL_AMOUNT 72
+
+#define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0)
+#define ROOT_BG_DARK        glm::vec4(0.10, 0.09, 0.09, 1.0)
+#define TOOL_BAR_BG_DARK    glm::vec4(0.19, 0.17, 0.17, 1.0)
 
 using namespace std;
 
@@ -105,6 +119,24 @@ struct ContentBlockMoveMarker;
 extern HighlightedContentBlock highlightedContentBlock;
 extern ContentBlockMoveMarker cbMove;
 
+extern GLFWwindow* window;
+extern UIElement rootContainer;
+extern bool minimized;
+extern bool focused;
+extern bool showFps;
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
+void resizeCallback(GLFWwindow* window, int width, int height);
+void cursorPosCallback(GLFWwindow * window, double xpos, double ypos);
+void scrollCallback(GLFWwindow * window, double xoffset, double yoffset);
+void minimizedCallback(GLFWwindow* window, int minimized);
+void maximizedCallback(GLFWwindow* window, int maximized);
+void windowFocusCallback(GLFWwindow *window, int focused);
+
+void showWindow();
+void setupUI(bool darkTheme);
+void enterRenderLoop();
 extern vector<ContentTab> tabs;
 extern uint8_t activeTabIndex;
 extern UIElement* contentContainer;

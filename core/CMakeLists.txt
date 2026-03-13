@@ -5,8 +5,6 @@ project(core)
 add_executable(patram
     src/main.cpp
     src/argparser.cpp
-    src/window-utils.cpp
-    src/setup-ui.cpp
     src/startup-checks.cpp
     src/glad.c
 )

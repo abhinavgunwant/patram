@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stack>
+#include <thread>
 
 #ifdef DEBUG_TEXT_INPUT
     #include <string_view>
@@ -13,10 +14,22 @@
 #include "include/command.hpp"
 #include "include/shader.hpp"
 #include "include/text.hpp"
+#include "files.hpp"
 #include "../lib/stb_image.h"
 
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
+
+#define SETUP_BUFFERS(vao, vbo, vertices) do {\
+        glGenVertexArrays(1, &vao);\
+        glBindVertexArray(vao);\
+        glGenBuffers(1, &vbo);\
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);\
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);\
+        glEnableVertexAttribArray(0);\
+    } while (false)
+
 
 using namespace std;
 
@@ -59,6 +72,657 @@ UIElement* activeElement = nullptr;
 uint16_t windowHeight;
 uint16_t windowWidth;
 glm::vec2 resolution;
+GLFWwindow* window;
+UIElement rootContainer;
+bool minimized = false;
+bool focused = true;
+bool mouse1Down = false;
+bool cursorShouldUpdate = false;
+bool showFps = false;
+
+GLFWcursor* textCursor;
+
+UIElement elements[16];
+
+float mouseX = 25000;
+float mouseY = 25000;
+float mouseDownX = 25000;
+float mouseDownY = 25000;
+float cursorUpdateTime = 0.0;
+
+void showWindow() {
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "patram", NULL, NULL);
+
+    if (window == NULL) {
+        cout << "\nFailed to create GLFW window";
+        glfwTerminate();
+        exit(-1);
+    }
+
+    glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        cerr << "\nFailed to initialize GLAD";
+    }
+
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    glfwSetKeyCallback(window, keyCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetFramebufferSizeCallback(window, resizeCallback);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetWindowIconifyCallback(window, minimizedCallback);
+    glfwSetWindowMaximizeCallback(window, maximizedCallback);
+    glfwSetWindowFocusCallback(window, windowFocusCallback);
+
+    glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
+
+    glClearColor(0, 0, 0, 1.0);
+
+}
+
+void updateCursorShape() {
+    if (cursorShouldUpdate) {
+        cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
+
+        while (glfwGetTime() < cursorUpdateTime) {}
+
+        UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+        if (elem != nullptr && (elem->type == UI_TEXT_AREA || elem->type == UI_TEXT_INPUT)) {
+            glfwSetCursor(window, textCursor);
+        } else {
+            glfwSetCursor(window, nullptr);
+        }
+
+        cursorShouldUpdate = false;
+    }
+}
+
+void throttleUpdateCursorShape() {
+    if (!cursorShouldUpdate) {
+        cursorShouldUpdate = true;
+        thread t(updateCursorShape);
+        t.detach();
+    }
+}
+
+void inputClickCallback(UIElement* elem) {
+    if (activeElement != nullptr) {
+        #ifdef DEBUG_TEXT_SELECTION
+            cout << "\nSetting text input as active!";
+        #endif
+        activeElement->active = false;
+    }
+
+    elem->active = true;
+    activeElement = elem;
+
+    if (elem->extraData != nullptr) {
+        elem->extraData->textInputData.lastActiveTime = glfwGetTime();
+        // selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
+    }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_1) {
+        if (action == GLFW_PRESS) {
+            #ifdef DEBUG_MOUSE_BUTTON
+                cout << "\nMouse button 1 pressed";
+            #endif
+            mouse1Down = true;
+            mouseDownX = mouseX;
+            mouseDownY = mouseY;
+
+            if (highlightedContentBlock.show) {
+                if (
+                    mouseX >= highlightedContentBlock.left - 20.0f
+                    && mouseX <= highlightedContentBlock.left
+                    && mouseY >= highlightedContentBlock.top
+                    && mouseY <= highlightedContentBlock.bottom
+                    && highlightedContentBlock.cbIndex < tabs[activeTabIndex].contentBlocks.size()
+                ) {
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags |= CONTENT_BLOCK_DRAGGING;
+                    highlightedContentBlock.mouseDown = true;
+                    return;
+                } else {
+                    tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
+                    highlightedContentBlock.mouseDown = false;
+                    cbMove.targetIndex = 0;
+                }
+            }
+
+            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                #ifdef DEBUG_MOUSE_BUTTON
+                    cout << " for " << elementType(elem);
+                #endif
+
+                if (activeElement != nullptr) {
+                    activeElement->active = false;
+                }
+
+                activeElement = elem;
+                elem->active = true;
+
+                switch (activeElement->type) {
+                    case UI_CONTENT_CONTAINER:
+                        contentBlockMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                    case UI_SCROLL_AREA:
+                        scrollAreaMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                    case UI_TEXT_AREA:
+                    case UI_TEXT_INPUT:
+                        textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                }
+
+                // elem->onMouseDown(elem, mouseX, mouseY, resolution);
+            } else if (activeElement != nullptr) {
+                activeElement->active = false;
+                activeElement = nullptr;
+            }
+        } else if (action == GLFW_RELEASE) {
+            #ifdef DEBUG_MOUSE_BUTTON
+                cout << "\nMouse button 1 released";
+            #endif
+            mouse1Down = false;
+
+            if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
+                cout << "\nHighlighted content block RELEASE target: ";
+
+                if (cbMove.targetIndex != 0) {
+                    cout << tabs[activeTabIndex].contentBlocks[cbMove.targetIndex].rope->text.substr(0, 10);
+                } else {
+                    cout << "NULL";
+                }
+
+                moveContentBlock(
+                    activeTabIndex,
+                    highlightedContentBlock.cbIndex,
+                    cbMove.targetIndex
+                );
+
+                tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
+                reDrawAllContentBlocks();
+
+                highlightedContentBlock.mouseDown = false;
+                hideCBMoveMarker();
+            }
+
+            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                switch (activeElement->type) {
+                    case UI_TEXT_AREA:
+                    case UI_TEXT_INPUT:
+                        textInputMouseUpCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                }
+
+                // if (mouseDownX == mouseX && mouseDownY == mouseY) {
+                //     elem->onClick(elem);
+                // }
+            }
+        }
+    }
+}
+
+void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
+    #ifdef DEBUG_TEXT_INPUT
+        cout << "\nKeyboard event. Key: " << key << ", Scan code: " << scanCode
+            << ", Action: " << action << ", Modifier Keys: " << mods;
+    #endif
+
+    if (activeElement == nullptr) {
+        return;
+    }
+
+    if (action == GLFW_PRESS && activeElement->type != UI_CONTENT_CONTAINER) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE: {
+                if (activeElement != nullptr && activeElement->type != UI_TEXT_INPUT) {
+                    activeElement->active = false;
+                    activeElement = nullptr;
+                }
+
+                break;
+            }
+
+            default: {
+                // Nothing!
+            }
+        }
+    }
+
+    switch (activeElement->type) {
+        case UI_CONTENT_CONTAINER: cbKeyCallback(key, action, mods); break;
+        case UI_TEXT_INPUT:
+        case UI_TEXT_AREA: textInputKeyCallback(activeElement, key, action, mods); break;
+    }
+
+    if (!activeElement->active) {
+        activeElement = nullptr;
+    }
+}
+
+void resizeCallback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+
+    if (width >= CONTENT_BREAKPOINT) {
+        contentLeft = (static_cast<float>(width) - CONTENT_MAX_WIDTH) / 2;
+        contentRight = contentLeft + CONTENT_MAX_WIDTH;
+    } else {
+        contentLeft = CONTENT_HORIZONTAL_MARGIN;
+        contentRight = width - CONTENT_HORIZONTAL_MARGIN;
+    }
+
+    rootContainer.width = width;
+    rootContainer.height = height;
+
+    windowWidth = width;
+    windowHeight = height;
+
+    if (!minimized) {
+        #ifdef DEBUG_LAYOUT
+            cout << "\nRecalculating layout";
+        #endif
+
+        recalculateLayout(&rootContainer);
+    }
+    highlightedContentBlock.show = false;
+    highlightedContentBlock.updated = true;
+
+    resolution = glm::vec2(width, height);
+    glm::vec2 cursor = glm::vec2(mouseX, mouseY);
+
+    ContentTab* tab = CURRENT_TAB;
+
+    if (tab->showCursor) {
+        tab->redrawCursor = true;
+    }
+
+    tab->scrollbarUpdated = false;
+
+    renderElement(rootContainer, resolution, cursor);
+    glfwSwapBuffers(window);
+}
+
+void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
+    mouseX = xpos;
+    mouseY = ypos;
+
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    if (!highlightedContentBlock.mouseDown) {
+        float top;
+        highlightedContentBlock.show = false;
+
+        for (
+            auto itr = tabs[activeTabIndex].contentBlocks.begin();
+            itr != tabs[activeTabIndex].contentBlocks.end();
+            ++itr
+        ) {
+            top = (*itr).top - tab->scrollOffsetY;
+
+            if (ypos > top && ypos < top + (*itr).height) {
+                if ((*itr).type == ContentBlockType::Title) {
+                    highlightedContentBlock.show = false;
+                    break;
+                }
+
+                // TODO: Make sure the cursor is not over a scrollbar.
+                highlightedContentBlock.show = true;
+                highlightedContentBlock.left = contentLeft;
+                highlightedContentBlock.top = top;
+
+                tab->activeCBIndex = std::distance(tab->contentBlocks.begin(), itr);
+
+                if (glyphDescender < 0) {
+                    highlightedContentBlock.bottom = top + (*itr).height - glyphDescender;
+                } else {
+                    highlightedContentBlock.bottom = top + (*itr).height;
+                }
+
+                highlightedContentBlock.right = contentRight;
+
+                uint32_t index = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
+
+                if (highlightedContentBlock.cbIndex != index) {
+                    highlightedContentBlock.updated = true;
+                }
+
+                highlightedContentBlock.cbIndex = index;
+                break;
+            }
+        }
+    }
+
+    if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
+        #define SCROLL_DATA contentContainer->extraData->scrollData
+
+        for (
+            auto itr = tab->contentBlocks.begin();
+            itr != tab->contentBlocks.end();
+            ++itr
+        ) {
+            float top = (*itr).top - SCROLL_DATA.yOffset;
+
+            uint32_t index = std::distance(tab->contentBlocks.begin(), itr);
+
+            if (
+                highlightedContentBlock.cbIndex != index
+                && mouseY > top
+                && mouseY < top + (*itr).height
+            ) {
+                if (
+                    index == cbMove.targetIndex
+                    && mouseY > top + (*itr).height/2
+                ) {
+                    cbMove.targetIndex = index + 1;
+                } else {
+                    if (index != cbMove.targetIndex && mouseY < top + (*itr).height/2) {
+                        cbMove.targetIndex = index;
+                    }
+                }
+
+                cbMove.show = true;
+                cbMove.updated = true;
+                break;
+            }
+        }
+
+        if (mouseY > resolution.y - 50.0f) {
+            float newScrollOffset = (50.0f - resolution.y + mouseY)/10 + SCROLL_DATA.yOffset;
+
+            if (newScrollOffset > SCROLL_DATA.height - resolution.y) {
+                SCROLL_DATA.yOffset = SCROLL_DATA.height - resolution.y + 50.0f;
+            } else {
+                SCROLL_DATA.yOffset = newScrollOffset;
+            }
+        } else if (mouseY < 114.0f) {
+            float newScrollOffset = SCROLL_DATA.yOffset - (114.0f - mouseY)/10;
+
+            if (newScrollOffset < 0) {
+                SCROLL_DATA.yOffset = 0;
+            } else {
+                SCROLL_DATA.yOffset = newScrollOffset;
+            }
+        }
+
+        #undef SCROLL_DATA
+    }
+
+    if (
+        activeElement != nullptr
+        && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS
+    ) {
+        switch (activeElement->type) {
+            case UI_SCROLL_AREA:
+                scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
+                break;
+            case UI_TEXT_AREA:
+            case UI_TEXT_INPUT:
+                textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
+                break;
+        }
+    }
+
+    throttleUpdateCursorShape();
+}
+
+void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
+    #define Y_OFFSET elem->extraData->scrollData.yOffset
+    #define X_OFFSET elem->extraData->scrollData.xOffset
+
+    #ifdef DEBUG_SCROLL
+        cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
+    #endif
+
+    highlightedContentBlock.show = false;
+    highlightedContentBlock.updated = true;
+    UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+
+    if (elem != nullptr) {
+        switch (elem->type) {
+            case UI_SCROLL_AREA: {
+                bool scrolled = false;
+                bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+                    || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+                bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
+                bool verticalScroll = !shiftPressed && yOffset != 0;
+
+                if (verticalScroll) {
+                    if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
+                        Y_OFFSET += SCROLL_AMOUNT;
+                    } else if (yOffset > 0) {
+                        Y_OFFSET -= SCROLL_AMOUNT;
+                    }
+
+                    if (Y_OFFSET < 0) {
+                        Y_OFFSET = 0;
+                    } else if (Y_OFFSET > elem->extraData->scrollData.height) {
+                        Y_OFFSET = elem->extraData->scrollData.height - elem->height;
+                    }
+
+                    scrolled = true;
+                }
+
+                if (horizontalScroll) {
+                    if (
+                        elem->width + X_OFFSET < elem->extraData->scrollData.width
+                        && (!shiftPressed && xOffset < 0 || yOffset < 0)
+                    ) {
+                        X_OFFSET += SCROLL_AMOUNT;
+                    } else if (
+                        X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
+                    ) {
+                        X_OFFSET -= SCROLL_AMOUNT;
+                    }
+
+                    if (X_OFFSET < 0) {
+                        X_OFFSET = 0;
+                    }
+
+                    scrolled = true;
+                }
+
+                if (scrolled) {
+                    elem->extraData->scrollData.lastScrolled = glfwGetTime();
+                    elem->extraData->scrollData.renderedUpdate = false;
+                }
+            }
+            break;
+
+        case UI_CONTENT_CONTAINER:
+            ContentTab* tab = &tabs[activeTabIndex];
+
+            if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
+                tab->scrollOffsetY += SCROLL_AMOUNT;
+            } else if (yOffset > 0) {
+                tab->scrollOffsetY -= SCROLL_AMOUNT;
+            }
+
+            if (tab->scrollOffsetY < 0) {
+                tab->scrollOffsetY = 0;
+            } else if (tab->scrollOffsetY > tab->maxHeight) {
+                tab->scrollOffsetY = tab->maxHeight - contentContainer->height;
+            }
+
+            if (tab->showCursor) {
+                tab->redrawCursor = true;
+            }
+
+            tab->scrollbarUpdated = false;
+
+            cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
+
+            break;
+        }
+    }
+
+    #undef Y_OFFSET
+    #undef X_OFFSET
+}
+
+void minimizedCallback(GLFWwindow* window, int isMinimized) {
+    minimized = isMinimized != 0;
+}
+
+void maximizedCallback(GLFWwindow* window, int min) {
+    minimized = min == 0;
+}
+
+void windowFocusCallback(GLFWwindow *window, int isFocused) {
+    focused = isFocused != 0;
+}
+
+// TODO: remove
+void testOnClick(UIElement* elem) {
+    elem->text += " (clicked)";
+    elements[5].text += " (who else?)";
+}
+
+void setupUI(bool isDarkTheme) {
+    windowHeight = WINDOW_HEIGHT;
+    windowWidth = WINDOW_WIDTH;
+    resolution = glm::vec2(windowWidth, windowHeight);
+
+    initShaders();
+    initTextRendering(windowWidth, windowHeight);
+
+    glEnable(GL_BLEND);
+    glEnable(GL_SAMPLE_SHADING);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
+    SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
+
+    UIElement* menuBar = &elements[0];
+    UIElement* newButton = &elements[1];
+    UIElement* openButton = &elements[2];
+    contentContainer = &elements[3];
+
+    initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
+    initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
+    initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
+    initElement(*contentContainer, UI_CONTENT_CONTAINER, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+
+    if (darkTheme) {
+        rootContainer.backgroundColor = ROOT_BG_DARK;
+        menuBar->backgroundColor = TOOL_BAR_BG_DARK;
+        menuBar->color = WHITE;
+    } else {
+        rootContainer.backgroundColor = ROOT_BG;
+        menuBar->backgroundColor = TOOL_BAR_BG;
+        menuBar->color = BLACK;
+    }
+
+    menuBar->text = "test";
+
+    menuBar->preferences->widthPreference = UI_FULL;
+    menuBar->preferences->heightPreference = UI_FIXED;
+    menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
+    menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
+
+    newButton->text = "New";
+    newButton->icon = Icon::Plus;
+
+    openButton->icon = Icon::File;
+    openButton->text = "Open";
+
+    contentContainer->text = "Main Scroll Area";
+    contentContainer->extraData->scrollData.width = WINDOW_WIDTH;
+    contentContainer->extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    contentContainer->preferences->widthPreference = UI_FULL;
+    contentContainer->preferences->heightPreference = UI_STRETCH;
+
+    newTab("This is a test note title!");
+
+    appendContentBlock(0, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.");
+    appendContentBlock(0, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Etiam at erat vel ex placerat auctor at quis arcu. Nullam tempus arcu facilisis nisl sodales molestie. Curabitur enim nisi, aliquam sed risus id, ultricies fringilla nisl. Integer accumsan tincidunt pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras lacinia convallis velit, eu malesuada metus. Proin posuere gravida eros, a iaculis magna porta a.");
+    appendContentBlock(0, ContentBlockType::Heading2, "Praesent rutrum odio in neque commodo pretium.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
+    appendContentBlock(0, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
+    appendContentBlock(0, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
+
+    addChild(menuBar, newButton);
+    addChild(menuBar, openButton);
+
+    addChild(&rootContainer, menuBar);
+    addChild(&rootContainer, contentContainer);
+
+    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+
+    initFontTexture(getFontAtlasPath(0).string());
+
+    activeElement = contentContainer;
+
+    #ifdef DEBUG_CONTENT_BLOCKS
+        printContentBlocks(0);
+    #endif
+}
+
+void enterRenderLoop() {
+    float fpsPrevTime = 0.0f;
+    uint16_t fps = 0;
+    uint16_t newFps = 0;
+
+    while (!glfwWindowShouldClose(window)) {
+        if (minimized) {
+            glfwWaitEventsTimeout(4000.0f);
+        }
+
+        if (!focused) {
+            glfwWaitEventsTimeout(80.0f);
+        }
+
+        glm::vec2 cursor(mouseX, mouseY);
+
+        renderElement(rootContainer, resolution, cursor);
+
+        if (showFps) {
+            float time = glfwGetTime();
+
+            if (time - fpsPrevTime > 1.0f) {
+                fpsPrevTime = time;
+                fps = newFps;
+                newFps = 0;
+            } else {
+                ++newFps;
+            }
+
+            renderText(
+                "FPS: " + to_string(fps),
+                glm::vec2(0.0f, 0.0f),
+                resolution,
+                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+                16,
+                nullptr
+            );
+        }
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+
+        #ifdef DEBUG_TEXT
+        debugTextFirstRenderPrint = false;
+        #endif
+        // glfwSwapInterval(1);
+    }
+}
 
 void defaultCallback(UIElement* _elem) {
     cout << "\nDefault callback executed!";
@@ -2471,15 +3135,7 @@ void newTab(string title) {
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     for (int i=0; i<4; ++i) {
-        glGenVertexArrays(1, &vao[i]);
-        glBindVertexArray(vao[i]);
-
-        glGenBuffers(1, &vbo[i]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
+        SETUP_BUFFERS(vao[i], vbo[i], vertices);
     }
 
     tabs.push_back(ContentTab {
@@ -2827,18 +3483,11 @@ inline void renderScrollbars(UIElement* elem) {
                 left, elem->top,
             };
 
-            glGenVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
-            glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
-
             if (SCROLL_DATA.verticalScrollBarVBO != 0) {
                 glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
             }
 
-            glGenBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
-            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.verticalScrollBarVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+            SETUP_BUFFERS(SCROLL_DATA.verticalScrollBarVAO, SCROLL_DATA.verticalScrollBarVBO, vertices);
         }
 
         glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
@@ -2880,18 +3529,11 @@ inline void renderScrollbars(UIElement* elem) {
                 left, thumbStart,
             };
 
-            glGenVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
-            glBindVertexArray(SCROLL_DATA.verticalScrollThumbVAO);
-
             if (SCROLL_DATA.verticalScrollThumbVBO != 0) {
                 glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
             }
 
-            glGenBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
-            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.verticalScrollThumbVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+            SETUP_BUFFERS(SCROLL_DATA.verticalScrollThumbVAO, SCROLL_DATA.verticalScrollThumbVBO, vertices);
             SCROLL_DATA.renderedUpdate = true;
         }
 
@@ -2979,18 +3621,11 @@ inline void renderScrollbars(UIElement* elem) {
                 left, top,
             };
 
-            glGenVertexArrays(1, &SCROLL_DATA.horizontalScrollBarVAO);
-            glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
-
             if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
                 glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollBarVBO);
             }
 
-            glGenBuffers(1, &SCROLL_DATA.horizontalScrollBarVBO);
-            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.horizontalScrollBarVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+            SETUP_BUFFERS(SCROLL_DATA.horizontalScrollBarVAO, SCROLL_DATA.horizontalScrollBarVBO, vertices);
         }
 
         glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
@@ -3026,18 +3661,11 @@ inline void renderScrollbars(UIElement* elem) {
                 thumbEnd, top,
             };
 
-            glGenVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
-            glBindVertexArray(SCROLL_DATA.horizontalScrollThumbVAO);
-
             if (SCROLL_DATA.horizontalScrollThumbVBO != 0) {
                 glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
             }
 
-            glGenBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
-            glBindBuffer(GL_ARRAY_BUFFER, SCROLL_DATA.horizontalScrollThumbVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+            SETUP_BUFFERS(SCROLL_DATA.horizontalScrollThumbVAO, SCROLL_DATA.horizontalScrollThumbVBO, vertices);
             SCROLL_DATA.renderedUpdate = true;
         }
 
@@ -3257,13 +3885,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 //     << "),\n(" << vertices[4] << ", " << vertices[5]
                 //     << "),\n(" << vertices[6] << ", " << vertices[7] << ")";
 
-                glGenVertexArrays(1, &elem.vao);
-                glBindVertexArray(elem.vao);
-                glGenBuffers(1, &elem.vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
             }
 
             glBindVertexArray(elem.vao);
@@ -3471,13 +4093,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 //     << "),\n(" << vertices[4] << ", " << vertices[5]
                 //     << "),\n(" << vertices[6] << ", " << vertices[7] << ")";
 
-                glGenVertexArrays(1, &elem.vao);
-                glBindVertexArray(elem.vao);
-                glGenBuffers(1, &elem.vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
             }
 
             glBindVertexArray(elem.vao);
@@ -3731,13 +4347,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                glGenVertexArrays(1, &elem.vao);
-                glBindVertexArray(elem.vao);
-                glGenBuffers(1, &elem.vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
                 elem.reDraw = false;
             }
 
@@ -3867,13 +4477,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cursorX + 1, cursorY,
                 };
 
-                glGenVertexArrays(1, &tid->cursorVAO);
-                glBindVertexArray(tid->cursorVAO);
-                glGenBuffers(1, &tid->cursorVBO);
-                glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
@@ -3910,13 +4514,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                             selectEndX, cursorY,
                         };
 
-                        glGenVertexArrays(1, &tid->textSelectVAO);
-                        glBindVertexArray(tid->textSelectVAO);
-                        glGenBuffers(1, &tid->textSelectVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
-                        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
+                        SETUP_BUFFERS(tid->textSelectVAO, tid->textSelectVBO, vertices);
 
                         tid->textSelectUpdated = false;
                         #ifdef DEBUG_TEXT_SELECTION
@@ -3969,13 +4567,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                glGenVertexArrays(1, &elem.vao);
-                glBindVertexArray(elem.vao);
-                glGenBuffers(1, &elem.vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
+
                 elem.reDraw = false;
             }
 
@@ -4195,13 +4788,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cursorX + 1, cursorY,
                 };
 
-                glGenVertexArrays(1, &tid->cursorVAO);
-                glBindVertexArray(tid->cursorVAO);
-                glGenBuffers(1, &tid->cursorVBO);
-                glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
@@ -4512,19 +5099,12 @@ void renderCBMoveMarker() {
                 glBindVertexArray(0);
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
             } else {
-                glGenVertexArrays(1, &cbMove.vao);
-                glBindVertexArray(cbMove.vao);
-
                 if (cbMove.vbo) {
                     glDeleteBuffers(1, &cbMove.vbo);
                     cbMove.vbo = 0;
                 }
 
-                glGenBuffers(1, &cbMove.vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, cbMove.vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
+                SETUP_BUFFERS(cbMove.vao, cbMove.vbo, vertices);
             }
 
             cbMove.updated = false;
