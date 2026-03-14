@@ -602,12 +602,6 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
     focused = isFocused != 0;
 }
 
-// TODO: remove
-void testOnClick(UIElement* elem) {
-    elem->text += " (clicked)";
-    elements[5].text += " (who else?)";
-}
-
 void setupUI(bool isDarkTheme) {
     windowHeight = WINDOW_HEIGHT;
     windowWidth = WINDOW_WIDTH;
