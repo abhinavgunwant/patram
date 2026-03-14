@@ -145,6 +145,13 @@ extern glm::vec2 resolution;
 extern uint16_t windowHeight;
 extern uint16_t windowWidth;
 
+enum class CursorShape: uint8_t {
+    Auto,
+    Default,
+    Text,
+    Pointer,
+};
+
 enum UIElementType {
     UI_LABEL,
     UI_BUTTON,

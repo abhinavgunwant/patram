@@ -81,6 +81,7 @@ bool cursorShouldUpdate = false;
 bool showFps = false;
 
 GLFWcursor* textCursor;
+GLFWcursor* pointerCursor;
 
 UIElement elements[16];
 
@@ -127,28 +128,39 @@ void showWindow() {
 
 }
 
-void updateCursorShape() {
-    if (cursorShouldUpdate) {
-        cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
+void updateCursorShape(CursorShape shape) {
+    if (!cursorShouldUpdate) {
+        return;
+    }
 
-        while (glfwGetTime() < cursorUpdateTime) {}
+    switch (shape) {
+        case CursorShape::Auto: {
+            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
-        UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+            if (elem != nullptr && (elem->type == UI_TEXT_AREA || elem->type == UI_TEXT_INPUT)) {
+                glfwSetCursor(window, textCursor);
+            } else {
+                glfwSetCursor(window, nullptr);
+            }
 
-        if (elem != nullptr && (elem->type == UI_TEXT_AREA || elem->type == UI_TEXT_INPUT)) {
-            glfwSetCursor(window, textCursor);
-        } else {
-            glfwSetCursor(window, nullptr);
+            break;
         }
 
-        cursorShouldUpdate = false;
+        case CursorShape::Default: glfwSetCursor(window, nullptr); break;
+        case CursorShape::Text: glfwSetCursor(window, textCursor); break;
+        case CursorShape::Pointer: glfwSetCursor(window, pointerCursor); break;
     }
+
+    while (glfwGetTime() < cursorUpdateTime) {}
+
+    cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
+    cursorShouldUpdate = false;
 }
 
-void throttleUpdateCursorShape() {
+void throttleUpdateCursorShape(CursorShape shape) {
     if (!cursorShouldUpdate) {
         cursorShouldUpdate = true;
-        thread t(updateCursorShape);
+        thread t(updateCursorShape, shape);
         t.detach();
     }
 }
@@ -362,6 +374,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
 
     ContentTab* tab = &tabs[activeTabIndex];
 
+    CursorShape cShape = CursorShape::Default;
+
     if (!highlightedContentBlock.mouseDown) {
         float top;
         highlightedContentBlock.show = false;
@@ -374,6 +388,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             top = (*itr).top - tab->scrollOffsetY;
 
             if (ypos > top && ypos < top + (*itr).height) {
+                cShape = CursorShape::Text;
                 if ((*itr).type == ContentBlockType::Title) {
                     highlightedContentBlock.show = false;
                     break;
@@ -467,16 +482,18 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     ) {
         switch (activeElement->type) {
             case UI_SCROLL_AREA:
+                cShape = CursorShape::Text;
                 scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
                 break;
             case UI_TEXT_AREA:
             case UI_TEXT_INPUT:
+                cShape = CursorShape::Text;
                 textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
                 break;
         }
     }
 
-    throttleUpdateCursorShape();
+    throttleUpdateCursorShape(cShape);
 }
 
 void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
@@ -596,6 +613,9 @@ void setupUI(bool isDarkTheme) {
     windowWidth = WINDOW_WIDTH;
     resolution = glm::vec2(windowWidth, windowHeight);
 
+    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+
     initShaders();
     initTextRendering(windowWidth, windowHeight);
 
@@ -663,8 +683,6 @@ void setupUI(bool isDarkTheme) {
 
     addChild(&rootContainer, menuBar);
     addChild(&rootContainer, contentContainer);
-
-    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 
     initFontTexture(getFontAtlasPath(0).string());
 
@@ -5056,6 +5074,7 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
 
     tabs[activeTabIndex].updateCursorX = true;
     updateCBCursor(CURRENT_TAB, sd);
+    glfwSetCursor(window, textCursor);
 }
 
 void renderCBMoveMarker() {
