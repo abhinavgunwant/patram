@@ -4,8 +4,8 @@
 #include <string>
 
 // #define DEBUG_SHADER
-#define TOTAL_SHADERS 6
-#define TOTAL_VERTEX_SHADERS 3
+#define TOTAL_SHADERS 7
+#define TOTAL_VERTEX_SHADERS 4
 #define TOTAL_FRAGMENT_SHADERS 6
 
 using namespace std;
@@ -17,6 +17,7 @@ enum Shaders {
     SHADER_BUTTON,
     SHADER_TEXT_INPUT,
     SHADER_TEXT_CURSOR,
+    SHADER_CB_TEXT_HIGHLIGHT,
 };
 
 struct Shader {

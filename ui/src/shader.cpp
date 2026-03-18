@@ -40,6 +40,16 @@ string vertexShaders[] = {
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
         "TexCoords = aTexCoords;\n"
     "}\0",
+
+    // CB Text Highlight
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "uniform vec2 resolution;\n"
+    "uniform float scrollOffsetY;\n"
+    "void main() {\n"
+        "vec2 uv = vec2(aPos.x, aPos.y - scrollOffsetY) / resolution * 2;\n"
+        "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
+    "}\0",
 };
 
 string fragmentShaders[] = {
@@ -248,6 +258,7 @@ Shader shaders[] = {
     { 0, 0, 3 }, // SHADER_BUTTON
     { 0, 0, 4 }, // SHADER_TEXT_INPUT
     { 0, 0, 5 }, // SHADER_TEXT_CURSOR
+    { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
