@@ -30,7 +30,6 @@
         glEnableVertexAttribArray(0);\
     } while (false)
 
-
 using namespace std;
 
 float iconButtonVertices[16] = {
@@ -79,6 +78,7 @@ bool focused = true;
 bool mouse1Down = false;
 bool cursorShouldUpdate = false;
 bool showFps = false;
+bool cbTextDragging = false;
 
 GLFWcursor* textCursor;
 GLFWcursor* pointerCursor;
@@ -268,6 +268,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
                 highlightedContentBlock.mouseDown = false;
                 hideCBMoveMarker();
+                return;
             }
 
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
@@ -277,6 +278,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UI_TEXT_AREA:
                     case UI_TEXT_INPUT:
                         textInputMouseUpCallback(elem, mouseX, mouseY, resolution);
+                        break;
+                    case UI_CONTENT_CONTAINER:
+                        contentBlockMouseUpCallback(elem, mouseX, mouseY, resolution);
                         break;
                 }
 
@@ -416,6 +420,58 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 }
 
                 highlightedContentBlock.cbIndex = index;
+
+                if (tab->cbTextMouseDown) {
+                    SelectionData sd = getCBTextCursorFromScreenCoords(mouseX, mouseY, resolution);
+
+                    if (
+                        sd.cursorPosition != tab->cursorPosition
+                        || sd.cursorCBIndex != tab->cursorCBIndex
+                    ) {
+                        cbTextDragging = true;
+
+                        if (tab->textSelected) {
+                            if (sd.cursorPosition == tab->initialCursorPosition) {
+                                tab->textSelected = false;
+                            } else if (sd.cursorPosition > tab->initialCursorPosition) {
+                                tab->selEndCBIndex = sd.cursorCBIndex;
+                                tab->selEndCursorPosition = sd.cursorPosition;
+
+                                if (sd.cursorPosition > tab->initialCursorPosition) {
+                                    tab->selStartCursorPosition = tab->initialCursorPosition;
+                                }
+                            } else {
+                                tab->selStartCBIndex = sd.cursorCBIndex;
+                                tab->selStartCursorPosition = sd.cursorPosition;
+
+                                if (sd.cursorPosition < tab->initialCursorPosition) {
+                                    tab->selEndCursorPosition = tab->initialCursorPosition - 1;
+                                }
+                            }
+                        } else {
+                            tab->textSelected = true;
+                            tab->initialCursorPosition = tab->cursorPosition;
+
+                            if (sd.cursorPosition > tab->cursorPosition) {
+                                tab->selStartCBIndex = tab->cursorCBIndex;
+                                tab->selEndCBIndex = sd.cursorCBIndex;
+                                tab->selStartCursorPosition = tab->cursorPosition;
+                                tab->selEndCursorPosition = sd.cursorPosition;
+                            } else {
+                                tab->selStartCBIndex = sd.cursorCBIndex;
+                                tab->selEndCBIndex = tab->cursorCBIndex;
+                                tab->selStartCursorPosition = sd.cursorPosition;
+                                tab->selEndCursorPosition = tab->cursorPosition;
+                            }
+                        }
+
+                        tab->cursorCBIndex = sd.cursorCBIndex;
+                        tab->cursorPosition = sd.cursorPosition;
+                        tab->updateCursorX = true;
+                        tab->redrawSel = true;
+                        updateCBCursor(tab, sd);
+                    }
+                }
                 break;
             }
         }
@@ -883,17 +939,23 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (shift) {
                     if (tab->textSelected) {
                         if (tab->cursorPosition - 1 == tab->initialCursorPosition) {
-                            UNSELECT();
+                            tab->textSelected = false;
                         } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                            tab->selEndCursorPosition -= 1;
+                            --tab->selEndCursorPosition;
                         } else {
-                            tab->selStartCursorPosition -= 1;
+                            --tab->selStartCursorPosition;
                         }
                     } else {
                         tab->textSelected = true;
                         tab->initialCursorPosition = tab->cursorPosition;
                         tab->selStartCursorPosition = tab->cursorPosition - 1;
                         tab->selEndCursorPosition = tab->cursorPosition;
+                        tab->selStartCBIndex = tab->cursorCBIndex;
+                        tab->selEndCBIndex = tab->cursorCBIndex;
+                    }
+
+                    if (tab->cursorPosition > 0) {
+                        --tab->cursorPosition;
                     }
 
                     tab->redrawSel = true;
@@ -981,17 +1043,21 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (shift) {
                     if (tab->textSelected) {
                         if (tab->cursorPosition + 1 == tab->initialCursorPosition) {
-                            UNSELECT();
+                            tab->textSelected = false;
                         } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                            tab->selEndCursorPosition += 1;
+                            ++tab->selEndCursorPosition;
                         } else {
-                            tab->selStartCursorPosition += 1;
+                            ++tab->selStartCursorPosition;
                         }
+
+                        ++tab->cursorPosition;
                     } else {
                         tab->textSelected = true;
                         tab->initialCursorPosition = tab->cursorPosition;
-                        tab->selEndCursorPosition = tab->cursorPosition + 1;
                         tab->selStartCursorPosition = tab->cursorPosition;
+                        tab->selEndCursorPosition = ++tab->cursorPosition;
+                        tab->selStartCBIndex = tab->cursorCBIndex;
+                        tab->selEndCBIndex = tab->cursorCBIndex;
                     }
 
                     tab->redrawSel = true;
@@ -1025,11 +1091,13 @@ void cbKeyCallback(int key, int action, int mod) {
                     if (shift) {
                         if (tab->textSelected) {
                             if (tab->cursorPosition == tab->initialCursorPosition) {
-                                UNSELECT();
+                                tab->textSelected = false;
                             } else if (tab->cursorPosition > tab->initialCursorPosition) {
                                 tab->selEndCursorPosition = sd.cursorPosition;
+                                tab->selStartCursorPosition = tab->initialCursorPosition;
                             } else {
                                 tab->selStartCursorPosition = sd.cursorPosition;
+                                tab->selEndCursorPosition = tab->initialCursorPosition;
                             }
                         } else {
                             tab->textSelected = true;
@@ -1059,8 +1127,10 @@ void cbKeyCallback(int key, int action, int mod) {
                                 UNSELECT();
                             } else if (tab->cursorPosition > tab->initialCursorPosition) {
                                 tab->selEndCursorPosition = sd.cursorPosition;
+                                tab->selStartCursorPosition = tab->initialCursorPosition;
                             } else {
                                 tab->selStartCursorPosition = sd.cursorPosition;
+                                tab->selEndCursorPosition = tab->initialCursorPosition;
                             }
                         } else {
                             tab->textSelected = true;
@@ -2025,7 +2095,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
     return SelectionData { 0, 0, 0 };
 }
 
-SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::vec2 resolution) {
+SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::vec2 resolution) {
     ContentTab* tab = &tabs[activeTabIndex];
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
 
@@ -3151,10 +3221,10 @@ void newTab(string title) {
     }
 
     tabs.push_back(ContentTab {
-        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
+        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
         commands, content
     });
 
@@ -3826,12 +3896,12 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
     tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
 
-    if (sd.y > contentContainer->height + contentContainer->top) {
+    if (sd.y - tab->scrollOffsetY > contentContainer->height + contentContainer->top) {
         tab->scrollOffsetY += sd.y - contentContainer->height - contentContainer->top;
         tab->redrawCursor = true;
         highlightedContentBlock.show = false;
         tab->scrollbarUpdated = false;
-    } else if (sd.y - sd.height < contentContainer->top) {
+    } else if (sd.y - sd.height < contentContainer->top && sd.y != 0 && sd.height != 0) {
         tab->scrollOffsetY -= contentContainer->top - sd.y + sd.height;
         tab->redrawCursor = true;
         tab->scrollbarUpdated = false;
@@ -3953,6 +4023,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glEnable(GL_SCISSOR_TEST);
 
             renderContentBlockHighlight();
+            renderCBTextSelection(tab);
 
             for (
                 auto itr = tab->contentBlocks.begin();
@@ -3964,13 +4035,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             renderCBMoveMarker();
 
-            if (tab->showCursor) {
-                if (tab->redrawCursor) {
-                    SelectionData sd = getCBTextCursor(resolution);
+            if (tab->redrawCursor) {
+                SelectionData sd = getCBTextCursor(resolution);
 
-                    glBindVertexArray(tab->cursorVAO);
-                    glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
+                if (tab->updateCursorX) {
+                    tab->cursorX = static_cast<uint16_t>(sd.x);
+                    tab->updateCursorX = false;
+                }
+                tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
+                tab->cursorRow = sd.row;
 
+                cout << "\nSetting cursor dimensions (redraw): " << sd.x + 1 << ", "
+                    << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
+                    << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
+
+                if (tab->showCursor && !tab->textSelected) {
                     float vertices[] = {
                         sd.x + 1.0f, sd.y - sd.height,
                         sd.x + 1.0f, sd.y,
@@ -3978,22 +4057,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         sd.x - 1.0f, sd.y,
                     };
 
-                    if (tab->updateCursorX) {
-                        tab->cursorX = static_cast<uint16_t>(sd.x);
-                        tab->updateCursorX = false;
-                    }
-                    tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
-                    tab->cursorRow = sd.row;
-
-                    cout << "\nSetting cursor dimensions (redraw): " << sd.x + 1 << ", "
-                        << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
-                        << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
-
+                    glBindVertexArray(tab->cursorVAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-                    tab->redrawCursor = false;
                 }
 
+                tab->redrawCursor = false;
+            }
+
+            if (tab->showCursor && !tab->textSelected) {
                 glBindVertexArray(tab->cursorVAO);
                 glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
 
@@ -5052,6 +5124,216 @@ void renderContentBlockHighlight() {
     highlightedContentBlock.updated = false;
 }
 
+void renderCBTextSelection(ContentTab* tab) {
+    if (!tab->textSelected) {
+        return;
+    }
+
+    if (tab->redrawSel) {
+        vector<float> vertices;
+
+        auto lastIter = tab->contentBlocks.begin() + tab->selEndCBIndex + 1;
+        bool selectionStarted = false;
+        bool selectionFinished = false;
+
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float startY_h = 0.0f;
+        float endX = 0.0f;
+        float endY = 0.0f;
+        float endY_h = 0.0f;
+
+        for (
+            auto cbIter = tab->contentBlocks.begin() + tab->selStartCBIndex;
+            cbIter != lastIter;
+            ++cbIter
+        ) {
+            RopeTraverser rt((*cbIter).rope);
+
+            float fontSize = static_cast<float>(getCBFontSize((*cbIter).type));
+            float fontHeightRatio = fontSize / DEFAULT_FONT_SIZE;
+
+            uint32_t row = 0;
+            uint32_t cursorPosition = 0;
+
+            float initialX = (*cbIter).left + CONTENT_BLOCK_DRAGTAB_WIDTH;
+            float initialY = (*cbIter).top;
+
+            float xpos = initialX;
+            float yNet = initialY;
+
+            while (rt.hasNext()) {
+                Rope* rope = rt.next();
+
+                for (char c: rope->text) {
+                    Character* ch = &characters[(int)c];
+
+                    float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+
+                    float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
+                    float glyphWidth = glyphHeight * aspectRatio;
+
+                    if (glyphWidth != glyphWidth) {
+                        if (ch->width != 0) {
+                            glyphWidth = static_cast<float>(ch->width) / fontSize;
+                        } else {
+                            glyphWidth = 0.0f;
+                        }
+                    }
+
+                    float widthRatio = glyphWidth / ch->width;
+                    float heightRatio = glyphHeight / ch->height;
+
+                    float bearingTop = ch->bearingTop * heightRatio;
+                    float bearingLeft = ch->bearingLeft * widthRatio;
+
+                    if (bearingLeft != bearingLeft) {
+                        bearingLeft = 0.0f;
+                    }
+
+                    if (bearingTop != bearingTop) {
+                        bearingTop = 0.0f;
+                    }
+
+                    xpos += bearingLeft;
+
+                    if (
+                        selectionStarted
+                        && cursorPosition == tab->selEndCursorPosition
+                        && cbIter == lastIter - 1
+                    ) {
+                        selectionFinished = true;
+                        endX = xpos;
+                        endY_h = yNet;
+                        endY = yNet + fontSize - fontSize * glyphDescender;
+
+                        vertices.push_back(startX);
+                        vertices.push_back(startY_h);
+                        vertices.push_back(endX);
+                        vertices.push_back(endY_h);
+                        vertices.push_back(endX);
+                        vertices.push_back(endY);
+                        vertices.push_back(endX);
+                        vertices.push_back(endY);
+                        vertices.push_back(startX);
+                        vertices.push_back(startY);
+                        vertices.push_back(startX);
+                        vertices.push_back(startY_h);
+                        break;
+                    }
+
+                    if (
+                        xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                        || xpos + glyphWidth > contentRight
+                    ) {
+                        if (selectionStarted) {
+                            endX = xpos;
+                            endY_h = yNet;
+                            endY = yNet + fontSize - fontSize * glyphDescender;
+
+                            vertices.push_back(startX);
+                            vertices.push_back(startY_h);
+                            vertices.push_back(endX);
+                            vertices.push_back(endY_h);
+                            vertices.push_back(endX);
+                            vertices.push_back(endY);
+                            vertices.push_back(endX);
+                            vertices.push_back(endY);
+                            vertices.push_back(startX);
+                            vertices.push_back(startY);
+                            vertices.push_back(startX);
+                            vertices.push_back(startY_h);
+                        }
+
+                        yNet += fontSize - fontSize * glyphDescender;
+                        xpos = initialX;
+                        row++;
+
+                        startX = xpos;
+                        startY_h = yNet;
+                        startY = yNet + fontSize - fontSize * glyphDescender;
+                    }
+
+                    float ypos = yNet + glyphHeight - bearingTop + fontSize;
+
+                    if (
+                        !selectionStarted
+                        && cursorPosition == tab->selStartCursorPosition
+                    ) {
+                        selectionStarted = true;
+
+                        startX = xpos;
+                        startY = yNet + fontSize - fontSize * glyphDescender;
+                        startY_h = yNet;
+                    }
+
+                    xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+                    ++cursorPosition;
+                }
+
+                if (selectionFinished) {
+                    break;
+                }
+            }
+
+            if (selectionFinished) {
+                break;
+            }
+        }
+
+        if (vertices.empty()) {
+            cout << ".";
+            return;
+        }
+
+        selectionStarted = false;
+        selectionFinished = false;
+
+        if (vertices.size() > tab->selVertexCount) {
+            glDeleteVertexArrays(1, &tab->selVAO);
+            glDeleteBuffers(1, &tab->selVBO);
+
+            glGenVertexArrays(1, &tab->selVAO);
+            glBindVertexArray(tab->selVAO);
+            glGenBuffers(1, &tab->selVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, tab->selVBO);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            tab->selVertexCount = vertices.size();
+        } else {
+            for (int i=vertices.size(); i<tab->selVertexCount; ++i) {
+                vertices.push_back(0.0f);
+            }
+
+            glBindVertexArray(tab->selVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, tab->selVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
+        }
+
+        tab->redrawSel = false;
+    }
+
+    glBindVertexArray(tab->selVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, tab->selVBO);
+
+    glUseProgram(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId);
+
+    uint32_t resolutionU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "resolution");
+    uint32_t colorU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "solidColor");
+    uint32_t scrollOffsetU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "scrollOffsetY");
+
+    glUniform2f(resolutionU, resolution.x, resolution.y);
+    glUniform1f(scrollOffsetU, tab->scrollOffsetY);
+
+    glm::vec4 textSelColor = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
+
+    glUniform4f(colorU, textSelColor.r, textSelColor.g, textSelColor.b, 0.25f);
+
+    glDrawArrays(GL_TRIANGLES, 0, tab->selVertexCount/2);
+}
+
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     cout << "\nDEBUG: Mouse down on content block!";
 
@@ -5064,11 +5346,62 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
 
     cout << "\nSelectionData: mouseX: " << mouseX << ", mouseY: " << mouseY
         << " cursorPosition: " << sd.cursorPosition << ", row: " << sd.row
-        << ", col: " << sd.col;
+        << ", col: " << sd.col << ", cursorCBIndex: " << sd.cursorCBIndex;
 
-    tabs[activeTabIndex].updateCursorX = true;
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    tab->updateCursorX = true;
+
+    if (
+        tab->textSelected
+        && (
+            sd.cursorCBIndex == tab->cursorCBIndex
+            && (
+                sd.cursorPosition < tab->selStartCursorPosition
+                || sd.cursorPosition > tab->selEndCursorPosition
+           )
+           || sd.cursorCBIndex != tab->cursorCBIndex
+       )
+    ) {
+        tab->textSelected = false;
+        tab->selStartCBIndex = 0;
+        tab->selStartCursorPosition = 0;
+        tab->selEndCBIndex = 0;
+        tab->selEndCursorPosition = 0;
+        tab->redrawSel = true;
+    }
+
+    tab->initialCursorPosition = sd.cursorPosition;
     updateCBCursor(CURRENT_TAB, sd);
-    glfwSetCursor(window, textCursor);
+
+    tab->cbTextMouseDown = true;
+}
+
+void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    SelectionData sd = getCBTextCursorFromScreenCoords(mouseX, mouseY, res);
+
+    cout << "\nDEBUG: contentBlockMouseUpCallback: " << "\n    selStartCBIndex: " << tab->selStartCBIndex
+        << "\n    selEndCBIndex: " << tab->selEndCBIndex
+        << "\n    selStartCursorPosition: " << tab->selStartCursorPosition
+        << "\n    selEndCursorPosition: " << tab->selEndCursorPosition
+        << "\n    cursorCBIndex: " << tab->cursorCBIndex
+        << "\n    cursorPosition: " << tab->cursorPosition
+        << "\n    textSelected: " << tab->textSelected
+        << "\n    updateCursorX: " << tab->updateCursorX
+        << "\n    redrawSel: " << tab->redrawSel
+        << "\n    selVertexCount: " << tab->selVertexCount;
+
+    tab->cbTextMouseDown = false;
+
+    if (sd.cursorPosition == tab->initialCursorPosition) {
+        tab->textSelected = false;
+        tab->selStartCursorPosition = 0;
+        tab->selStartCBIndex = 0;
+        tab->selEndCursorPosition = 0;
+        tab->selEndCBIndex = 0;
+    }
 }
 
 void renderCBMoveMarker() {

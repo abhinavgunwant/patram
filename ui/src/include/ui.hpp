@@ -414,6 +414,7 @@ struct ContentTab {
     bool showScrollbar;
     bool scrollbarUpdated;
     bool updateCursorX;
+    bool cbTextMouseDown;
 
     float lastCursorTime;
     float lastScrolled;
@@ -435,6 +436,7 @@ struct ContentTab {
     uint16_t cursorY;
     uint32_t currentCommand;
 
+    uint32_t selVertexCount;
     uint32_t selVAO;
     uint32_t selVBO;
     uint32_t cursorVAO;
@@ -482,7 +484,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
 glm::vec2 getActiveContentDimensions();
 void renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
+void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void renderCBMoveMarker();
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
