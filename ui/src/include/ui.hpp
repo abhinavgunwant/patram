@@ -425,6 +425,7 @@ struct ContentTab {
     uint32_t cursorCBIndex;
     uint32_t cursorPosition;
     uint32_t initialCursorPosition;
+    uint32_t initialCBIndex;
 
     uint32_t selStartCBIndex;
     uint32_t selStartCursorPosition;
