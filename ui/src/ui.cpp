@@ -974,12 +974,57 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
                 } else if (shift) {
                     if (tab->textSelected) {
-                        if (tab->cursorPosition - 1 == tab->initialCursorPosition) {
+                        if (
+                            tab->cursorPosition - 1 == tab->initialCursorPosition
+                            && tab->cursorCBIndex == tab->selStartCBIndex
+                            && tab->cursorCBIndex == tab->selEndCBIndex
+                        ) {
                             tab->textSelected = false;
-                        } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                            --tab->selEndCursorPosition;
+                            --tab->cursorPosition;
+                        } else if (tab->selStartCBIndex != tab->selEndCBIndex) {
+                            if (tab->cursorCBIndex > tab->initialCBIndex) {
+                                if (tab->selEndCursorPosition == 0 && tab->cursorCBIndex > 0) {
+                                    --tab->cursorCBIndex;
+                                    --tab->selEndCBIndex;
+                                    tab->selEndCursorPosition = tab->contentBlocks[tab->cursorCBIndex].rope->length();
+                                    tab->cursorPosition = tab->selEndCursorPosition;
+                                } else if (tab->selEndCursorPosition > 0) {
+                                    --tab->selEndCursorPosition;
+                                    --tab->cursorPosition;
+                                }
+                            } else {
+                                if (tab->selStartCursorPosition == 0 && tab->cursorCBIndex > 0) {
+                                    --tab->cursorCBIndex;
+                                    --tab->selStartCBIndex;
+                                    tab->selStartCursorPosition = tab->contentBlocks[tab->cursorCBIndex].rope->length();
+                                    tab->cursorPosition = tab->selEndCursorPosition;
+                                } else if (tab->selStartCursorPosition > 0) {
+                                    --tab->selStartCursorPosition;
+                                    --tab->cursorPosition;
+                                }
+                            }
                         } else {
-                            --tab->selStartCursorPosition;
+                            if (tab->cursorPosition > tab->initialCursorPosition) {
+                                if (tab->selEndCursorPosition == 0 && tab->cursorCBIndex > 0) {
+                                    --tab->cursorCBIndex;
+                                    --tab->selEndCBIndex;
+                                    tab->selEndCursorPosition = tab->contentBlocks[tab->cursorCBIndex].rope->length();
+                                    tab->cursorPosition = tab->selEndCursorPosition;
+                                } else if (tab->selEndCursorPosition > 0) {
+                                    --tab->selEndCursorPosition;
+                                    --tab->cursorPosition;
+                                }
+                            } else {
+                                if (tab->selStartCursorPosition == 0 && tab->cursorCBIndex > 0) {
+                                    --tab->cursorCBIndex;
+                                    --tab->selStartCBIndex;
+                                    tab->selStartCursorPosition = tab->contentBlocks[tab->cursorCBIndex].rope->length();
+                                    tab->cursorPosition = tab->selEndCursorPosition;
+                                } else if (tab->selStartCursorPosition > 0) {
+                                    --tab->selStartCursorPosition;
+                                    --tab->cursorPosition;
+                                }
+                            }
                         }
                     } else {
                         tab->textSelected = true;
@@ -988,10 +1033,11 @@ void cbKeyCallback(int key, int action, int mod) {
                         tab->selEndCursorPosition = tab->cursorPosition;
                         tab->selStartCBIndex = tab->cursorCBIndex;
                         tab->selEndCBIndex = tab->cursorCBIndex;
-                    }
+                        tab->initialCBIndex = tab->cursorCBIndex;
 
-                    if (tab->cursorPosition > 0) {
-                        --tab->cursorPosition;
+                        if (tab->cursorPosition > 0) {
+                            --tab->cursorPosition;
+                        }
                     }
 
                     tab->redrawSel = true;
@@ -1078,15 +1124,70 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
                 } else if (shift) {
                     if (tab->textSelected) {
-                        if (tab->cursorPosition + 1 == tab->initialCursorPosition) {
+                        if (
+                            tab->cursorPosition + 1 == tab->initialCursorPosition
+                            && tab->cursorCBIndex == tab->selStartCBIndex
+                            && tab->cursorCBIndex == tab->selEndCBIndex
+                        ) {
                             tab->textSelected = false;
-                        } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                            ++tab->selEndCursorPosition;
+                            ++tab->cursorPosition;
+                        } else if (tab->selStartCBIndex != tab->selEndCBIndex) {
+                            if (tab->cursorCBIndex > tab->initialCBIndex) {
+                                if (
+                                    tab->selEndCursorPosition == cb->rope->length()
+                                    && tab->cursorCBIndex < tabs.size() - 1
+                                ) {
+                                    ++tab->cursorCBIndex;
+                                    ++tab->selEndCBIndex;
+                                    tab->selEndCursorPosition = 0;
+                                    tab->cursorPosition = 0;
+                                } else if (tab->selEndCursorPosition < cb->rope->length()) {
+                                    ++tab->selEndCursorPosition;
+                                    ++tab->cursorPosition;
+                                }
+                            } else {
+                                if (
+                                    tab->selStartCursorPosition == cb->rope->length()
+                                    && tab->cursorCBIndex < tabs.size() - 1
+                                ) {
+                                    ++tab->cursorCBIndex;
+                                    ++tab->selStartCBIndex;
+                                    tab->selStartCursorPosition = 0;
+                                    tab->cursorPosition = 0;
+                                } else if (tab->selStartCursorPosition < cb->rope->length()) {
+                                    ++tab->selStartCursorPosition;
+                                    ++tab->cursorPosition;
+                                }
+                            }
                         } else {
-                            ++tab->selStartCursorPosition;
+                            if (tab->cursorPosition > tab->initialCursorPosition) {
+                                if (
+                                    tab->selEndCursorPosition == cb->rope->length()
+                                    && tab->cursorCBIndex > tabs.size() - 1
+                                ) {
+                                    ++tab->cursorCBIndex;
+                                    ++tab->selEndCBIndex;
+                                    tab->selEndCursorPosition = 0;
+                                    tab->cursorPosition = 0;
+                                } else if (tab->selEndCursorPosition < cb->rope->length()) {
+                                    ++tab->selEndCursorPosition;
+                                    ++tab->cursorPosition;
+                                }
+                            } else {
+                                if (
+                                    tab->selStartCursorPosition == cb->rope->length()
+                                    && tab->cursorCBIndex < tabs.size() - 1
+                                ) {
+                                    ++tab->cursorCBIndex;
+                                    ++tab->selStartCBIndex;
+                                    tab->selStartCursorPosition = 0;
+                                    tab->cursorPosition = 0;
+                                } else if (tab->selStartCursorPosition < cb->rope->length()) {
+                                    ++tab->selStartCursorPosition;
+                                    ++tab->cursorPosition;
+                                }
+                            }
                         }
-
-                        ++tab->cursorPosition;
                     } else {
                         tab->textSelected = true;
                         tab->initialCursorPosition = tab->cursorPosition;
@@ -1094,6 +1195,7 @@ void cbKeyCallback(int key, int action, int mod) {
                         tab->selEndCursorPosition = ++tab->cursorPosition;
                         tab->selStartCBIndex = tab->cursorCBIndex;
                         tab->selEndCBIndex = tab->cursorCBIndex;
+                        tab->initialCBIndex = tab->cursorCBIndex;
                     }
 
                     tab->redrawSel = true;
@@ -1122,30 +1224,74 @@ void cbKeyCallback(int key, int action, int mod) {
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
 
-                    updateCBCursor(tab, sd);
-
                     if (shift) {
-                        if (tab->textSelected) {
-                            if (tab->cursorPosition == tab->initialCursorPosition) {
-                                tab->textSelected = false;
-                            } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                                tab->selEndCursorPosition = sd.cursorPosition;
-                                tab->selStartCursorPosition = tab->initialCursorPosition;
+                        if (sd.cursorCBIndex == 0) {
+                            tab->textSelected = false;
+                            tab->cursorPosition = sd.cursorPosition;
+                            tab->cursorCBIndex = 0;
+                        } else if (sd.cursorCBIndex != tab->cursorCBIndex) {
+                            if (tab->textSelected) {
+                                if (sd.cursorCBIndex < tab->initialCBIndex) {
+                                    tab->selStartCBIndex = sd.cursorCBIndex;
+                                    tab->selStartCursorPosition = sd.cursorPosition;
+                                    tab->selEndCBIndex = tab->initialCBIndex;
+                                } else {
+                                    tab->selStartCBIndex = tab->initialCBIndex;
+                                    tab->selEndCBIndex = sd.cursorCBIndex;
+                                    tab->selEndCursorPosition = sd.cursorPosition;
+                                }
                             } else {
+                                tab->textSelected = true;
+
+                                tab->selStartCBIndex = sd.cursorCBIndex;
                                 tab->selStartCursorPosition = sd.cursorPosition;
-                                tab->selEndCursorPosition = tab->initialCursorPosition;
+                                tab->selEndCBIndex = tab->cursorCBIndex;
+                                tab->selEndCursorPosition = tab->cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+                                tab->initialCursorPosition = tab->cursorPosition;
                             }
-                        } else {
-                            tab->textSelected = true;
-                            tab->initialCursorPosition = tab->cursorPosition;
-                            tab->selEndCursorPosition = tab->cursorPosition;
-                            tab->selStartCursorPosition = tab->cursorPosition;
+                        } else if (sd.cursorPosition != tab->cursorPosition) {
+                            if (tab->textSelected) {
+                                if (tab->selStartCBIndex == tab->selEndCBIndex) {
+                                    if (sd.cursorPosition == tab->initialCursorPosition) {
+                                        tab->textSelected = false;
+                                    } else {
+                                        if (sd.cursorPosition < tab->initialCursorPosition) {
+                                            tab->selStartCursorPosition = sd.cursorPosition;
+                                            tab->selEndCursorPosition = tab->initialCursorPosition;
+                                        } else {
+                                            tab->selStartCursorPosition = tab->initialCursorPosition;
+                                            tab->selEndCursorPosition = sd.cursorPosition;
+                                        }
+                                    }
+                                } else {
+                                    if (tab->selStartCBIndex == sd.cursorCBIndex) {
+                                        tab->selStartCursorPosition = sd.cursorPosition;
+                                    } else if (tab->selEndCBIndex == sd.cursorCBIndex) {
+                                        tab->selEndCursorPosition = sd.cursorPosition;
+                                    } else {
+                                        cout << "\n\nBhai is condition ke bare me toh socha hi nahi thaa!!";
+                                    }
+                                }
+                            } else {
+                                tab->textSelected = true;
+                                tab->initialCursorPosition = tab->cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+
+                                tab->selStartCBIndex = sd.cursorCBIndex;
+                                tab->selEndCBIndex = tab->cursorCBIndex;
+                                tab->selStartCursorPosition = sd.cursorPosition;
+                                tab->selEndCursorPosition = tab->cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+                            }
                         }
 
                         tab->redrawSel = true;
                     } else {
                         UNSELECT();
                     }
+
+                    updateCBCursor(tab, sd);
                 }
                 break;
 
@@ -1155,30 +1301,86 @@ void cbKeyCallback(int key, int action, int mod) {
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
 
-                    updateCBCursor(tab, sd);
-
                     if (shift) {
-                        if (tab->textSelected) {
-                            if (tab->cursorPosition == tab->initialCursorPosition) {
-                                UNSELECT();
-                            } else if (tab->cursorPosition > tab->initialCursorPosition) {
-                                tab->selEndCursorPosition = sd.cursorPosition;
-                                tab->selStartCursorPosition = tab->initialCursorPosition;
+                        if (sd.cursorCBIndex != tab->cursorCBIndex) {
+                            cbTextDragging = true;
+
+                            if (tab->textSelected) {
+                                if (sd.cursorCBIndex == tab->initialCBIndex) {
+                                    tab->selStartCBIndex = sd.cursorCBIndex;
+                                    tab->selEndCBIndex = tab->initialCBIndex;
+                                    tab->selStartCursorPosition = sd.cursorPosition;
+                                } else if (sd.cursorCBIndex < tab->initialCBIndex) {
+                                    tab->selStartCBIndex = sd.cursorCBIndex;
+                                    tab->selEndCBIndex = tab->initialCBIndex;
+                                    tab->selStartCursorPosition = sd.cursorPosition;
+                                } else {
+                                    tab->selStartCBIndex = tab->initialCBIndex;
+                                    tab->selEndCBIndex = sd.cursorCBIndex;
+                                    tab->selEndCursorPosition = sd.cursorPosition;
+                                }
                             } else {
-                                tab->selStartCursorPosition = sd.cursorPosition;
-                                tab->selEndCursorPosition = tab->initialCursorPosition;
+                                tab->textSelected = true;
+
+                                tab->selStartCBIndex = tab->cursorCBIndex;
+                                tab->selStartCursorPosition = tab->cursorPosition;
+                                tab->selEndCBIndex = sd.cursorCBIndex;
+                                tab->selEndCursorPosition = sd.cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+                                tab->initialCursorPosition = tab->cursorPosition;
                             }
-                        } else {
-                            tab->textSelected = true;
-                            tab->initialCursorPosition = tab->cursorPosition;
-                            tab->selEndCursorPosition = tab->cursorPosition;
-                            tab->selStartCursorPosition = tab->cursorPosition;
+
+                            tab->cursorCBIndex = sd.cursorCBIndex;
+                            tab->cursorPosition = sd.cursorPosition;
+                        } else if (sd.cursorPosition != tab->cursorPosition) {
+                            cbTextDragging = true;
+
+                            if (tab->textSelected) {
+                                if (tab->selStartCBIndex == tab->selEndCBIndex) {
+                                    if (sd.cursorPosition == tab->initialCursorPosition) {
+                                        tab->textSelected = false;
+                                    } else {
+                                        if (sd.cursorPosition < tab->initialCursorPosition) {
+                                            tab->selStartCursorPosition = sd.cursorPosition;
+                                            tab->selEndCursorPosition = tab->initialCursorPosition;
+                                        } else {
+                                            tab->selStartCursorPosition = tab->initialCursorPosition;
+                                            tab->selEndCursorPosition = sd.cursorPosition;
+                                        }
+                                    }
+                                } else {
+                                    if (tab->selStartCBIndex == sd.cursorCBIndex) {
+                                        tab->selStartCursorPosition = sd.cursorPosition;
+                                    } else if (tab->selEndCBIndex == sd.cursorCBIndex) {
+                                        tab->selEndCursorPosition = sd.cursorPosition;
+                                    } else {
+                                        cout << "\n\nBhai is condition ke bare me toh socha hi nahi thaa!!";
+                                    }
+                                }
+                            } else {
+                                tab->textSelected = true;
+                                tab->initialCursorPosition = tab->cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+
+                                tab->selStartCBIndex = tab->cursorCBIndex;
+                                tab->selEndCBIndex = sd.cursorCBIndex;
+                                tab->selStartCursorPosition = tab->cursorPosition;
+                                tab->selEndCursorPosition = sd.cursorPosition;
+                                tab->initialCBIndex = tab->cursorCBIndex;
+                            }
+
+                            tab->cursorCBIndex = sd.cursorCBIndex;
+                            tab->cursorPosition = sd.cursorPosition;
+                            tab->updateCursorX = true;
+                            tab->redrawSel = true;
                         }
 
                         tab->redrawSel = true;
                     } else {
                         UNSELECT();
                     }
+
+                    updateCBCursor(tab, sd);
                 }
                 break;
 
