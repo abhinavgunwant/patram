@@ -27,15 +27,34 @@ enum class CommandType : uint8_t {
 struct ContentCommand {
     CommandType type;
 
-    string str;
-    string prevString;                      // probably useful for undo.
+    bool ext;
 
+    uint16_t extIndex;
+
+    uint32_t startCBIndex;
+    uint32_t startCursorPos;
+
+    string str;
+};
+
+struct ContentCommandExt {
+    uint32_t endCBIndex;                    // for CommandType::DeleteSelected
+    uint32_t endCursorPos;                  // for CommandType::DeleteSelected
+    vector<ContentBlock> deletedBlocks;     // for CommandType::DeleteSelected
+};
+
+struct ContentCommand2 {
+    string str;
+
+    CommandType type;
+
+    uint32_t deletedBlocksLen;
     uint32_t startCBIndex;
     uint32_t startCursorPos;
     uint32_t endCBIndex;                    // for CommandType::DeleteSelected
     uint32_t endCursorPos;                  // for CommandType::DeleteSelected
 
-    vector<ContentBlock> deletedBlocks;     // for CommandType::DeleteSelected
+    ContentBlock* deletedBlocks;
 };
 
 /**
@@ -96,6 +115,7 @@ struct Command {
 
 void deleteCommand(Command* c);
 string commandStr(Command* c);
+string commandTypeStr(CommandType type);
 
 /**
  * Link List of commands
@@ -129,6 +149,7 @@ void appendCommand(CommandList &list, Command* newCommand);
 void moveToPrevCommand(CommandList &list);
 void moveToNextCommand(CommandList &list);
 void printCommands(CommandList& list);
+void printContentCommand(ContentCommand* command, ContentCommandExt* cmdExt = nullptr);
 
 #endif // PATRAM_CORE_UI
 

@@ -448,6 +448,7 @@ struct ContentTab {
     uint32_t scrollThumbVBO;
 
     vector<ContentCommand> commands;
+    vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
 };
 

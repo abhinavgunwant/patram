@@ -75,6 +75,8 @@ string commandStr(Command* c) {
             return "CommandType::Redo, cursorPos: " + to_string(c->cursorPos);
         case CommandType::Delete:
             return "CommandType::Delete \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
+        case CommandType::DeleteSelected:
+            return "CommandType::DeleteSelected \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
         case CommandType::Backspace:
             return "CommandType::Backspace \"" + c->str + "\", cursorPos: " + to_string(c->cursorPos);
         case CommandType::Replace:
@@ -82,6 +84,22 @@ string commandStr(Command* c) {
     }
 
     return "ERR: NO_COMMAND";
+}
+
+string commandTypeStr(CommandType type) {
+    switch (type) {
+        case CommandType::None:             return "CommandType::None";
+        case CommandType::Type:             return "CommandType::Type";
+        case CommandType::NewLine:          return "CommandType::NewLine";
+        case CommandType::Undo:             return "CommandType::Undo";
+        case CommandType::Redo:             return "CommandType::Redo";
+        case CommandType::Delete:           return "CommandType::Delete";
+        case CommandType::DeleteSelected:   return "CommandType::DeleteSelected";
+        case CommandType::Backspace:        return "CommandType::Backspace";
+        case CommandType::Replace:          return "CommandType::Replace";
+    }
+
+    return "";
 }
 
 void printCommands(CommandList& list) {
@@ -123,6 +141,23 @@ void printCommands(CommandList& list) {
 
         head = head->next;
         ++i;
+    }
+}
+
+void printContentCommand(ContentCommand* cmd, ContentCommandExt* cmdExt) {
+    cout << "type: " << commandTypeStr(cmd->type);
+
+    if (cmd->ext && cmdExt != nullptr) {
+        cout << ", startCBIndex: " << cmd->startCBIndex << ", startCursorPos: "
+            << cmd->startCursorPos << ", endCBIndex: " << cmdExt->endCBIndex
+            << ", endCursorPos: " << cmdExt->endCursorPos;
+
+        if (!cmdExt->deletedBlocks.empty()) {
+            cout << ", contains deleted blocks!";
+        }
+    } else {
+        cout << ", CBIndex: " << cmd->startCBIndex << ", cursorPos: "
+            << cmd->startCursorPos << ", str: \"" << cmd->str << "\"";
     }
 }
 
