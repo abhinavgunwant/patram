@@ -291,7 +291,7 @@ void Rope::append(string s) {
             right->parent = this;
 
             text = "";
-            lenLeft = text.length();
+            lenLeft = left->text.length();
             return;
         }
 
@@ -310,14 +310,7 @@ void Rope::append(string s) {
 
     while (node->right != nullptr) { node = node->right; }
 
-    Rope* newLeft = new Rope(text);
-    Rope* newRight = new Rope(s);
-    newLeft->parent = node;
-    newRight->parent = node;
-    text = "";
-    lenLeft = text.length();
-    node->left = newLeft;
-    node->right = newRight;
+    node->text.append(s);
 }
 
 void Rope::prepend(string s) {
@@ -451,7 +444,8 @@ void Rope::insert(uint32_t i, string s) {
     if ((indx == 0 || indx == len) && oldLeaf->parent->left != nullptr) {
         Rope* node = oldLeaf->parent->left;
         node->text.append(s);
-        this->recalculateLenLeft();
+        ++node->lenLeft;
+        propagateLenLeft(node, 1);
         return;
     }
 
