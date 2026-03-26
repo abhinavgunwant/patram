@@ -1500,6 +1500,37 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
 
                     UPDATE();
+                } else if (CUR_POS == 0) {
+                    if (tab->textSelected) {
+                        // TODO: The selected text should go in the CBs
+                    } else {
+                        if (tab->cursorCBIndex > 1) {
+                            vector<ContentBlock> cbs;
+                            ContentBlock cb = tab->contentBlocks[tab->cursorCBIndex];
+                            cbs.push_back(cb);
+
+                            tab->extCommands.push_back(ContentCommandExt {
+                                tab->cursorCBIndex,
+                                0,
+                                cbs,
+                            });
+
+                            uint32_t newCursorPos = tab->contentBlocks[tab->cursorCBIndex - 1].rope->length();
+
+                            processCBCommand(ContentCommand {
+                                CommandType::DeleteMergeCB,
+                                true,
+                                static_cast<uint16_t>(tab->extCommands.size() - 1),
+                                tab->cursorCBIndex - 1,
+                                0,
+                                "",
+                            });
+
+                            --tab->cursorCBIndex;
+                            tab->cursorPosition = newCursorPos;
+                            UPDATE();
+                        }
+                    }
                 }
                 break;
 
@@ -1535,6 +1566,34 @@ void cbKeyCallback(int key, int action, int mod) {
                     }
 
                     UPDATE();
+                } else if (CUR_POS == cb->rope->length()) {
+                    if (tab->textSelected) {
+                        // TODO: The selected text should go in the CBs
+                    } else {
+                        if (
+                            tab->cursorCBIndex != 0
+                            && tab->cursorCBIndex + 1 < tab->contentBlocks.size()
+                        ) {
+                            vector<ContentBlock> cbs;
+                            ContentBlock cb = tab->contentBlocks[tab->cursorCBIndex + 1];
+                            cbs.push_back(cb);
+
+                            tab->extCommands.push_back(ContentCommandExt {
+                                tab->cursorCBIndex + 1,
+                                0,
+                                cbs,
+                            });
+
+                            processCBCommand(ContentCommand {
+                                CommandType::DeleteMergeCB,
+                                true,
+                                static_cast<uint16_t>(tab->extCommands.size() - 1),
+                                tab->cursorCBIndex,
+                                0,
+                                "",
+                            });
+                        }
+                    }
                 }
                 break;
 
@@ -5975,6 +6034,8 @@ void processCBCommand(ContentCommand cmd) {
             case CommandType::Type: cout << "Type"; break;
             case CommandType::NewLine: cout << "NewLine"; break;
             case CommandType::Delete: cout << "Delete"; break;
+            case CommandType::DeleteSelected: cout << "DeleteSelected"; break;
+            case CommandType::DeleteMergeCB: cout << "DeleteMergeCB"; break;
             case CommandType::Backspace: cout << "Backspace"; break;
             case CommandType::Undo: cout << "Undo"; break;
             case CommandType::Redo: cout << "Redo"; break;
@@ -6124,6 +6185,35 @@ void processCBCommand(ContentCommand cmd) {
             ) {
                 tab->commands.back().str += cmd.str;
             } else {
+                append = true;
+            }
+            break;
+
+        case CommandType::DeleteMergeCB:
+            if (
+                cmd.ext
+                && cmd.extIndex < tab->extCommands.size()
+                && !tab->extCommands[cmd.extIndex].deletedBlocks.empty()
+                && cmd.startCBIndex != 0
+                && cmd.startCBIndex + 1 < tab->contentBlocks.size()
+            ) {
+                Rope* nextRope = tab->contentBlocks[cmd.startCBIndex + 1].rope;
+
+                tab->contentBlocks[cmd.startCBIndex].rope->append(nextRope->getString());
+
+                tab->contentBlocks.erase(
+                    tab->contentBlocks.begin() + cmd.startCBIndex + 1,
+                    tab->contentBlocks.begin() + cmd.startCBIndex + 2
+                );
+
+                for (
+                    auto cbIter = tab->contentBlocks.begin() + cmd.startCBIndex;
+                    cbIter != tab->contentBlocks.end() && distance(tab->contentBlocks.begin(), cbIter) < 64;
+                    ++cbIter
+                ) {
+                    (*cbIter).flags |= CONTENT_BLOCK_REDRAW;
+                }
+
                 append = true;
             }
             break;

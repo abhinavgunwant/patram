@@ -18,6 +18,7 @@ enum class CommandType : uint8_t {
     NewLine,
     Delete,
     DeleteSelected,
+    DeleteMergeCB,
     Backspace,
     Undo,
     Redo,
