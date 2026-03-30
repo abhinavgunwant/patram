@@ -1470,11 +1470,10 @@ void cbKeyCallback(int key, int action, int mod) {
                     || tab->textSelected
                 ) {
                     if (tab->textSelected){
-                        // TODO: The selected text should go in the CBs
                         tab->extCommands.push_back(ContentCommandExt {
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
-                            vector<ContentBlock>(0),
+                            vector<ContentBlock>(),
                         });
 
                         processCBCommand(ContentCommand {
@@ -1485,6 +1484,10 @@ void cbKeyCallback(int key, int action, int mod) {
                             tab->selStartCursorPosition,
                             ""
                         });
+
+                        tab->cursorPosition = tab->selStartCursorPosition;
+                        tab->cursorCBIndex = tab->selStartCBIndex;
+                        UNSELECT();
                     } else {
                         processCBCommand(ContentCommand {
                             CommandType::Backspace,
@@ -1502,7 +1505,24 @@ void cbKeyCallback(int key, int action, int mod) {
                     UPDATE();
                 } else if (CUR_POS == 0) {
                     if (tab->textSelected) {
-                        // TODO: The selected text should go in the CBs
+                        tab->extCommands.push_back(ContentCommandExt {
+                            tab->selEndCBIndex,
+                            tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
+                        });
+
+                        processCBCommand(ContentCommand {
+                            CommandType::DeleteSelected,
+                            true,
+                            static_cast<uint16_t>(tab->extCommands.size() - 1),
+                            tab->selStartCBIndex,
+                            tab->selStartCursorPosition,
+                            ""
+                        });
+
+                        tab->cursorPosition = tab->selStartCursorPosition;
+                        tab->cursorCBIndex = tab->selStartCBIndex;
+                        UNSELECT();
                     } else {
                         if (tab->cursorCBIndex > 1) {
                             vector<ContentBlock> cbs;
@@ -1540,11 +1560,10 @@ void cbKeyCallback(int key, int action, int mod) {
                     || tab->textSelected
                 ) {
                     if (tab->textSelected) {
-                        // TODO: The selected text should go in the CBs
                         tab->extCommands.push_back(ContentCommandExt {
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
-                            vector<ContentBlock>(0),
+                            vector<ContentBlock>(),
                         });
 
                         processCBCommand(ContentCommand {
@@ -1555,6 +1574,8 @@ void cbKeyCallback(int key, int action, int mod) {
                             tab->selStartCursorPosition,
                             ""
                         });
+
+                        UNSELECT();
                     } else {
                         processCBCommand(ContentCommand {
                             CommandType::Delete,
@@ -1568,7 +1589,22 @@ void cbKeyCallback(int key, int action, int mod) {
                     UPDATE();
                 } else if (CUR_POS == cb->rope->length()) {
                     if (tab->textSelected) {
-                        // TODO: The selected text should go in the CBs
+                        tab->extCommands.push_back(ContentCommandExt {
+                            tab->selEndCBIndex,
+                            tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
+                        });
+
+                        processCBCommand(ContentCommand {
+                            CommandType::DeleteSelected,
+                            true,
+                            static_cast<uint16_t>(tab->extCommands.size() - 1),
+                            tab->selStartCBIndex,
+                            tab->selStartCursorPosition,
+                            ""
+                        });
+
+                        UNSELECT();
                     } else {
                         if (
                             tab->cursorCBIndex != 0
@@ -5860,6 +5896,18 @@ void reDrawAllContentBlocks() {
     }
 }
 
+void reDrawCBsFrom(uint32_t i, uint32_t limit) {
+    uint32_t j = 0;
+
+    for (
+        auto itr = tabs[activeTabIndex].contentBlocks.begin() + i;
+        itr != tabs[activeTabIndex].contentBlocks.end() && j < limit;
+        ++itr, ++j
+    ) {
+        (*itr).flags |= CONTENT_BLOCK_REDRAW;
+    }
+}
+
 void processRedo(UIElement* element) {
     #define CUR_CMD element->extraData->textInputData.cmdList.currentCommand
     #define CUR_POS element->extraData->textInputData.cursorPosition
@@ -6147,14 +6195,8 @@ void processCBCommand(ContentCommand cmd) {
             break;
 
         case CommandType::Backspace: 
-            if (cmd.ext) {
-                if (tab->cursorPosition == 0 && tab->cursorCBIndex > 1) {
-                    // TODO: remove the current CB and append the rope to the previous CB.
-                }
-            } else {
-                if (tab->cursorPosition > 0) {
-                    cb->rope->remove(tab->cursorPosition - 1, 1);
-                }
+            if (tab->cursorPosition > 0) {
+                cb->rope->remove(tab->cursorPosition - 1, 1);
             }
 
             if (
@@ -6170,12 +6212,8 @@ void processCBCommand(ContentCommand cmd) {
             break;
 
         case CommandType::Delete:
-            if (cmd.ext) {
-                // TODO: Append the next CB's rope to this one and delete the next CB.
-            } else {
-                if (tab->cursorPosition < cb->rope->length()) {
-                    cb->rope->remove(tab->cursorPosition, 1);
-                }
+            if (tab->cursorPosition < cb->rope->length()) {
+                cb->rope->remove(tab->cursorPosition, 1);
             }
 
             if (
@@ -6217,6 +6255,89 @@ void processCBCommand(ContentCommand cmd) {
                 append = true;
             }
             break;
+
+        case CommandType::DeleteSelected: {
+            #define START tab->contentBlocks.begin() + cmd.startCBIndex
+            #define END   tab->contentBlocks.begin() + tab->extCommands.back().endCBIndex
+
+            uint32_t endCBIndex = tab->extCommands.back().endCBIndex;
+            uint32_t endCursorPos = tab->extCommands.back().endCursorPos;
+
+            vector<ContentBlock>::iterator cbDeleteStart;
+            vector<ContentBlock>::iterator cbDeleteEnd;
+
+            bool deleteLastCB = false;
+
+            for (auto cbIter = START; cbIter != END + 1; ++cbIter) {
+                if (cbIter == START) {
+                    if (
+                        cmd.startCursorPos == 0
+                        && (
+                            cmd.startCBIndex != endCBIndex
+                            || endCursorPos == (*cbIter).rope->length()
+                       )
+                    ) {
+                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+                    } else {
+                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
+                            (*cbIter).type,
+                            0, 0.0f, 0.0f, 0.0f, 0,
+                            new Rope(
+                                (*cbIter).rope->getString()
+                                    .substr(0, cmd.startCursorPos)
+                            ),
+                        });
+                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos - 1);
+                    }
+
+                    cbDeleteStart = cbIter;
+                    continue;
+                }
+
+                if (cbIter == END) {
+                    if (endCursorPos == (*cbIter).rope->length() && cmd.startCBIndex != endCBIndex) {
+                        deleteLastCB = true;
+                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+                        tab->contentBlocks.erase(cbIter);
+                    } else {
+                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
+                            (*cbIter).type,
+                            0, 0.0f, 0.0f, 0.0f, 0,
+                            new Rope(
+                                (*cbIter).rope->getString()
+                                    .substr(
+                                        cmd.startCursorPos,
+                                        (*cbIter).rope->length() - cmd.startCursorPos
+                                    )
+                            ),
+                        });
+                        (*cbIter).rope->remove(0, endCursorPos);
+                    }
+
+                    cbDeleteEnd = cbIter;
+                    continue;
+                }
+
+                tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+            }
+
+            if (cmd.startCBIndex != endCBIndex && cmd.startCursorPos == 0 && deleteLastCB) {
+                tab->contentBlocks.erase(cbDeleteStart, cbDeleteEnd + 1);
+                tab->contentBlocks.insert(tab->contentBlocks.begin() + cmd.startCBIndex, ContentBlock {
+                    ContentBlockType::Paragraph,
+                    CONTENT_BLOCK_VISIBLE | CONTENT_BLOCK_REDRAW, 0.0f, 0.0f, 0.0f, 0, new Rope()
+                });
+            } else {
+                (*cbDeleteStart).rope->append((*cbDeleteEnd).rope->getString());
+                tab->contentBlocks.erase(cbDeleteStart + 1, cbDeleteEnd + 1);
+            }
+
+            reDrawCBsFrom(cmd.startCBIndex, 100);
+
+            #undef START
+            #undef END
+            break;
+        }
     }
 
     if (append) {

@@ -492,6 +492,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
 void renderCBMoveMarker();
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
+void reDrawCBsFrom(uint32_t i, uint32_t limit);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void processCBCommand(ContentCommand cmd);
 void processCommand(UIElement* elem, Command* cmd);
