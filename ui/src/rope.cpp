@@ -540,7 +540,7 @@ void Rope::insert(uint32_t i, char* s) {
 
 void Rope::remove(uint32_t startIndex, uint32_t length) {
     if (isLeaf()) {
-        if (startIndex + length < text.length()) {
+        if (startIndex + length <= text.length()) {
             text.erase(startIndex, length);
         }
 

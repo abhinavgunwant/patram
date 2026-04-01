@@ -1496,10 +1496,10 @@ void cbKeyCallback(int key, int action, int mod) {
                             tab->cursorCBIndex, CUR_POS,
                             string(1, (*cb->rope)[CUR_POS - 1])
                         });
-                    }
 
-                    if (!tab->textSelected && CUR_POS != 0) {
-                        DECR_CURSOR();
+                        if (CUR_POS != 0) {
+                            DECR_CURSOR();
+                        }
                     }
 
                     UPDATE();
@@ -1575,6 +1575,8 @@ void cbKeyCallback(int key, int action, int mod) {
                             ""
                         });
 
+                        tab->cursorPosition = tab->selStartCursorPosition;
+                        tab->cursorCBIndex = tab->selStartCBIndex;
                         UNSELECT();
                     } else {
                         processCBCommand(ContentCommand {
@@ -1604,6 +1606,8 @@ void cbKeyCallback(int key, int action, int mod) {
                             ""
                         });
 
+                        tab->cursorPosition = tab->selStartCursorPosition;
+                        tab->cursorCBIndex = tab->selStartCBIndex;
                         UNSELECT();
                     } else {
                         if (
