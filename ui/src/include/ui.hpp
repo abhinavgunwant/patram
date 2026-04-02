@@ -476,6 +476,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
 void newTab(string title = "Untitled");
 void closeTab(uint32_t index);
+string getSelectedTextFromCurrentTab();
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);

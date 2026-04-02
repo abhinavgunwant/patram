@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <stack>
 #include <thread>
 
@@ -15,6 +16,7 @@
 #include "include/shader.hpp"
 #include "include/text.hpp"
 #include "files.hpp"
+#include "utils.hpp"
 #include "../lib/stb_image.h"
 
 #define TIME() static_cast<float>(glfwGetTime())
@@ -1651,7 +1653,29 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_B: if (capsLck || shift) { TYPE("B"); } else { TYPE("b"); } break;
-            case GLFW_KEY_C: if (capsLck || shift) { TYPE("C"); } else { TYPE("c"); } break;
+            case GLFW_KEY_C:
+                if (ctrl) {
+                    if (tab->textSelected) {
+                        string text = getSelectedTextFromCurrentTab();
+
+                        if (!text.empty()) {
+                            ClipboardResponse resp = copyToClipboard(text);
+
+                            if (
+                                resp.respType != ClipboardResponseType::Ok
+                                && !resp.str.empty()
+                            ) {
+                                // TODO: log this in future
+                                cout << "\n" << getClipboardError(resp);
+                            }
+                        }
+                    }
+                } else if (capsLck || shift) {
+                    TYPE("C");
+                } else {
+                    TYPE("c");
+                }
+                break;
             case GLFW_KEY_D: if (capsLck || shift) { TYPE("D"); } else { TYPE("d"); } break;
             case GLFW_KEY_E: if (capsLck || shift) { TYPE("E"); } else { TYPE("e"); } break;
             case GLFW_KEY_F: if (capsLck || shift) { TYPE("F"); } else { TYPE("f"); } break;
@@ -3638,6 +3662,52 @@ void closeTab(uint32_t index) {
     auto itr = tabs.begin() + index;
 
     tabs.erase(itr, itr + 1);
+}
+
+string getSelectedTextFromCurrentTab() {
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    size_t contentBlocks = tab->contentBlocks.size();
+
+    if (
+        tab->textSelected
+        && tab->selStartCBIndex < contentBlocks
+        && tab->selEndCBIndex < contentBlocks
+    ) {
+        if (tab->selStartCBIndex == tab->selEndCBIndex) {
+            return tab->contentBlocks[tab->selStartCBIndex]
+                .rope->getString()
+                .substr(
+                    tab->selStartCursorPosition,
+                    tab->selEndCursorPosition - tab->selStartCursorPosition
+                );
+        } else {
+            stringstream ss;
+
+            const auto beginIter = tab->contentBlocks.begin() + tab->selStartCBIndex;
+            const auto endIter = tab->contentBlocks.begin() + tab->selEndCBIndex + 1;
+
+            for (
+                auto cbIter = tab->contentBlocks.begin() + tab->selStartCBIndex;
+                cbIter != endIter && cbIter != tab->contentBlocks.end();
+                ++cbIter
+            ) {
+                RopeTraverser rt((*cbIter).rope);
+
+                while (rt.hasNext()) {
+                    ss << rt.next()->text;
+                }
+
+                if (cbIter + 1 != endIter && cbIter + 1 != tab->contentBlocks.end()) {
+                    ss << "\n";
+                }
+            }
+
+            return ss.str();
+        }
+    }
+
+    return "";
 }
 
 UIPreferences* initPreferences() {
