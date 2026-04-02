@@ -6272,6 +6272,14 @@ void processCBCommand(ContentCommand cmd) {
 
             bool deleteLastCB = false;
 
+            if (cmd.startCBIndex == tab->extCommands.back().endCBIndex) {
+                vector<ContentBlock>::iterator itr = START;
+
+                (*itr).rope->remove(cmd.startCursorPos, tab->extCommands.back().endCursorPos - cmd.startCursorPos);
+
+                break;
+            }
+
             for (auto cbIter = START; cbIter != END + 1; ++cbIter) {
                 if (cbIter == START) {
                     if (
@@ -6291,10 +6299,11 @@ void processCBCommand(ContentCommand cmd) {
                                     .substr(0, cmd.startCursorPos)
                             ),
                         });
-                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos - 1);
+                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos);
                     }
 
                     cbDeleteStart = cbIter;
+                    cbDeleteEnd = cbIter;
                     continue;
                 }
 
