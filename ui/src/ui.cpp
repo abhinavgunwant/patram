@@ -6527,6 +6527,7 @@ void processCBCommand(ContentCommand cmd) {
             vector<ContentBlock>::iterator cbDeleteStart;
             vector<ContentBlock>::iterator cbDeleteEnd;
 
+            bool deleteFirstCB = false;
             bool deleteLastCB = false;
 
             if (cmd.startCBIndex == tab->extCommands.back().endCBIndex) {
@@ -6546,6 +6547,7 @@ void processCBCommand(ContentCommand cmd) {
                             || endCursorPos == (*cbIter).rope->length()
                        )
                     ) {
+                        deleteFirstCB = true;
                         tab->extCommands.back().deletedBlocks.push_back(*cbIter);
                     } else {
                         tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
@@ -6576,7 +6578,7 @@ void processCBCommand(ContentCommand cmd) {
                             new Rope(
                                 (*cbIter).rope->getString()
                                     .substr(
-                                        cmd.startCursorPos,
+                                        endCursorPos,
                                         (*cbIter).rope->length() - cmd.startCursorPos
                                     )
                             ),
@@ -6598,8 +6600,16 @@ void processCBCommand(ContentCommand cmd) {
                     CONTENT_BLOCK_VISIBLE | CONTENT_BLOCK_REDRAW, 0.0f, 0.0f, 0.0f, 0, new Rope()
                 });
             } else {
-                (*cbDeleteStart).rope->append((*cbDeleteEnd).rope->getString());
-                tab->contentBlocks.erase(cbDeleteStart + 1, cbDeleteEnd + 1);
+                uint32_t firstIndex = distance(tab->contentBlocks.begin(), cbDeleteStart);
+
+                if (deleteFirstCB) {
+                    tab->contentBlocks.erase(cbDeleteStart, cbDeleteEnd);
+                } else {
+                    (*cbDeleteStart).rope->append((*cbDeleteEnd).rope->getString());
+                    tab->contentBlocks.erase(cbDeleteStart + 1, cbDeleteEnd + 1);
+                }
+
+                tab->cursorCBIndex = firstIndex;
             }
 
             reDrawCBsFrom(cmd.startCBIndex, 100);
