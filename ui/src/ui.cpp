@@ -879,12 +879,8 @@ void cbKeyCallback(int key, int action, int mod) {
     #endif
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCBCommand(ContentCommand {\
-                CommandType::Type, false, 0, tab->cursorCBIndex, tab->cursorPosition, c\
-                });\
-            tab->lastCursorTime = static_cast<float>(glfwGetTime());\
-            tab->cursorPosition++;\
-            tab->redrawCursor = true
+        #define TYPE(c) cbKeypressType(tab, c)
+
         #define BASIC_CMD(cmdType) ContentCommand {\
                 cmdType, false, 0, tab->cursorCBIndex, tab->cursorPosition, ""\
             }
