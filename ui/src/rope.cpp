@@ -444,8 +444,9 @@ void Rope::insert(uint32_t i, string s) {
     if ((indx == 0 || indx == len) && oldLeaf->parent->left != nullptr) {
         Rope* node = oldLeaf->parent->left;
         node->text.append(s);
-        ++node->lenLeft;
-        propagateLenLeft(node, 1);
+        int32_t diff = node->text.length() - node->lenLeft;
+        node->lenLeft = node->text.length();
+        propagateLenLeft(node, diff);
         return;
     }
 
