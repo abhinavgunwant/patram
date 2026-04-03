@@ -6188,6 +6188,38 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     return nullptr;
 }
 
+void cbKeypressType(ContentTab* tab, string text) {
+    if (tab->textSelected) {
+        tab->extCommands.push_back(ContentCommandExt {
+            tab->selEndCBIndex,
+            tab->selEndCursorPosition,
+            vector<ContentBlock>(),
+        });
+
+        processCBCommand(ContentCommand {
+            CommandType::Replace,
+            true,
+            static_cast<uint16_t>(tab->extCommands.size() - 1),
+            tab->selStartCBIndex,
+            tab->selStartCursorPosition,
+            text,
+        });
+
+        tab->cursorPosition = tab->selStartCursorPosition + text.length();
+        tab->textSelected = false;
+    } else {
+        processCBCommand(ContentCommand {
+            CommandType::Type, false, 0, tab->cursorCBIndex, tab->cursorPosition, text
+        });
+        tab->cursorPosition += text.length();
+    }
+
+    tab->lastCursorTime = static_cast<float>(glfwGetTime());
+    tab->redrawCursor = true;
+
+    reDrawCBsFrom(tab->activeCBIndex, 64);
+}
+
 void processCBCommand(ContentCommand cmd) {
     ContentTab* tab = &tabs[activeTabIndex];
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
