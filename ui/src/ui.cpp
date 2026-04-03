@@ -1694,7 +1694,55 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_S: if (capsLck || shift) { TYPE("S"); } else { TYPE("s"); } break;
             case GLFW_KEY_T: if (capsLck || shift) { TYPE("T"); } else { TYPE("t"); } break;
             case GLFW_KEY_U: if (capsLck || shift) { TYPE("U"); } else { TYPE("u"); } break;
-            case GLFW_KEY_V: if (capsLck || shift) { TYPE("V"); } else { TYPE("v"); } break;
+            case GLFW_KEY_V:
+                if (ctrl) {
+                    ClipboardResponse resp = pasteFromClipboard();
+
+                    if (tab->textSelected) {
+                        tab->extCommands.push_back(ContentCommandExt {
+                            tab->selEndCBIndex,
+                            tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
+                        });
+
+                        processCBCommand(ContentCommand {
+                            CommandType::Replace,
+                            true,
+                            static_cast<uint16_t>(tab->extCommands.size() - 1),
+                            tab->selStartCBIndex,
+                            tab->selStartCursorPosition,
+                            resp.str,
+                        });
+
+                        tab->cursorPosition = tab->selStartCursorPosition + resp.str.length();
+
+                        UNSELECT();
+                        UPDATE();
+                    } else {
+                        if (resp.respType == ClipboardResponseType::Ok) {
+                            if (!resp.str.empty()) {
+                                processCBCommand(ContentCommand {
+                                    CommandType::Paste,
+                                    false,
+                                    0,
+                                    tab->cursorCBIndex,
+                                    tab->cursorPosition,
+                                    resp.str
+                                });
+
+                                tab->cursorPosition += resp.str.length();
+                                UPDATE();
+                            }
+                        } else {
+                            cout << "\n" << getClipboardError(resp);
+                        }
+                    }
+                } else if (capsLck || shift) {
+                    TYPE("V");
+                } else {
+                    TYPE("v");
+                }
+                break;
             case GLFW_KEY_W: if (capsLck || shift) { TYPE("W"); } else { TYPE("w"); } break;
             case GLFW_KEY_X: if (capsLck || shift) { TYPE("X"); } else { TYPE("x"); } break;
 
@@ -6201,6 +6249,117 @@ void processCBCommand(ContentCommand cmd) {
                 }
             }
             break;
+
+        case CommandType::Paste:
+            if (!cmd.str.empty()) {
+                cb->rope->insert(tab->cursorPosition, cmd.str);
+                reDrawCBsFrom(tab->cursorCBIndex, 16);
+            }
+            break;
+
+        case CommandType::Replace: {
+            #define START tab->contentBlocks.begin() + cmd.startCBIndex
+            #define END   tab->contentBlocks.begin() + tab->extCommands.back().endCBIndex
+
+            uint32_t endCBIndex = tab->extCommands.back().endCBIndex;
+            uint32_t endCursorPos = tab->extCommands.back().endCursorPos;
+
+            vector<ContentBlock>::iterator cbReplaceStart;
+            vector<ContentBlock>::iterator cbReplaceEnd;
+
+            bool replaceFirstCB = false;
+            bool replaceLastCB = false;
+
+            if (cmd.startCBIndex == tab->extCommands.back().endCBIndex) {
+                vector<ContentBlock>::iterator itr = START;
+
+                (*itr).rope->remove(cmd.startCursorPos, tab->extCommands.back().endCursorPos - cmd.startCursorPos);
+                (*itr).rope->insert(cmd.startCursorPos, cmd.str);
+
+                break;
+            }
+
+            for (auto cbIter = START; cbIter != END + 1; ++cbIter) {
+                if (cbIter == START) {
+                    if (
+                        cmd.startCursorPos == 0
+                        && (
+                            cmd.startCBIndex != endCBIndex
+                            || endCursorPos == (*cbIter).rope->length()
+                       )
+                    ) {
+                        replaceFirstCB = true;
+                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+                    } else {
+                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
+                            (*cbIter).type,
+                            0, 0.0f, 0.0f, 0.0f, 0,
+                            new Rope(
+                                (*cbIter).rope->getString()
+                                    .substr(0, cmd.startCursorPos)
+                            ),
+                        });
+                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos);
+                    }
+
+                    cbReplaceStart = cbIter;
+                    cbReplaceEnd = cbIter;
+                    continue;
+                }
+
+                if (cbIter == END) {
+                    if (endCursorPos == (*cbIter).rope->length() && cmd.startCBIndex != endCBIndex) {
+                        replaceLastCB = true;
+                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+                        tab->contentBlocks.erase(cbIter);
+                    } else {
+                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
+                            (*cbIter).type,
+                            0, 0.0f, 0.0f, 0.0f, 0,
+                            new Rope(
+                                (*cbIter).rope->getString()
+                                    .substr(
+                                        endCursorPos,
+                                        (*cbIter).rope->length() - cmd.startCursorPos
+                                    )
+                            ),
+                        });
+                        (*cbIter).rope->remove(0, endCursorPos);
+                    }
+
+                    cbReplaceEnd = cbIter;
+                    continue;
+                }
+
+                tab->extCommands.back().deletedBlocks.push_back(*cbIter);
+            }
+
+            if (cmd.startCBIndex != endCBIndex && cmd.startCursorPos == 0 && replaceLastCB) {
+                tab->contentBlocks.erase(cbReplaceStart, cbReplaceEnd + 1);
+                tab->contentBlocks.insert(tab->contentBlocks.begin() + cmd.startCBIndex, ContentBlock {
+                    ContentBlockType::Paragraph,
+                    CONTENT_BLOCK_VISIBLE | CONTENT_BLOCK_REDRAW, 0.0f, 0.0f, 0.0f, 0, new Rope(cmd.str)
+                });
+            } else {
+                uint32_t firstIndex = distance(tab->contentBlocks.begin(), cbReplaceStart);
+
+                if (replaceFirstCB) {
+                    (*cbReplaceEnd).rope->prepend(cmd.str);
+                    tab->contentBlocks.erase(cbReplaceStart, cbReplaceEnd);
+                } else {
+                    (*cbReplaceStart).rope->append(cmd.str + (*cbReplaceEnd).rope->getString());
+                    tab->contentBlocks.erase(cbReplaceStart + 1, cbReplaceEnd + 1);
+                }
+
+                tab->cursorCBIndex = firstIndex;
+            }
+
+            reDrawCBsFrom(cmd.startCBIndex, 100);
+
+            #undef START
+            #undef END
+            break;
+        }
 
         case CommandType::NewLine:
             if (tab->cursorPosition == cb->rope->length() || tab->cursorPosition == 0) {

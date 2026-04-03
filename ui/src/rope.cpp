@@ -690,7 +690,7 @@ void Rope::clear() {
 }
 
 void Rope::propagateLenLeft(Rope* node, int64_t change) {
-    if (node == nullptr && node->parent == nullptr) {
+    if (node == nullptr || node->parent == nullptr) {
         return;
     }
 

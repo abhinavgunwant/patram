@@ -97,6 +97,7 @@ string commandTypeStr(CommandType type) {
         case CommandType::DeleteSelected:   return "CommandType::DeleteSelected";
         case CommandType::Backspace:        return "CommandType::Backspace";
         case CommandType::Replace:          return "CommandType::Replace";
+        case CommandType::Paste:            return "CommandType::Paste";
     }
 
     return "";

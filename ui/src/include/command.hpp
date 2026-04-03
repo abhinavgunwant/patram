@@ -21,6 +21,7 @@ enum class CommandType : uint8_t {
     DeleteMergeCB,
     Backspace,
     Undo,
+    Paste,
     Redo,
     Replace,
 };
