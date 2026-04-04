@@ -45,20 +45,6 @@ struct ContentCommandExt {
     vector<ContentBlock> deletedBlocks;     // for CommandType::DeleteSelected
 };
 
-struct ContentCommand2 {
-    string str;
-
-    CommandType type;
-
-    uint32_t deletedBlocksLen;
-    uint32_t startCBIndex;
-    uint32_t startCursorPos;
-    uint32_t endCBIndex;                    // for CommandType::DeleteSelected
-    uint32_t endCursorPos;                  // for CommandType::DeleteSelected
-
-    ContentBlock* deletedBlocks;
-};
-
 /**
  * Used when user types something after selecting text on text input.
  * Contains selection details witht the string that will be replaced.
