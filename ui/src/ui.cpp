@@ -296,8 +296,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods) {
     #ifdef DEBUG_TEXT_INPUT
+        #ifdef DEBUG_KEYBOARD_EVENTS
         cout << "\nKeyboard event. Key: " << key << ", Scan code: " << scanCode
             << ", Action: " << action << ", Modifier Keys: " << mods;
+        #endif
     #endif
 
     if (activeElement == nullptr) {
@@ -853,6 +855,7 @@ void cbKeyCallback(int key, int action, int mod) {
     bool numLck = mod & GLFW_MOD_NUM_LOCK;
 
     #ifdef DEBUG_TEXT_INPUT
+    #ifdef DEBUG_KEYBOARD_EVENTS
         cout << "\n Key: ";
 
         if (alt) {
@@ -876,6 +879,7 @@ void cbKeyCallback(int key, int action, int mod) {
         }
 
         cout << key;
+    #endif
     #endif
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -947,7 +951,9 @@ void cbKeyCallback(int key, int action, int mod) {
 
                         if (found) {
                             tab->cursorPosition = i;
-                            cout << "\nCTRL + LEFT: cursorPosition = " << i;
+                            #ifdef DEBUG_TEXT_INPUT
+                                cout << "\nCTRL + LEFT: cursorPosition = " << i;
+                            #endif
                             break;
                         }
                     }
@@ -1100,7 +1106,9 @@ void cbKeyCallback(int key, int action, int mod) {
 
                         if (found) {
                             tab->cursorPosition = i;
-                            cout << "\nCTRL + RIGHT: cursorPosition = " << i;
+                            #ifdef DEBUG_TEXT_INPUT
+                                cout << "\nCTRL + RIGHT: cursorPosition = " << i;
+                            #endif
                             break;
                         }
                     }
@@ -1218,8 +1226,10 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_UP: {
                     SelectionData sd = getCBTextCursorVertical(tab, false, true);
 
-                    cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
-                        << ", row: " << sd.row << ", col: " << sd.col;
+                    #ifdef DEBUG_TEXT_INPUT
+                        cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
+                            << ", row: " << sd.row << ", col: " << sd.col;
+                    #endif
 
                     if (shift) {
                         if (sd.cursorCBIndex == 0) {
@@ -1267,7 +1277,9 @@ void cbKeyCallback(int key, int action, int mod) {
                                     } else if (tab->selEndCBIndex == sd.cursorCBIndex) {
                                         tab->selEndCursorPosition = sd.cursorPosition;
                                     } else {
+                                        #ifdef DEBUG_TEXT_INPUT
                                         cout << "\n\nBhai is condition ke bare me toh socha hi nahi thaa!!";
+                                        #endif
                                     }
                                 }
                             } else {
@@ -1295,8 +1307,10 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_DOWN: {
                     SelectionData sd = getCBTextCursorVertical(tab, false, false);
 
+                    #ifdef DEBUG_TEXT_INPUT
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
+                    #endif
 
                     if (shift) {
                         if (sd.cursorCBIndex != tab->cursorCBIndex) {
@@ -1351,7 +1365,9 @@ void cbKeyCallback(int key, int action, int mod) {
                                     } else if (tab->selEndCBIndex == sd.cursorCBIndex) {
                                         tab->selEndCursorPosition = sd.cursorPosition;
                                     } else {
+                                        #ifdef DEBUG_TEXT_INPUT
                                         cout << "\n\nBhai is condition ke bare me toh socha hi nahi thaa!!";
+                                        #endif
                                     }
                                 }
                             } else {
@@ -1383,7 +1399,9 @@ void cbKeyCallback(int key, int action, int mod) {
 
             case GLFW_KEY_ENTER:
                 #ifdef DEBUG_TEXT_INPUT
+                #ifdef DEBUG_KEYBOARD_EVENTS
                     cout << "\nEnter pressed";
+                #endif
                 #endif
 
                 processCBCommand(BASIC_CMD(CommandType::NewLine));
