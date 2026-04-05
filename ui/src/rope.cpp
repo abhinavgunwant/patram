@@ -350,6 +350,7 @@ void Rope::prepend(string s) {
     lenLeft = s.length();
     node->left = newLeft;
     node->right = newRight;
+    propagateLenLeft(newLeft, s.length());
 }
 
 Rope* Rope::split(uint32_t index) {
@@ -575,6 +576,13 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
                 node->text.erase(index, length);
                 propagateLenLeft(node, -change);
             }
+        } else if (index == 0) {
+            uint32_t startIndex = length;
+            uint32_t lenBefore = node->text.length();
+            uint32_t lenAfter = node->text.length() - startIndex;
+
+            node->text = node->text.substr(startIndex, lenAfter);
+            propagateLenLeft(node, lenAfter - lenBefore);
         } else if (index + length < node->text.length()) {
             Rope* newLeft = new Rope(node->text.substr(0, index));
             newLeft->parent = node;
