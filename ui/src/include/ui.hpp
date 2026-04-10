@@ -497,6 +497,8 @@ void reDrawCBsFrom(uint32_t i, uint32_t limit);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void cbKeypressType(ContentTab* tab, string text);
 void processCBCommand(ContentCommand cmd);
+void processCBUndo(ContentTab* tab);
+void processCBRedo(ContentTab* tab);
 void processCommand(UIElement* elem, Command* cmd);
 string getIconLocation(Icon icon);
 
@@ -531,6 +533,7 @@ void printTextInputData(TextInputData* tid, string token = "");
 
 #ifdef DEBUG_CONTENT_BLOCKS
 void printContentBlocks(uint32_t tabIndex);
+void printContentBlocksFromVector(vector<ContentBlock> cblock);
 #endif
 
 #endif // PATRAM_UI

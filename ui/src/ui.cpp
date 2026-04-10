@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <stack>
 #include <thread>
@@ -929,8 +930,11 @@ void cbKeyCallback(int key, int action, int mod) {
                             i = cumulativeLen - 1;
                         }
 
-                        // for (char c: rope->text) {
-                        for (string::reverse_iterator c = rope->text.rbegin(); c != rope->text.rend(); ++c) {
+                        for (
+                            string::reverse_iterator c = rope->text.rbegin();
+                            c != rope->text.rend();
+                            ++c
+                        ) {
                             if (i >= tab->cursorPosition) {
                                 --i;
                                 continue;
@@ -3671,6 +3675,8 @@ void newTab(string title) {
         SETUP_BUFFERS(vao[i], vbo[i], vertices);
     }
 
+    commands.push_back(ContentCommand { CommandType::None, false, 0, 0, 0, "", });
+
     tabs.push_back(ContentTab {
         false, false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
@@ -6040,7 +6046,7 @@ void reDrawCBsFrom(uint32_t i, uint32_t limit) {
         itr != tabs[activeTabIndex].contentBlocks.end() && j < limit;
         ++itr, ++j
     ) {
-        (*itr).flags |= CONTENT_BLOCK_REDRAW;
+        (*itr).flags |= CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE;
     }
 }
 
@@ -6284,8 +6290,8 @@ void processCBCommand(ContentCommand cmd) {
                 (*itr).flags = (*itr).flags | CONTENT_BLOCK_REDRAW;
 
                 if (!tab->commands.empty()) {
-                    if (tab->commands.back().type == CommandType::Type) {
-                        auto itr = tab->commands.end() - 1;
+                    if (tab->commands[tab->currentCommand].type == CommandType::Type) {
+                        auto itr = tab->commands.begin() + tab->currentCommand;
                         (*itr).str += cmd.str;
                     } else {
                         append = true;
@@ -6536,8 +6542,10 @@ void processCBCommand(ContentCommand cmd) {
             break;
 
         case CommandType::DeleteSelected: {
+            auto extCmd = tab->extCommands.rbegin();
+
             #define START tab->contentBlocks.begin() + cmd.startCBIndex
-            #define END   tab->contentBlocks.begin() + tab->extCommands.back().endCBIndex
+            #define END   tab->contentBlocks.begin() + (*extCmd).endCBIndex
 
             uint32_t endCBIndex = tab->extCommands.back().endCBIndex;
             uint32_t endCursorPos = tab->extCommands.back().endCursorPos;
@@ -6548,112 +6556,316 @@ void processCBCommand(ContentCommand cmd) {
             bool deleteFirstCB = false;
             bool deleteLastCB = false;
 
-            if (cmd.startCBIndex == tab->extCommands.back().endCBIndex) {
+            if (cmd.startCBIndex == (*extCmd).endCBIndex) {
+                ContentBlock* cbSel = &tab->contentBlocks[cmd.startCBIndex];
                 vector<ContentBlock>::iterator itr = START;
 
-                (*itr).rope->remove(cmd.startCursorPos, tab->extCommands.back().endCursorPos - cmd.startCursorPos);
+                if (cmd.startCursorPos == 0 && (*extCmd).endCursorPos == cbSel->rope->length()) {
+                    (*extCmd).deletedBlocks.push_back(*itr);
+                    (*itr).rope = new Rope();
+                } else {
+                    (*extCmd).deletedBlocks.push_back(ContentBlock {
+                        (*itr).type,
+                        0, 0.0f, 0.0f, 0.0f, 0,
+                        new Rope((*itr).rope->getString().substr(
+                            cmd.startCursorPos,
+                            (*extCmd).endCursorPos - cmd.startCursorPos
+                        ))
+                    });
 
+                    (*itr).rope->remove(
+                        cmd.startCursorPos,
+                        (*extCmd).endCursorPos - cmd.startCursorPos
+                    );
+                }
+
+                append = true;
+
+                reDrawCBsFrom(cmd.startCBIndex, 64);
                 break;
             }
 
-            for (auto cbIter = START; cbIter != END + 1; ++cbIter) {
-                if (cbIter == START) {
-                    if (
-                        cmd.startCursorPos == 0
-                        && (
-                            cmd.startCBIndex != endCBIndex
-                            || endCursorPos == (*cbIter).rope->length()
-                       )
-                    ) {
-                        deleteFirstCB = true;
-                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-                    } else {
-                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
-                            (*cbIter).type,
-                            0, 0.0f, 0.0f, 0.0f, 0,
-                            new Rope(
-                                (*cbIter).rope->getString()
-                                    .substr(0, cmd.startCursorPos)
-                            ),
-                        });
-                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos);
-                    }
-
-                    cbDeleteStart = cbIter;
-                    cbDeleteEnd = cbIter;
-                    continue;
-                }
-
-                if (cbIter == END) {
-                    if (endCursorPos == (*cbIter).rope->length() && cmd.startCBIndex != endCBIndex) {
-                        deleteLastCB = true;
-                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-                        tab->contentBlocks.erase(cbIter);
-                    } else {
-                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
-                            (*cbIter).type,
-                            0, 0.0f, 0.0f, 0.0f, 0,
-                            new Rope(
-                                (*cbIter).rope->getString()
-                                    .substr(
-                                        endCursorPos,
-                                        (*cbIter).rope->length() - cmd.startCursorPos
-                                    )
-                            ),
-                        });
-                        (*cbIter).rope->remove(0, endCursorPos);
-                    }
-
-                    cbDeleteEnd = cbIter;
-                    continue;
-                }
-
-                tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-            }
-
-            if (cmd.startCBIndex != endCBIndex && cmd.startCursorPos == 0 && deleteLastCB) {
-                tab->contentBlocks.erase(cbDeleteStart, cbDeleteEnd + 1);
-                tab->contentBlocks.insert(tab->contentBlocks.begin() + cmd.startCBIndex, ContentBlock {
+            if (
+                cmd.startCursorPos == 0
+                && (*extCmd).endCursorPos == tab->contentBlocks[(*extCmd).endCBIndex].rope->length()
+            ) {
+                (*extCmd).deletedBlocks.assign(START, END + 1);
+                tab->contentBlocks.erase(START, END + 1);
+                tab->contentBlocks.insert(START, ContentBlock {
                     ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_VISIBLE | CONTENT_BLOCK_REDRAW, 0.0f, 0.0f, 0.0f, 0, new Rope()
+                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                    0.0f, 0.0f, 0.0f, 0, new Rope()
                 });
+            } else if (cmd.startCursorPos == 0) {
+                auto lastCB = END;
+
+                ContentBlockType lastBlockType = (*lastCB).type;
+                string ropeString = (*lastCB).rope->getString().substr(0, (*extCmd).endCursorPos);
+
+                (*extCmd).deletedBlocks.assign(START, lastCB);
+                (*lastCB).rope->remove(0, (*extCmd).endCursorPos);
+                tab->contentBlocks.erase(START, lastCB);
+
+                (*extCmd).deletedBlocks.push_back(ContentBlock {
+                    lastBlockType,
+                    0, 0.0f, 0.0f, 0.0f, 0,
+                    new Rope(ropeString),
+                });
+            } else if (
+                (*extCmd).endCursorPos == tab->contentBlocks[(*extCmd).endCBIndex].rope->length()
+            ) {
+                auto firstCB = START;
+                auto lastCB = END + 1;
+
+                string ropeString = (*firstCB).rope->getString();
+                (*extCmd).deletedBlocks.push_back(ContentBlock {
+                    (*firstCB).type,
+                    (*firstCB).flags,
+                    0.0f, 0.0f, 0.0f, 0,
+                    new Rope(ropeString.substr(cmd.startCursorPos, ropeString.length() - cmd.startCursorPos))
+                });
+                (*firstCB).rope->remove(cmd.startCursorPos, ropeString.length() - cmd.startCursorPos);
+
+                (*extCmd).deletedBlocks.insert((*extCmd).deletedBlocks.begin() + 1, firstCB + 1, lastCB);
+
+                tab->contentBlocks.erase(firstCB + 1, lastCB);
             } else {
-                uint32_t firstIndex = distance(tab->contentBlocks.begin(), cbDeleteStart);
+                auto firstCB = START;
+                auto lastCB = END;
 
-                if (deleteFirstCB) {
-                    tab->contentBlocks.erase(cbDeleteStart, cbDeleteEnd);
-                } else {
-                    (*cbDeleteStart).rope->append((*cbDeleteEnd).rope->getString());
-                    tab->contentBlocks.erase(cbDeleteStart + 1, cbDeleteEnd + 1);
-                }
+                string firstRopeString = (*firstCB).rope->getString();
+                string lastRopeString = (*lastCB).rope->getString();
+                (*firstCB).rope->remove(cmd.startCursorPos, firstRopeString.length() - cmd.startCursorPos);
+                (*firstCB).rope->append(lastRopeString.substr((*extCmd).endCursorPos, lastRopeString.length() - (*extCmd).endCursorPos));
 
-                tab->cursorCBIndex = firstIndex;
+                (*extCmd).deletedBlocks.push_back(ContentBlock {
+                    (*firstCB).type,
+                    0, 0.0f, 0.0f, 0.0f, 0,
+                    new Rope(firstRopeString.substr(cmd.startCursorPos, firstRopeString.length() - cmd.startCursorPos))
+                });
+
+                (*extCmd).deletedBlocks.insert((*extCmd).deletedBlocks.begin() + 1, firstCB + 1, lastCB);
+
+                (*extCmd).deletedBlocks.push_back(ContentBlock {
+                    (*lastCB).type,
+                    0, 0.0f, 0.0f, 0.0f, 0,
+                    new Rope(lastRopeString.substr(0, (*extCmd).endCursorPos))
+                });
+
+                tab->contentBlocks.erase(firstCB + 1, lastCB + 1);
             }
 
             reDrawCBsFrom(cmd.startCBIndex, 100);
+            append = true;
 
             #undef START
             #undef END
             break;
         }
+
+        case CommandType::Undo: processCBUndo(tab); break;
+        case CommandType::Redo: processCBRedo(tab); break;
     }
 
     if (append) {
-        if (!tab->commands.empty()) {
-            ++tab->currentCommand;
+        if (tab->currentCommand < tab->commands.size() - 1) {
+            auto cmdIter = tab->commands.end() - 1;
+
+            while (cmdIter != tab->commands.begin() + tab->currentCommand) {
+                if ((*cmdIter).ext && (*cmdIter).extIndex == tab->extCommands.size() - 1) {
+                    tab->extCommands.pop_back();
+                }
+
+                #ifdef DEBUG_COMMANDS
+                    cout << "\nDEBUG: Deleting command: ";
+                    printContentCommand(&*cmdIter);
+                #endif
+
+                tab->commands.pop_back();
+                cmdIter = tab->commands.end() - 1;
+            }
         }
 
+        ++tab->currentCommand;
         tab->commands.push_back(cmd);
     }
 
     #ifdef DEBUG_COMMANDS
         cout << "\nDEBUG: Commands:";
 
-        for (ContentCommand cmd : tab->commands) {
-            cout << "\n  -> ";
-            printContentCommand(&cmd);
+        for (
+            auto cmd = tab->commands.begin();
+            cmd != tab->commands.end();
+            ++cmd
+        ) {
+            if (distance(tab->commands.begin(), cmd) == tab->currentCommand) {
+                cout << "\n  -> ";
+            } else {
+                cout << "\n     ";
+            }
+
+            if ((*cmd).ext) {
+                printContentCommand(&*cmd, &tab->extCommands[(*cmd).extIndex]);
+                #ifdef DEBUG_CONTENT_BLOCKS
+                    printContentBlocksFromVector(tab->extCommands[(*cmd).extIndex].deletedBlocks);
+                #endif
+            } else {
+                printContentCommand(&*cmd);
+            }
         }
     #endif
+}
+
+void processCBUndo(ContentTab* tab) {
+    #define SET_CURSOR_POS(c) tab->cursorPosition = c; tab->redrawCursor = true
+    #define CB_ROPE(cbIndex) tab->contentBlocks[cbIndex].rope
+
+    if (tab->currentCommand == 0) { return; }
+
+    #ifdef DEBUG_COMMANDS
+        cout << "\nDEBUG: undoing command";
+    #endif
+
+    ContentCommand* cmd = &tab->commands[tab->currentCommand];
+
+    if (cmd == nullptr) { return; }
+
+    bool decrement = false;
+
+    switch (cmd->type) {
+        case CommandType::Type: {
+            CB_ROPE(cmd->startCBIndex)->remove(cmd->startCursorPos, cmd->str.length());
+            SET_CURSOR_POS(cmd->startCursorPos);
+            decrement = true;
+            break;
+        }
+
+        case CommandType::Backspace: {
+            CB_ROPE(cmd->startCBIndex)->insert(cmd->startCursorPos - 1, cmd->str);
+            SET_CURSOR_POS(cmd->startCursorPos + cmd->str.length() - 1);
+            decrement = true;
+            break;
+        }
+
+        case CommandType::Delete: {
+            CB_ROPE(cmd->startCBIndex)->insert(cmd->startCursorPos, cmd->str);
+            SET_CURSOR_POS(cmd->startCursorPos);
+            decrement = true;
+            break;
+        }
+
+        case CommandType::DeleteSelected: {
+            ContentCommandExt* extCmd = &tab->extCommands[cmd->extIndex];
+
+            #define START tab->contentBlocks.begin() + cmd->startCBIndex
+            #define END   tab->contentBlocks.begin() + extCmd->endCBIndex
+
+            uint32_t cbIndex = cmd->startCBIndex;
+            bool startDeleted = false;
+
+            string startAppendString;
+            uint32_t endCBIndex = 0;
+
+            if (cmd->startCBIndex == extCmd->endCBIndex) {
+                ContentBlockType cbSelType = tab->contentBlocks[cmd->startCBIndex].type;
+                vector<ContentBlock>::iterator itr = tab->contentBlocks.begin() + cmd->startCBIndex;
+
+                if (
+                    cmd->startCursorPos == 0
+                    && extCmd->endCursorPos == tab->contentBlocks[cmd->startCBIndex].rope->length()
+                ) {
+                    delete (*itr).rope;
+                    (*itr).rope = extCmd->deletedBlocks.back().rope;
+                } else {
+                    if (!extCmd->deletedBlocks.empty()) {
+                        (*itr).rope->insert(cmd->startCursorPos, extCmd->deletedBlocks.back().rope->getString());
+                    } else {
+                        cout << "\nError: deleted blocks is empty";
+                    }
+                }
+
+                decrement = true;
+                reDrawCBsFrom(cmd->startCBIndex, 64);
+
+                break;
+            }
+
+            if (
+                cmd->startCursorPos == 0
+                && extCmd->endCursorPos == extCmd->deletedBlocks.back().rope->length()
+                && (*(START)).rope->length() == 0
+            ) {
+                tab->contentBlocks.erase(START);
+
+                tab->contentBlocks.insert(
+                    START,
+                    extCmd->deletedBlocks.begin(),
+                    extCmd->deletedBlocks.end()
+                );
+            } else if (cmd->startCursorPos == 0) {
+                tab->contentBlocks.insert(
+                    START,
+                    extCmd->deletedBlocks.begin(),
+                    extCmd->deletedBlocks.end() - 1
+                );
+
+                tab->contentBlocks[extCmd->endCBIndex].rope->prepend(extCmd->deletedBlocks.back().rope->getString());
+            } else if ((*(START)).rope->length() == cmd->startCursorPos) {
+                tab->contentBlocks[cmd->startCBIndex].rope->remove(
+                    cmd->startCursorPos,
+                    tab->contentBlocks[cmd->startCBIndex].rope->length() - cmd->startCursorPos
+                );
+
+                tab->contentBlocks[cmd->startCBIndex].rope->append(
+                    extCmd->deletedBlocks.front().rope->getString()
+                );
+
+                tab->contentBlocks.insert(
+                    START + 1,
+                    extCmd->deletedBlocks.begin() + 1,
+                    extCmd->deletedBlocks.end()
+                );
+            } else {
+                auto firstCB = START;
+
+                string firstRopeString = (*firstCB).rope->getString();
+
+                (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
+                (*firstCB).rope->append(extCmd->deletedBlocks.front().rope->getString());
+
+                tab->contentBlocks.insert(
+                    START + 1,
+                    extCmd->deletedBlocks.begin() + 1,
+                    extCmd->deletedBlocks.end()
+                );
+
+                (*(END)).rope->append(firstRopeString.substr(
+                    cmd->startCursorPos,
+                    firstRopeString.length() - cmd->startCursorPos
+                ));
+            }
+
+            reDrawCBsFrom(cmd->startCBIndex, 64);
+            tab->redrawCursor = true;
+            decrement = true;
+
+            break;
+
+            #undef START
+            #undef END
+        }
+    }
+
+    if (decrement) {
+        --tab->currentCommand;
+    }
+
+    #undef SET_CURSOR_POS
+    #undef CB_ROPE
+}
+
+void processCBRedo(ContentTab* tab) {
+    if (tab->currentCommand == tab->commands.size() - 1) { return; }
 }
 
 void processCommand(UIElement* elem, Command* cmd) {
@@ -6920,17 +7132,10 @@ string elementType(UIElement *elem) {
 #endif
 
 #ifdef DEBUG_CONTENT_BLOCKS
+void printContentBlocksFromVector(vector<ContentBlock> cblock) {
+    for (auto itr = cblock.begin(); itr != cblock.end(); ++itr) {
+        cout << "\n         |-> ";
 
-void printContentBlocks(uint32_t tabIndex) {
-    if (tabIndex >= tabs.size()) {
-        cerr << "\nError: Invalid tab index.";
-        return;
-    }
-
-    cout << "\nContent Blocks: ";
-
-    for (auto itr = tabs[tabIndex].contentBlocks.begin(); itr != tabs[tabIndex].contentBlocks.end(); ++itr) {
-        cout << "\n  ";
         switch ((*itr).type) {
             case ContentBlockType::Title: cout << "Title"; break;
             case ContentBlockType::Heading1: cout << "Heading1"; break;
@@ -6942,8 +7147,26 @@ void printContentBlocks(uint32_t tabIndex) {
             case ContentBlockType::Paragraph: cout << "Paragraph"; break;
         }
 
-        cout << " -> " << (*itr).rope->text.substr(0, 10);
+        string ropeString = (*itr).rope->text;
+
+        cout << ": " << ropeString.substr(0, 16);
+
+        size_t len = ropeString.length();
+        if (len > 16) {
+            cout << "... (" << len << " chars)";
+        }
     }
+}
+
+void printContentBlocks(uint32_t tabIndex) {
+    if (tabIndex >= tabs.size()) {
+        cerr << "\nError: Invalid tab index.";
+        return;
+    }
+
+    cout << "\nContent Blocks: ";
+
+    printContentBlocksFromVector(tabs[tabIndex].contentBlocks);
 }
 
 #endif

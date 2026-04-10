@@ -61,13 +61,24 @@ Rope::Rope(Rope r1, Rope r2) {
     }
 }
 
+Rope::Rope(string s1, string s2) {
+    this->text = "";
+    left = new Rope(s1);
+    right = new Rope(s2);
+    lenLeft = s1.length();
+    left->parent = this;
+    right->parent = this;
+}
+
 Rope::~Rope() {
     if (left != nullptr) {
         left->~Rope();
+        left = nullptr;
     }
 
     if (right != nullptr) {
         right->~Rope();
+        left = nullptr;
     }
 }
 

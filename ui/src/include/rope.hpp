@@ -24,6 +24,7 @@ class Rope {
         Rope(char*);
         Rope(Rope* r1, Rope* r2);
         Rope(Rope r1, Rope r2);
+        Rope(string s1, string s2);
 
         inline bool isLeaf();
         string getString();

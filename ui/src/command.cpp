@@ -154,7 +154,7 @@ void printContentCommand(ContentCommand* cmd, ContentCommandExt* cmdExt) {
             << ", endCursorPos: " << cmdExt->endCursorPos;
 
         if (!cmdExt->deletedBlocks.empty()) {
-            cout << ", contains deleted blocks!";
+            cout << "\n     |-> Deleted Content Blocks:";
         }
     } else {
         cout << ", CBIndex: " << cmd->startCBIndex << ", cursorPos: "
