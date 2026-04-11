@@ -150,6 +150,7 @@ void moveToPrevCommand(CommandList &list);
 void moveToNextCommand(CommandList &list);
 void printCommands(CommandList& list);
 void printContentCommand(ContentCommand* command, ContentCommandExt* cmdExt = nullptr);
+string to_string(CommandType cmdType);
 
 #endif // PATRAM_CORE_UI
 
