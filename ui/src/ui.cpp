@@ -1491,8 +1491,10 @@ void cbKeyCallback(int key, int action, int mod) {
                 ) {
                     if (tab->textSelected){
                         tab->extCommands.push_back(ContentCommandExt {
+                            ContentDeletionType::None,
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
                             vector<ContentBlock>(),
                         });
 
@@ -1526,8 +1528,10 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (CUR_POS == 0) {
                     if (tab->textSelected) {
                         tab->extCommands.push_back(ContentCommandExt {
+                            ContentDeletionType::None,
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
                             vector<ContentBlock>(),
                         });
 
@@ -1550,8 +1554,10 @@ void cbKeyCallback(int key, int action, int mod) {
                             cbs.push_back(cb);
 
                             tab->extCommands.push_back(ContentCommandExt {
+                                ContentDeletionType::None,
                                 tab->cursorCBIndex,
                                 0,
+                                vector<ContentBlock>(),
                                 cbs,
                             });
 
@@ -1581,8 +1587,10 @@ void cbKeyCallback(int key, int action, int mod) {
                 ) {
                     if (tab->textSelected) {
                         tab->extCommands.push_back(ContentCommandExt {
+                            ContentDeletionType::None,
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
                             vector<ContentBlock>(),
                         });
 
@@ -1612,8 +1620,10 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (CUR_POS == cb->rope->length()) {
                     if (tab->textSelected) {
                         tab->extCommands.push_back(ContentCommandExt {
+                            ContentDeletionType::None,
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
                             vector<ContentBlock>(),
                         });
 
@@ -1639,9 +1649,11 @@ void cbKeyCallback(int key, int action, int mod) {
                             cbs.push_back(cb);
 
                             tab->extCommands.push_back(ContentCommandExt {
+                                ContentDeletionType::None,
                                 tab->cursorCBIndex + 1,
                                 0,
                                 cbs,
+                                vector<ContentBlock>(),
                             });
 
                             processCBCommand(ContentCommand {
@@ -1718,8 +1730,10 @@ void cbKeyCallback(int key, int action, int mod) {
 
                     if (tab->textSelected) {
                         tab->extCommands.push_back(ContentCommandExt {
+                            ContentDeletionType::None,
                             tab->selEndCBIndex,
                             tab->selEndCursorPosition,
+                            vector<ContentBlock>(),
                             vector<ContentBlock>(),
                         });
 
@@ -6215,8 +6229,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
 void cbKeypressType(ContentTab* tab, string text) {
     if (tab->textSelected) {
         tab->extCommands.push_back(ContentCommandExt {
+            ContentDeletionType::None,
             tab->selEndCBIndex,
             tab->selEndCursorPosition,
+            vector<ContentBlock>(),
             vector<ContentBlock>(),
         });
 
@@ -6242,6 +6258,161 @@ void cbKeypressType(ContentTab* tab, string text) {
     tab->redrawCursor = true;
 
     reDrawCBsFrom(tab->activeCBIndex, 64);
+}
+
+ContentDeletionType deleteSelectedCBText(
+    ContentTab* tab, ContentCommand* cmd, ContentCommandExt* extCmd
+) {
+    #define START tab->contentBlocks.begin() + cmd->startCBIndex
+    #define END   tab->contentBlocks.begin() + extCmd->endCBIndex
+
+    if (cmd->startCBIndex == extCmd->endCBIndex) {
+        ContentBlock* cbSel = &tab->contentBlocks[cmd->startCBIndex];
+        vector<ContentBlock>::iterator itr = START;
+
+        if (cmd->startCursorPos == 0 && extCmd->endCursorPos == cbSel->rope->length()) {
+            extCmd->deletedBlocks.push_back(*itr);
+            (*itr).rope = new Rope();
+            return ContentDeletionType::DeleteSingleCB;
+        }
+
+        extCmd->deletedBlocks.push_back(ContentBlock {
+            (*itr).type,
+            0, 0.0f, 0.0f, 0.0f, 0,
+            new Rope((*itr).rope->getString().substr(
+                cmd->startCursorPos,
+                extCmd->endCursorPos - cmd->startCursorPos
+            ))
+        });
+
+        (*itr).rope->remove(
+            cmd->startCursorPos,
+            extCmd->endCursorPos - cmd->startCursorPos
+        );
+
+        return ContentDeletionType::PartiallyDeleteSingleCB;
+    }
+
+    if (
+        cmd->startCursorPos == 0
+        && extCmd->endCursorPos == tab->contentBlocks[extCmd->endCBIndex].rope->length()
+    ) {
+        extCmd->deletedBlocks.assign(START, END + 1);
+        tab->contentBlocks.erase(START, END + 1);
+        tab->contentBlocks.insert(START, ContentBlock {
+            ContentBlockType::Paragraph,
+            CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+            0.0f, 0.0f, 0.0f, 0, new Rope()
+        });
+        return ContentDeletionType::DeleteMultipleCBs;
+    }
+
+    if (cmd->startCursorPos == 0) {
+        auto lastCB = END;
+
+        ContentBlockType lastBlockType = (*lastCB).type;
+        string ropeString = (*lastCB).rope->getString().substr(0, extCmd->endCursorPos);
+
+        extCmd->deletedBlocks.assign(START, lastCB);
+        (*lastCB).rope->remove(0, extCmd->endCursorPos);
+        tab->contentBlocks.erase(START, lastCB);
+
+        extCmd->deletedBlocks.push_back(ContentBlock {
+            lastBlockType,
+            0, 0.0f, 0.0f, 0.0f, 0,
+            new Rope(ropeString),
+        });
+        return ContentDeletionType::DeleteMultipleCBsPartialLast;
+    }
+
+    if (
+        extCmd->endCursorPos == tab->contentBlocks[extCmd->endCBIndex].rope->length()
+    ) {
+        auto firstCB = START;
+        auto lastCB = END + 1;
+
+        string ropeString = (*firstCB).rope->getString();
+        extCmd->deletedBlocks.push_back(ContentBlock {
+            (*firstCB).type,
+            (*firstCB).flags,
+            0.0f, 0.0f, 0.0f, 0,
+            new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
+        });
+        (*firstCB).rope->remove(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos);
+
+        extCmd->deletedBlocks.insert(extCmd->deletedBlocks.begin() + 1, firstCB + 1, lastCB);
+
+        tab->contentBlocks.erase(firstCB + 1, lastCB);
+
+        return ContentDeletionType::DeleteMultipleCBsPartialFirst;
+    }
+
+    auto firstCB = START;
+    auto lastCB = END;
+
+    string firstRopeString = (*firstCB).rope->getString();
+    string lastRopeString = (*lastCB).rope->getString();
+    (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
+    (*firstCB).rope->append(lastRopeString.substr(extCmd->endCursorPos, lastRopeString.length() - extCmd->endCursorPos));
+
+    extCmd->deletedBlocks.push_back(ContentBlock {
+        (*firstCB).type,
+        0, 0.0f, 0.0f, 0.0f, 0,
+        new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
+    });
+
+    extCmd->deletedBlocks.insert(extCmd->deletedBlocks.begin() + 1, firstCB + 1, lastCB);
+
+    extCmd->deletedBlocks.push_back(ContentBlock {
+        (*lastCB).type,
+        0, 0.0f, 0.0f, 0.0f, 0,
+        new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
+    });
+
+    tab->contentBlocks.erase(firstCB + 1, lastCB + 1);
+    return ContentDeletionType::DeleteMultipleCBsPartial;
+
+    #undef START
+    #undef END
+}
+
+vector<ContentBlock> textToCB(string& text) {
+    string::iterator prevItr = text.begin();
+
+    vector<ContentBlock> blocks;
+
+    for(auto itr = text.begin(); itr != text.end(); ++itr) {
+        if (*itr == '\n' || *itr == '\r') {
+            string str = text.substr(distance(text.begin(), prevItr), distance(prevItr, itr));
+
+            if (!str.empty()) {
+                blocks.push_back(ContentBlock {
+                    ContentBlockType::Paragraph,
+                    0, 0.0f, 0.0f, 0.0f, 0, new Rope(str)
+                });
+            }
+
+            prevItr = itr + 1;
+
+            if (*prevItr == '\n') {
+                ++prevItr;
+                ++itr;
+            }
+        }
+    }
+
+    if (prevItr != text.end()) {
+        string str = text.substr(distance(text.begin(), prevItr), distance(prevItr, text.end()));
+
+        if (!str.empty()) {
+            blocks.push_back(ContentBlock {
+                ContentBlockType::Paragraph,
+                0, 0.0f, 0.0f, 0.0f, 0, new Rope(str)
+            });
+        }
+    }
+
+    return blocks;
 }
 
 void processCBCommand(ContentCommand cmd) {
@@ -6310,103 +6481,98 @@ void processCBCommand(ContentCommand cmd) {
             break;
 
         case CommandType::Replace: {
+            ContentCommandExt* extCmd = &*(tab->extCommands.rbegin());
             #define START tab->contentBlocks.begin() + cmd.startCBIndex
-            #define END   tab->contentBlocks.begin() + tab->extCommands.back().endCBIndex
+            #define END   tab->contentBlocks.begin() + extCmd->endCBIndex
 
-            uint32_t endCBIndex = tab->extCommands.back().endCBIndex;
-            uint32_t endCursorPos = tab->extCommands.back().endCursorPos;
+            vector<ContentBlock> pastedCBs = textToCB(cmd.str);
 
-            vector<ContentBlock>::iterator cbReplaceStart;
-            vector<ContentBlock>::iterator cbReplaceEnd;
+            extCmd->insertedBlocks.assign(pastedCBs.begin(), pastedCBs.end());
 
-            bool replaceFirstCB = false;
-            bool replaceLastCB = false;
+            extCmd->delType = deleteSelectedCBText(tab, &cmd, &*(tab->extCommands.rbegin()));
 
-            if (cmd.startCBIndex == tab->extCommands.back().endCBIndex) {
-                vector<ContentBlock>::iterator itr = START;
-
-                (*itr).rope->remove(cmd.startCursorPos, tab->extCommands.back().endCursorPos - cmd.startCursorPos);
-                (*itr).rope->insert(cmd.startCursorPos, cmd.str);
-
+            if (pastedCBs.empty()) {
+                append = true;
                 break;
             }
 
-            for (auto cbIter = START; cbIter != END + 1; ++cbIter) {
-                if (cbIter == START) {
-                    if (
-                        cmd.startCursorPos == 0
-                        && (
-                            cmd.startCBIndex != endCBIndex
-                            || endCursorPos == (*cbIter).rope->length()
-                       )
-                    ) {
-                        replaceFirstCB = true;
-                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-                    } else {
-                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
-                            (*cbIter).type,
-                            0, 0.0f, 0.0f, 0.0f, 0,
-                            new Rope(
-                                (*cbIter).rope->getString()
-                                    .substr(0, cmd.startCursorPos)
-                            ),
-                        });
-                        (*cbIter).rope->remove(cmd.startCursorPos, (*cbIter).rope->length() - cmd.startCursorPos);
+            switch (extCmd->delType) {
+                case ContentDeletionType::DeleteMultipleCBs:
+                case ContentDeletionType::DeleteSingleCB:
+                    tab->contentBlocks.erase(START);
+                    tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end());
+                    break;
+
+                case ContentDeletionType::PartiallyDeleteSingleCB: {
+                    auto firstCB = START;
+                    string firstCBStr = (*firstCB).rope->getString();
+
+                    string pastedFirstStr = pastedCBs.front().rope->getString();
+
+                    (*firstCB).rope->insert(cmd.startCursorPos, pastedFirstStr);
+
+                    if (pastedCBs.size() > 1) {
+                        uint32_t firstCBPastedEnd = cmd.startCursorPos + pastedFirstStr.length();
+
+                        (*firstCB).rope->remove(
+                            firstCBPastedEnd,
+                            (*firstCB).rope->length() - firstCBPastedEnd
+                        );
+
+                        tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
+
+                        auto lastPastedCB = START + pastedCBs.size() - 1; 
+
+                        string lastPastedStr = (*lastPastedCB).rope->getString();
+
+                        (*lastPastedCB).rope = new Rope(
+                            lastPastedStr,
+                            firstCBStr.substr(
+                                cmd.startCursorPos,
+                                firstCBStr.length() - cmd.startCursorPos
+                            )
+                        );
                     }
 
-                    cbReplaceStart = cbIter;
-                    cbReplaceEnd = cbIter;
-                    continue;
+                    break;
                 }
 
-                if (cbIter == END) {
-                    if (endCursorPos == (*cbIter).rope->length() && cmd.startCBIndex != endCBIndex) {
-                        replaceLastCB = true;
-                        tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-                        tab->contentBlocks.erase(cbIter);
-                    } else {
-                        tab->extCommands.back().deletedBlocks.push_back(ContentBlock {
-                            (*cbIter).type,
-                            0, 0.0f, 0.0f, 0.0f, 0,
-                            new Rope(
-                                (*cbIter).rope->getString()
-                                    .substr(
-                                        endCursorPos,
-                                        (*cbIter).rope->length() - cmd.startCursorPos
-                                    )
-                            ),
-                        });
-                        (*cbIter).rope->remove(0, endCursorPos);
+                case ContentDeletionType::DeleteMultipleCBsPartial: {
+                    tab->contentBlocks.insert(START + 1, pastedCBs.begin(), pastedCBs.end() - 1);
+                    string firstCBString = (*(START)).rope->getString();
+
+                    (*(START)).rope->remove(cmd.startCursorPos, firstCBString.length() - cmd.startCursorPos);
+                    (*(START)).rope->append(pastedCBs.front().rope->getString());
+                    (*(START + pastedCBs.size() - 1)).rope->append(firstCBString.substr(cmd.startCursorPos, firstCBString.length() - cmd.startCursorPos));
+                    break;
+                }
+
+                case ContentDeletionType::DeleteMultipleCBsPartialFirst: {
+                    auto firstCB = START;
+
+                    string pastedFirstStr = pastedCBs.front().rope->getString();
+
+                    (*firstCB).rope->append(pastedFirstStr);
+
+                    if (pastedCBs.size() > 1) {
+                        tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
                     }
-
-                    cbReplaceEnd = cbIter;
-                    continue;
+                    break;
                 }
 
-                tab->extCommands.back().deletedBlocks.push_back(*cbIter);
-            }
+                case ContentDeletionType::DeleteMultipleCBsPartialLast: {
+                    tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end() - 1);
 
-            if (cmd.startCBIndex != endCBIndex && cmd.startCursorPos == 0 && replaceLastCB) {
-                tab->contentBlocks.erase(cbReplaceStart, cbReplaceEnd + 1);
-                tab->contentBlocks.insert(tab->contentBlocks.begin() + cmd.startCBIndex, ContentBlock {
-                    ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_VISIBLE | CONTENT_BLOCK_REDRAW, 0.0f, 0.0f, 0.0f, 0, new Rope(cmd.str)
-                });
-            } else {
-                uint32_t firstIndex = distance(tab->contentBlocks.begin(), cbReplaceStart);
+                    auto lastPastedCB = START + pastedCBs.size() - 1;
 
-                if (replaceFirstCB) {
-                    (*cbReplaceEnd).rope->prepend(cmd.str);
-                    tab->contentBlocks.erase(cbReplaceStart, cbReplaceEnd);
-                } else {
-                    (*cbReplaceStart).rope->append(cmd.str + (*cbReplaceEnd).rope->getString());
-                    tab->contentBlocks.erase(cbReplaceStart + 1, cbReplaceEnd + 1);
+                    (*lastPastedCB).rope->prepend(pastedCBs.back().rope->getString());
+                    break;
                 }
-
-                tab->cursorCBIndex = firstIndex;
             }
 
-            reDrawCBsFrom(cmd.startCBIndex, 100);
+            append = true;
+
+            reDrawCBsFrom(cmd.startCBIndex, 64);
 
             #undef START
             #undef END
@@ -6543,123 +6709,9 @@ void processCBCommand(ContentCommand cmd) {
 
         case CommandType::DeleteSelected: {
             auto extCmd = tab->extCommands.rbegin();
-
-            #define START tab->contentBlocks.begin() + cmd.startCBIndex
-            #define END   tab->contentBlocks.begin() + (*extCmd).endCBIndex
-
-            uint32_t endCBIndex = tab->extCommands.back().endCBIndex;
-            uint32_t endCursorPos = tab->extCommands.back().endCursorPos;
-
-            vector<ContentBlock>::iterator cbDeleteStart;
-            vector<ContentBlock>::iterator cbDeleteEnd;
-
-            bool deleteFirstCB = false;
-            bool deleteLastCB = false;
-
-            if (cmd.startCBIndex == (*extCmd).endCBIndex) {
-                ContentBlock* cbSel = &tab->contentBlocks[cmd.startCBIndex];
-                vector<ContentBlock>::iterator itr = START;
-
-                if (cmd.startCursorPos == 0 && (*extCmd).endCursorPos == cbSel->rope->length()) {
-                    (*extCmd).deletedBlocks.push_back(*itr);
-                    (*itr).rope = new Rope();
-                } else {
-                    (*extCmd).deletedBlocks.push_back(ContentBlock {
-                        (*itr).type,
-                        0, 0.0f, 0.0f, 0.0f, 0,
-                        new Rope((*itr).rope->getString().substr(
-                            cmd.startCursorPos,
-                            (*extCmd).endCursorPos - cmd.startCursorPos
-                        ))
-                    });
-
-                    (*itr).rope->remove(
-                        cmd.startCursorPos,
-                        (*extCmd).endCursorPos - cmd.startCursorPos
-                    );
-                }
-
-                append = true;
-
-                reDrawCBsFrom(cmd.startCBIndex, 64);
-                break;
-            }
-
-            if (
-                cmd.startCursorPos == 0
-                && (*extCmd).endCursorPos == tab->contentBlocks[(*extCmd).endCBIndex].rope->length()
-            ) {
-                (*extCmd).deletedBlocks.assign(START, END + 1);
-                tab->contentBlocks.erase(START, END + 1);
-                tab->contentBlocks.insert(START, ContentBlock {
-                    ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 0, new Rope()
-                });
-            } else if (cmd.startCursorPos == 0) {
-                auto lastCB = END;
-
-                ContentBlockType lastBlockType = (*lastCB).type;
-                string ropeString = (*lastCB).rope->getString().substr(0, (*extCmd).endCursorPos);
-
-                (*extCmd).deletedBlocks.assign(START, lastCB);
-                (*lastCB).rope->remove(0, (*extCmd).endCursorPos);
-                tab->contentBlocks.erase(START, lastCB);
-
-                (*extCmd).deletedBlocks.push_back(ContentBlock {
-                    lastBlockType,
-                    0, 0.0f, 0.0f, 0.0f, 0,
-                    new Rope(ropeString),
-                });
-            } else if (
-                (*extCmd).endCursorPos == tab->contentBlocks[(*extCmd).endCBIndex].rope->length()
-            ) {
-                auto firstCB = START;
-                auto lastCB = END + 1;
-
-                string ropeString = (*firstCB).rope->getString();
-                (*extCmd).deletedBlocks.push_back(ContentBlock {
-                    (*firstCB).type,
-                    (*firstCB).flags,
-                    0.0f, 0.0f, 0.0f, 0,
-                    new Rope(ropeString.substr(cmd.startCursorPos, ropeString.length() - cmd.startCursorPos))
-                });
-                (*firstCB).rope->remove(cmd.startCursorPos, ropeString.length() - cmd.startCursorPos);
-
-                (*extCmd).deletedBlocks.insert((*extCmd).deletedBlocks.begin() + 1, firstCB + 1, lastCB);
-
-                tab->contentBlocks.erase(firstCB + 1, lastCB);
-            } else {
-                auto firstCB = START;
-                auto lastCB = END;
-
-                string firstRopeString = (*firstCB).rope->getString();
-                string lastRopeString = (*lastCB).rope->getString();
-                (*firstCB).rope->remove(cmd.startCursorPos, firstRopeString.length() - cmd.startCursorPos);
-                (*firstCB).rope->append(lastRopeString.substr((*extCmd).endCursorPos, lastRopeString.length() - (*extCmd).endCursorPos));
-
-                (*extCmd).deletedBlocks.push_back(ContentBlock {
-                    (*firstCB).type,
-                    0, 0.0f, 0.0f, 0.0f, 0,
-                    new Rope(firstRopeString.substr(cmd.startCursorPos, firstRopeString.length() - cmd.startCursorPos))
-                });
-
-                (*extCmd).deletedBlocks.insert((*extCmd).deletedBlocks.begin() + 1, firstCB + 1, lastCB);
-
-                (*extCmd).deletedBlocks.push_back(ContentBlock {
-                    (*lastCB).type,
-                    0, 0.0f, 0.0f, 0.0f, 0,
-                    new Rope(lastRopeString.substr(0, (*extCmd).endCursorPos))
-                });
-
-                tab->contentBlocks.erase(firstCB + 1, lastCB + 1);
-            }
-
-            reDrawCBsFrom(cmd.startCBIndex, 100);
+            (*extCmd).delType = deleteSelectedCBText(tab, &cmd, &*extCmd);
+            reDrawCBsFrom(cmd.startCBIndex, 64);
             append = true;
-
-            #undef START
-            #undef END
             break;
         }
 
@@ -6708,6 +6760,10 @@ void processCBCommand(ContentCommand cmd) {
                 printContentCommand(&*cmd, &tab->extCommands[(*cmd).extIndex]);
                 #ifdef DEBUG_CONTENT_BLOCKS
                     printContentBlocksFromVector(tab->extCommands[(*cmd).extIndex].deletedBlocks);
+                    if (!tab->extCommands[(*cmd).extIndex].insertedBlocks.empty()) {
+                        cout << "\n     |-> Inserted Content Blocks:";
+                        printContentBlocksFromVector(tab->extCommands[(*cmd).extIndex].insertedBlocks);
+                    }
                 #endif
             } else {
                 printContentCommand(&*cmd);
@@ -6727,6 +6783,16 @@ void processCBUndo(ContentTab* tab) {
     #endif
 
     ContentCommand* cmd = &tab->commands[tab->currentCommand];
+    ContentCommandExt* extCmd;
+
+    if (cmd->ext) {
+        extCmd = &tab->extCommands[cmd->extIndex];
+    } else {
+        extCmd = nullptr;
+    }
+
+    #define START tab->contentBlocks.begin() + cmd->startCBIndex
+    #define END   tab->contentBlocks.begin() + extCmd->endCBIndex
 
     if (cmd == nullptr) { return; }
 
@@ -6737,6 +6803,126 @@ void processCBUndo(ContentTab* tab) {
             CB_ROPE(cmd->startCBIndex)->remove(cmd->startCursorPos, cmd->str.length());
             SET_CURSOR_POS(cmd->startCursorPos);
             decrement = true;
+            break;
+        }
+
+        case CommandType::Replace: {
+            switch (extCmd->delType) {
+                case ContentDeletionType::DeleteSingleCB:
+                    if (extCmd->insertedBlocks.size() > 1) {
+                        tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+                    }
+
+                    // delete (*(START)).rope;
+                    (*(START)).rope = new Rope(extCmd->deletedBlocks.back().rope->getString());
+                    break;
+
+                case ContentDeletionType::PartiallyDeleteSingleCB:
+                    if (!extCmd->deletedBlocks.empty()) {
+                        auto firstCB = START;
+                        string lastCBStr = "";
+
+                        if (extCmd->insertedBlocks.size() > 1) {
+                            string lastStr = (*(firstCB + extCmd->insertedBlocks.size() - 1)).rope->getString();
+
+                            uint32_t len = extCmd->insertedBlocks.back().rope->length();
+
+                            lastCBStr = lastStr.substr(len, lastStr.length() - len);
+
+                            (*(firstCB + extCmd->insertedBlocks.size() - 1)).rope->remove(
+                                0,
+                                extCmd->insertedBlocks.back().rope->length()
+                            );
+
+                            tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+                        }
+
+                        (*firstCB).rope->remove(
+                            cmd->startCursorPos,
+                            extCmd->insertedBlocks.front().rope->length()
+                        );
+
+                        (*firstCB).rope->insert(cmd->startCursorPos, extCmd->deletedBlocks.back().rope->getString());
+                        (*firstCB).rope->append(lastCBStr);
+                    } else {
+                        cout << "\nError: deleted blocks is empty";
+                    }
+                    break;
+
+                case ContentDeletionType::DeleteMultipleCBs:
+                    tab->contentBlocks.erase(START);
+
+                    tab->contentBlocks.insert(
+                        START,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end()
+                    );
+                    break;
+
+                case ContentDeletionType::DeleteMultipleCBsPartialLast:
+                    tab->contentBlocks.insert(
+                        START,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end() - 1
+                    );
+
+                    CB_ROPE(extCmd->endCBIndex)->remove(
+                        0,
+                        extCmd->insertedBlocks.back().rope->length()
+                    );
+
+                    CB_ROPE(extCmd->endCBIndex)->prepend(extCmd->deletedBlocks.back().rope->getString());
+                    break;
+
+                case ContentDeletionType::DeleteMultipleCBsPartialFirst:
+                    tab->contentBlocks[cmd->startCBIndex].rope->remove(
+                        cmd->startCursorPos,
+                        tab->contentBlocks[cmd->startCBIndex].rope->length() - cmd->startCursorPos
+                    );
+
+                    tab->contentBlocks[cmd->startCBIndex].rope->append(
+                        extCmd->deletedBlocks.front().rope->getString()
+                    );
+
+                    tab->contentBlocks.insert(
+                        START + 1,
+                        extCmd->deletedBlocks.begin() + 1,
+                        extCmd->deletedBlocks.end()
+                    );
+                    break;
+                case ContentDeletionType::DeleteMultipleCBsPartial:
+                    auto firstCB = START;
+
+                    string firstRopeString = (*firstCB).rope->getString();
+
+                    (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
+                    (*firstCB).rope->append(extCmd->deletedBlocks.front().rope->getString());
+
+                    tab->contentBlocks.erase(
+                        START + 1,
+                        START + extCmd->insertedBlocks.size() - 1
+                    );
+                    tab->contentBlocks.insert(
+                        START + 1,
+                        extCmd->deletedBlocks.begin() + 1,
+                        extCmd->deletedBlocks.end() - 1
+                    );
+
+                    // uint32_t len = cmd->startCursorPos + extCmd->insertedBlocks.back().rope->length();
+                    // string strToAppend = firstRopeString.substr(
+                    //     len,
+                    //     firstRopeString.length() - len
+                    // );
+                    // (*(END)).rope->append(strToAppend);
+                    (*(END)).rope->remove(0, extCmd->insertedBlocks.back().rope->length());
+                    (*(END)).rope->prepend(extCmd->deletedBlocks.back().rope->getString());
+                    break;
+            }
+
+            reDrawCBsFrom(cmd->startCBIndex, 64);
+            tab->redrawCursor = true;
+            decrement = true;
+
             break;
         }
 
@@ -6757,92 +6943,75 @@ void processCBUndo(ContentTab* tab) {
         case CommandType::DeleteSelected: {
             ContentCommandExt* extCmd = &tab->extCommands[cmd->extIndex];
 
-            #define START tab->contentBlocks.begin() + cmd->startCBIndex
-            #define END   tab->contentBlocks.begin() + extCmd->endCBIndex
+            switch (extCmd->delType) {
+                case ContentDeletionType::DeleteSingleCB:
+                    delete (*(START)).rope;
+                    (*(START)).rope = extCmd->deletedBlocks.back().rope;
+                    break;
 
-            uint32_t cbIndex = cmd->startCBIndex;
-            bool startDeleted = false;
-
-            string startAppendString;
-            uint32_t endCBIndex = 0;
-
-            if (cmd->startCBIndex == extCmd->endCBIndex) {
-                ContentBlockType cbSelType = tab->contentBlocks[cmd->startCBIndex].type;
-                vector<ContentBlock>::iterator itr = tab->contentBlocks.begin() + cmd->startCBIndex;
-
-                if (
-                    cmd->startCursorPos == 0
-                    && extCmd->endCursorPos == tab->contentBlocks[cmd->startCBIndex].rope->length()
-                ) {
-                    delete (*itr).rope;
-                    (*itr).rope = extCmd->deletedBlocks.back().rope;
-                } else {
+                case ContentDeletionType::PartiallyDeleteSingleCB:
                     if (!extCmd->deletedBlocks.empty()) {
-                        (*itr).rope->insert(cmd->startCursorPos, extCmd->deletedBlocks.back().rope->getString());
+                        (*(START)).rope->insert(cmd->startCursorPos, extCmd->deletedBlocks.back().rope->getString());
                     } else {
                         cout << "\nError: deleted blocks is empty";
                     }
-                }
+                    break;
 
-                decrement = true;
-                reDrawCBsFrom(cmd->startCBIndex, 64);
+                case ContentDeletionType::DeleteMultipleCBs:
+                    tab->contentBlocks.erase(START);
 
-                break;
-            }
+                    tab->contentBlocks.insert(
+                        START,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end()
+                    );
+                    break;
 
-            if (
-                cmd->startCursorPos == 0
-                && extCmd->endCursorPos == extCmd->deletedBlocks.back().rope->length()
-                && (*(START)).rope->length() == 0
-            ) {
-                tab->contentBlocks.erase(START);
+                case ContentDeletionType::DeleteMultipleCBsPartialLast:
+                    tab->contentBlocks.insert(
+                        START,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end() - 1
+                    );
 
-                tab->contentBlocks.insert(
-                    START,
-                    extCmd->deletedBlocks.begin(),
-                    extCmd->deletedBlocks.end()
-                );
-            } else if (cmd->startCursorPos == 0) {
-                tab->contentBlocks.insert(
-                    START,
-                    extCmd->deletedBlocks.begin(),
-                    extCmd->deletedBlocks.end() - 1
-                );
+                    tab->contentBlocks[extCmd->endCBIndex].rope->prepend(extCmd->deletedBlocks.back().rope->getString());
+                    break;
 
-                tab->contentBlocks[extCmd->endCBIndex].rope->prepend(extCmd->deletedBlocks.back().rope->getString());
-            } else if ((*(START)).rope->length() == cmd->startCursorPos) {
-                tab->contentBlocks[cmd->startCBIndex].rope->remove(
-                    cmd->startCursorPos,
-                    tab->contentBlocks[cmd->startCBIndex].rope->length() - cmd->startCursorPos
-                );
+                case ContentDeletionType::DeleteMultipleCBsPartialFirst:
+                    tab->contentBlocks[cmd->startCBIndex].rope->remove(
+                        cmd->startCursorPos,
+                        tab->contentBlocks[cmd->startCBIndex].rope->length() - cmd->startCursorPos
+                    );
 
-                tab->contentBlocks[cmd->startCBIndex].rope->append(
-                    extCmd->deletedBlocks.front().rope->getString()
-                );
+                    tab->contentBlocks[cmd->startCBIndex].rope->append(
+                        extCmd->deletedBlocks.front().rope->getString()
+                    );
 
-                tab->contentBlocks.insert(
-                    START + 1,
-                    extCmd->deletedBlocks.begin() + 1,
-                    extCmd->deletedBlocks.end()
-                );
-            } else {
-                auto firstCB = START;
+                    tab->contentBlocks.insert(
+                        START + 1,
+                        extCmd->deletedBlocks.begin() + 1,
+                        extCmd->deletedBlocks.end()
+                    );
+                    break;
+                case ContentDeletionType::DeleteMultipleCBsPartial:
+                    auto firstCB = START;
 
-                string firstRopeString = (*firstCB).rope->getString();
+                    string firstRopeString = (*firstCB).rope->getString();
 
-                (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
-                (*firstCB).rope->append(extCmd->deletedBlocks.front().rope->getString());
+                    (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
+                    (*firstCB).rope->append(extCmd->deletedBlocks.front().rope->getString());
 
-                tab->contentBlocks.insert(
-                    START + 1,
-                    extCmd->deletedBlocks.begin() + 1,
-                    extCmd->deletedBlocks.end()
-                );
+                    tab->contentBlocks.insert(
+                        START + 1,
+                        extCmd->deletedBlocks.begin() + 1,
+                        extCmd->deletedBlocks.end()
+                    );
 
-                (*(END)).rope->append(firstRopeString.substr(
-                    cmd->startCursorPos,
-                    firstRopeString.length() - cmd->startCursorPos
-                ));
+                    (*(END)).rope->append(firstRopeString.substr(
+                        cmd->startCursorPos,
+                        firstRopeString.length() - cmd->startCursorPos
+                    ));
+                    break;
             }
 
             reDrawCBsFrom(cmd->startCBIndex, 64);
@@ -6850,9 +7019,6 @@ void processCBUndo(ContentTab* tab) {
             decrement = true;
 
             break;
-
-            #undef START
-            #undef END
         }
     }
 
@@ -6860,6 +7026,8 @@ void processCBUndo(ContentTab* tab) {
         --tab->currentCommand;
     }
 
+    #undef START
+    #undef END
     #undef SET_CURSOR_POS
     #undef CB_ROPE
 }
@@ -7147,7 +7315,7 @@ void printContentBlocksFromVector(vector<ContentBlock> cblock) {
             case ContentBlockType::Paragraph: cout << "Paragraph"; break;
         }
 
-        string ropeString = (*itr).rope->text;
+        string ropeString = (*itr).rope->getString();
 
         cout << ": " << ropeString.substr(0, 16);
 

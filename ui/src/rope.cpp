@@ -68,6 +68,7 @@ Rope::Rope(string s1, string s2) {
     lenLeft = s1.length();
     left->parent = this;
     right->parent = this;
+    parent = nullptr;
 }
 
 Rope::~Rope() {
@@ -570,17 +571,25 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
             int64_t change;
 
             if (index == 0) {
-                if (node->parent->right == node) {
-                    node->parent->right = nullptr;
-                } else {
-                    node->parent->left = nullptr;
-                }
-
                 change = static_cast<int64_t>(node->text.length());
 
-                propagateLenLeft(node, -change);
+                Rope* nodeParent = node->parent;
 
-                node->~Rope();
+                if (nodeParent->right == node) {
+                    nodeParent->text = nodeParent->left->text;
+                    nodeParent->lenLeft = nodeParent->left->lenLeft;
+                } else {
+                    nodeParent->text = nodeParent->right->text;
+                    nodeParent->lenLeft = nodeParent->right->lenLeft;
+                }
+
+                delete nodeParent->left;
+                delete nodeParent->right;
+
+                nodeParent->left = nullptr;
+                nodeParent->right = nullptr;
+
+                propagateLenLeft(nodeParent->parent, -change);
             } else {
                 change = static_cast<int64_t>(length);
 

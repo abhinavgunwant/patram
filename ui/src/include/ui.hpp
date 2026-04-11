@@ -496,6 +496,8 @@ void reDrawAllContentBlocks();
 void reDrawCBsFrom(uint32_t i, uint32_t limit);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void cbKeypressType(ContentTab* tab, string text);
+ContentDeletionType deleteSelectedCBText(ContentTab* tab, ContentCommand* cmd, ContentCommandExt* cbExt);
+vector<ContentBlock> textToCB(string& text);
 void processCBCommand(ContentCommand cmd);
 void processCBUndo(ContentTab* tab);
 void processCBRedo(ContentTab* tab);

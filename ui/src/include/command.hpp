@@ -26,6 +26,16 @@ enum class CommandType : uint8_t {
     Replace,
 };
 
+enum class ContentDeletionType: uint8_t {
+    None,
+    DeleteSingleCB,
+    PartiallyDeleteSingleCB,
+    DeleteMultipleCBs,
+    DeleteMultipleCBsPartialLast,
+    DeleteMultipleCBsPartialFirst,
+    DeleteMultipleCBsPartial,
+};
+
 struct ContentCommand {
     CommandType type;
 
@@ -40,8 +50,10 @@ struct ContentCommand {
 };
 
 struct ContentCommandExt {
+    ContentDeletionType delType;
     uint32_t endCBIndex;                    // for CommandType::DeleteSelected
     uint32_t endCursorPos;                  // for CommandType::DeleteSelected
+    vector<ContentBlock> insertedBlocks;    // for CommandType::Replace
     vector<ContentBlock> deletedBlocks;     // for CommandType::DeleteSelected
 };
 
