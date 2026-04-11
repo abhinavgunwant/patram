@@ -6416,7 +6416,7 @@ bool processCBTypeCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
     if (cmd->str != "") {
-        cb->rope->insert(tab->cursorPosition, cmd->str);
+        cb->rope->insert(cmd->startCursorPos, cmd->str);
         reDrawCBsFrom(cmd->startCBIndex, 64);
 
         if (
@@ -6443,7 +6443,7 @@ bool processCBPasteCommand(
         vector<ContentBlock> pastedBlocks = textToCB(cmd->str);
 
         if (pastedBlocks.size() == 1) {
-            cb->rope->insert(tab->cursorPosition, cmd->str);
+            cb->rope->insert(cmd->startCursorPos, cmd->str);
             tab->cursorPosition += cmd->str.length();
         } else {
             string firstString = cb->rope->getString();
@@ -6456,7 +6456,7 @@ bool processCBPasteCommand(
             cmd->ext = true;
             cmd->extIndex = tab->extCommands.size() - 1;
 
-            cb->rope->remove(tab->cursorPosition, firstString.length() - tab->cursorPosition);
+            cb->rope->remove(cmd->startCursorPos, firstString.length() - cmd->startCursorPos);
             cb->rope->append(pastedBlocks.front().rope->getString());
 
             tab->contentBlocks.insert(
@@ -6468,8 +6468,8 @@ bool processCBPasteCommand(
             tab->contentBlocks[tab->cursorCBIndex + pastedBlocks.size() - 1].rope = new Rope(
                 pastedBlocks.back().rope->getString(),
                 firstString.substr(
-                    tab->cursorPosition,
-                    firstString.length() - tab->cursorPosition
+                    cmd->startCursorPos,
+                    firstString.length() - cmd->startCursorPos
                 ));
 
             tab->cursorCBIndex += pastedBlocks.size() - 1;
@@ -6620,8 +6620,8 @@ bool processCBReplaceCommand(
 bool processCBNewLineCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
-    if (tab->cursorPosition == cb->rope->length() || tab->cursorPosition == 0) {
-        if (tab->cursorPosition != 0) {
+    if (cmd->startCursorPos == cb->rope->length() || cmd->startCursorPos == 0) {
+        if (cmd->startCursorPos != 0) {
             ++tab->cursorCBIndex;
         }
 
@@ -6636,7 +6636,7 @@ bool processCBNewLineCommand(
             }
         );
     } else if (cb->rope != nullptr) {
-        Rope* result = cb->rope->split(tab->cursorPosition);
+        Rope* result = cb->rope->split(cmd->startCursorPos);
 
         if (result != nullptr) {
             Rope* rope = result->right;
@@ -6683,8 +6683,8 @@ bool processCBNewLineCommand(
 bool processCBBackspaceCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
-    if (tab->cursorPosition > 0) {
-        cb->rope->remove(tab->cursorPosition - 1, 1);
+    if (cmd->startCursorPos > 0) {
+        cb->rope->remove(cmd->startCursorPos - 1, cmd->str.length());
 
         if (
             newCmd && !tab->commands.empty()
@@ -6706,14 +6706,14 @@ bool processCBBackspaceCommand(
 bool processCBDeleteCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
-    if (tab->cursorPosition < cb->rope->length()) {
-        cb->rope->remove(tab->cursorPosition, 1);
+    if (cmd->startCursorPos < cb->rope->length()) {
+        cb->rope->remove(cmd->startCursorPos, cmd->str.length());
 
         if (
             newCmd && !tab->commands.empty()
             && tab->currentCommand == tab->commands.size() - 1
             && tab->commands.back().type == CommandType::Delete
-            && tab->commands.back().startCursorPos == tab->cursorPosition
+            && tab->commands.back().startCursorPos == cmd->startCursorPos
         ) {
             tab->commands.back().str += cmd->str;
             return false;
@@ -7182,7 +7182,39 @@ void processCBUndo(ContentTab* tab) {
 }
 
 void processCBRedo(ContentTab* tab) {
+    #define CONCAT(a, b, c) a ## b ## c
+    #define PROC(cmdType) CONCAT(processCB, cmdType, Command)(tab, cmd, cb, false);
+
     if (tab->currentCommand == tab->commands.size() - 1) { return; }
+
+    ContentCommand* cmd = &tab->commands[tab->currentCommand + 1];
+    ContentBlock* cb = &tab->contentBlocks[cmd->startCBIndex];
+
+    bool increment = false;
+
+    switch (cmd->type) {
+        case CommandType::Type: {
+            increment = processCBTypeCommand(tab, cmd, cb, false);
+            tab->cursorPosition = cmd->startCursorPos + cmd->str.length();
+            tab->redrawCursor = true;
+            break;
+        }
+
+        case CommandType::Paste: increment = PROC(Paste); break;
+        case CommandType::Replace: increment = PROC(Replace); break;
+        case CommandType::NewLine: increment = PROC(NewLine); break;
+        case CommandType::Backspace: increment = PROC(Backspace); break;
+        case CommandType::Delete: increment = PROC(Delete); break;
+        case CommandType::DeleteMergeCB: increment = PROC(DeleteMergeCB); break;
+        case CommandType::DeleteSelected: increment = PROC(DeleteSelected); break;
+    }
+
+    if (increment) {
+        ++tab->currentCommand;
+    }
+
+    #undef CONCAT
+    #undef PROC
 }
 
 void processCommand(UIElement* elem, Command* cmd) {
