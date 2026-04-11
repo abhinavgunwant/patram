@@ -162,3 +162,20 @@ void printContentCommand(ContentCommand* cmd, ContentCommandExt* cmdExt) {
     }
 }
 
+string to_string(CommandType cmdType) {
+    switch (cmdType) {
+        case CommandType::None: return "None";
+        case CommandType::Type: return "Type";
+        case CommandType::NewLine: return "NewLine";
+        case CommandType::Delete: return "Delete";
+        case CommandType::DeleteSelected: return "DeleteSelected";
+        case CommandType::DeleteMergeCB: return "DeleteMergeCB";
+        case CommandType::Backspace: return "Backspace";
+        case CommandType::Undo: return "Undo";
+        case CommandType::Redo: return "Redo";
+        case CommandType::Replace: return "Replace";
+    }
+
+    return "";
+}
+
