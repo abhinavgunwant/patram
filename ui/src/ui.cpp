@@ -6538,12 +6538,12 @@ void processCBCommand(ContentCommand cmd) {
                 }
 
                 case ContentDeletionType::DeleteMultipleCBsPartial: {
-                    tab->contentBlocks.insert(START + 1, pastedCBs.begin(), pastedCBs.end() - 1);
+                    tab->contentBlocks.insert(START + 1, pastedCBs.begin(), pastedCBs.end());
                     string firstCBString = (*(START)).rope->getString();
 
                     (*(START)).rope->remove(cmd.startCursorPos, firstCBString.length() - cmd.startCursorPos);
                     (*(START)).rope->append(pastedCBs.front().rope->getString());
-                    (*(START + pastedCBs.size() - 1)).rope->append(firstCBString.substr(cmd.startCursorPos, firstCBString.length() - cmd.startCursorPos));
+                    (*(START + pastedCBs.size())).rope->append(firstCBString.substr(cmd.startCursorPos, firstCBString.length() - cmd.startCursorPos));
                     break;
                 }
 
@@ -6850,7 +6850,10 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBs:
-                    tab->contentBlocks.erase(START);
+                    tab->contentBlocks.erase(
+                        START,
+                        START + extCmd->insertedBlocks.size()
+                    );
 
                     tab->contentBlocks.insert(
                         START,
@@ -6860,6 +6863,11 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartialLast:
+                    tab->contentBlocks.erase(
+                        START,
+                        START + extCmd->insertedBlocks.size() - 1
+                    );
+
                     tab->contentBlocks.insert(
                         START,
                         extCmd->deletedBlocks.begin(),
@@ -6875,12 +6883,14 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartialFirst:
-                    tab->contentBlocks[cmd->startCBIndex].rope->remove(
+                    tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+
+                    CB_ROPE(cmd->startCBIndex)->remove(
                         cmd->startCursorPos,
-                        tab->contentBlocks[cmd->startCBIndex].rope->length() - cmd->startCursorPos
+                        CB_ROPE(cmd->startCBIndex)->length() - cmd->startCursorPos
                     );
 
-                    tab->contentBlocks[cmd->startCBIndex].rope->append(
+                    CB_ROPE(cmd->startCBIndex)->append(
                         extCmd->deletedBlocks.front().rope->getString()
                     );
 
@@ -6890,6 +6900,7 @@ void processCBUndo(ContentTab* tab) {
                         extCmd->deletedBlocks.end()
                     );
                     break;
+
                 case ContentDeletionType::DeleteMultipleCBsPartial:
                     auto firstCB = START;
 
@@ -6900,22 +6911,22 @@ void processCBUndo(ContentTab* tab) {
 
                     tab->contentBlocks.erase(
                         START + 1,
-                        START + extCmd->insertedBlocks.size() - 1
+                        START + extCmd->insertedBlocks.size()
                     );
+
                     tab->contentBlocks.insert(
                         START + 1,
                         extCmd->deletedBlocks.begin() + 1,
                         extCmd->deletedBlocks.end() - 1
                     );
 
-                    // uint32_t len = cmd->startCursorPos + extCmd->insertedBlocks.back().rope->length();
-                    // string strToAppend = firstRopeString.substr(
-                    //     len,
-                    //     firstRopeString.length() - len
-                    // );
-                    // (*(END)).rope->append(strToAppend);
+                    cout << "\nDEBUG: End rope is: \"" << (*(END)).rope->getString() << "\"";
+                    cout << "\nDEBUG: Last pasted rope is: \"" << extCmd->insertedBlocks.back().rope->getString() << "\"";
+                    cout << "\nDEBUG: End rope type is: " << to_string((*(END)).type);
+
                     (*(END)).rope->remove(0, extCmd->insertedBlocks.back().rope->length());
                     (*(END)).rope->prepend(extCmd->deletedBlocks.back().rope->getString());
+                    (*(END)).type = extCmd->deletedBlocks.back().type;
                     break;
             }
 
@@ -7300,28 +7311,28 @@ string elementType(UIElement *elem) {
 #endif
 
 #ifdef DEBUG_CONTENT_BLOCKS
+string to_string(ContentBlockType cbType) {
+    switch (cbType) {
+        case ContentBlockType::Title: return "Title";
+        case ContentBlockType::Heading1: return "Heading1";
+        case ContentBlockType::Heading2: return "Heading2";
+        case ContentBlockType::Heading3: return "Heading3";
+        case ContentBlockType::Heading4: return "Heading4";
+        case ContentBlockType::Heading5: return "Heading5";
+        case ContentBlockType::Heading6: return "Heading6";
+        case ContentBlockType::Paragraph: return "Paragraph";
+    }
+
+    return "";
+}
+
 void printContentBlocksFromVector(vector<ContentBlock> cblock) {
     for (auto itr = cblock.begin(); itr != cblock.end(); ++itr) {
-        cout << "\n         |-> ";
+        cout << "\n         |-> " << to_string((*itr).type) << ": " <<
+            (*itr).rope->getString().substr(0, 16);
 
-        switch ((*itr).type) {
-            case ContentBlockType::Title: cout << "Title"; break;
-            case ContentBlockType::Heading1: cout << "Heading1"; break;
-            case ContentBlockType::Heading2: cout << "Heading2"; break;
-            case ContentBlockType::Heading3: cout << "Heading3"; break;
-            case ContentBlockType::Heading4: cout << "Heading4"; break;
-            case ContentBlockType::Heading5: cout << "Heading5"; break;
-            case ContentBlockType::Heading6: cout << "Heading6"; break;
-            case ContentBlockType::Paragraph: cout << "Paragraph"; break;
-        }
-
-        string ropeString = (*itr).rope->getString();
-
-        cout << ": " << ropeString.substr(0, 16);
-
-        size_t len = ropeString.length();
-        if (len > 16) {
-            cout << "... (" << len << " chars)";
+        if ((*itr).rope->length() > 16) {
+            cout << "... (" << (*itr).rope->length() << " chars)";
         }
     }
 }

@@ -534,6 +534,7 @@ void printTextInputData(TextInputData* tid, string token = "");
 #endif
 
 #ifdef DEBUG_CONTENT_BLOCKS
+string to_string(ContentBlockType cbType);
 void printContentBlocks(uint32_t tabIndex);
 void printContentBlocksFromVector(vector<ContentBlock> cblock);
 #endif
