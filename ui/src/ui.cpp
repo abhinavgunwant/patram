@@ -6704,13 +6704,8 @@ void processCBCommand(ContentCommand cmd) {
 
             tab->cursorPosition = 0;
 
-            for (
-                auto itr = tab->contentBlocks.begin() + tab->cursorCBIndex - 1;
-                itr != tab->contentBlocks.end();
-                ++itr
-            ) {
-                (*itr).flags |= CONTENT_BLOCK_REDRAW;
-            }
+            reDrawCBsFrom(cmd.startCBIndex, 64);
+
             append = true;
             break;
 
@@ -7040,6 +7035,23 @@ void processCBUndo(ContentTab* tab) {
             tab->redrawCursor = true;
             decrement = true;
 
+            break;
+        }
+
+        case CommandType::NewLine: {
+            if (cmd->startCursorPos == 0) {
+                tab->contentBlocks.erase(tab->contentBlocks.begin() + cmd->startCBIndex);
+            } else {
+                string newLineString = CB_ROPE(cmd->startCBIndex + 1)->getString();
+                tab->contentBlocks.erase(tab->contentBlocks.begin() + cmd->startCBIndex + 1);
+                CB_ROPE(cmd->startCBIndex)->append(newLineString);
+            }
+
+            tab->cursorPosition = cmd->startCursorPos;
+            tab->redrawCursor = true;
+            tab->cursorCBIndex = cmd->startCBIndex;
+            reDrawCBsFrom(cmd->startCBIndex, 64);
+            decrement = true;
             break;
         }
 
