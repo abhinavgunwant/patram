@@ -123,7 +123,9 @@ RopeRenderResult renderContentRope(
     vector<float> vertices;
 
     if (redraw) {
-        vertices.reserve(20000);
+        vertices.reserve(48000);
+    } else {
+        vertices.reserve(0);
     }
 
     uint32_t numVertices = 0;
@@ -132,6 +134,10 @@ RopeRenderResult renderContentRope(
 
     while (rt.hasNext()) {
         Rope* r = rt.next();
+
+        if (!redraw) {
+            numVertices += r->text.length() * 24;
+        }
 
         for (const char c : r->text) {
             Character* ch = &characters[(int)c];
@@ -212,19 +218,15 @@ RopeRenderResult renderContentRope(
             }
             #endif
 
-            if (c != ' ') {
-                if (redraw) {
-                    vertices.insert(vertices.end(), {
-                        xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
-                        xpos,           ypos,           ch->textureX1, ch->textureY2,
-                        xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
-                        xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
-                        xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
-                        xpos_plus_w,    ypos_plus_h,    ch->textureX2, ch->textureY1
-                    });
-                } else {
-                    numVertices += 24;
-                }
+            if (redraw && c != ' ') {
+                vertices.insert(vertices.end(), {
+                    xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
+                    xpos,           ypos,           ch->textureX1, ch->textureY2,
+                    xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
+                    xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
+                    xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
+                    xpos_plus_w,    ypos_plus_h,    ch->textureX2, ch->textureY1
+                });
             }
 
             xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
@@ -259,7 +261,11 @@ RopeRenderResult renderContentRope(
         uint32_t requiredBufferSize = numVertices * sizeof(float);
 
         if (bufferSize >= requiredBufferSize) {
-            glBufferSubData(GL_ARRAY_BUFFER, 0, requiredBufferSize, &vertices[0]);
+            uint32_t zeros = bufferSize - requiredBufferSize;
+
+            for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(0.0f); }
+
+            glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, &vertices[0]);
         } else {
             while (bufferSize < requiredBufferSize) {
                 bufferSize *= 1.6;
