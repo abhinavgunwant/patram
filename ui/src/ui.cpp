@@ -375,6 +375,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     ContentTab* tab = CURRENT_TAB;
 
+    reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
+
     if (tab->showCursor) {
         tab->redrawCursor = true;
     }
@@ -685,7 +687,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
             tab->scrollbarUpdated = false;
 
-            reDrawCBsFrom(0, 100);
+            reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
 
             cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
 
@@ -768,6 +770,8 @@ void setupUI(bool isDarkTheme) {
     contentContainer->extraData->scrollData.height = WINDOW_HEIGHT - 64;
     contentContainer->preferences->widthPreference = UI_FULL;
     contentContainer->preferences->heightPreference = UI_STRETCH;
+    contentContainer->active = true;
+    activeElement = contentContainer;
 
     newTab("This is a test note title!");
 
@@ -3719,10 +3723,10 @@ void newTab(string title) {
     commands.push_back(ContentCommand { CommandType::None, false, 0, 0, 0, "", });
 
     tabs.push_back(ContentTab {
-        false, false, false, false, false, false, false, false,
+        true, true, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
         commands, extCommands, content
     });
 
@@ -4569,19 +4573,30 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             renderContentBlockHighlight();
             renderCBTextSelection(tab);
 
+            uint32_t i=0;
+
+            bool visible = false;
+
             for (
                 auto itr = tab->contentBlocks.begin();
                 itr != tab->contentBlocks.end();
-                ++itr
+                ++itr, ++i
             ) {
-                if (!renderContentBlock(tab, itr, resolution, cursor)) {
-                    #ifdef DEBUG_CONTENT_BLOCKS
-                    // std::cout << "\nDEBUG: breaking render at " << to_string((ContentBlock)(*itr));
-                    #endif
+                if (renderContentBlock(tab, itr, resolution, cursor)) {
+                    if (!visible) {
+                        tab->firstVisibleCBIndex = i;
+                    }
 
+                    visible = true;
+                } else if (visible) {
+                    #ifdef DEBUG_CONTENT_BLOCKS
+                        // cout << "\nDEBUG: breaking render at " << to_string((ContentBlock)(*itr));
+                    #endif
                     break;
-                };
+                }
             }
+
+            tab->visibleCBLength = i - tab->firstVisibleCBIndex + 1;
 
             renderCBMoveMarker();
 
@@ -5547,12 +5562,17 @@ bool renderContentBlock(
 
     float top = (*cb).top - tab->scrollOffsetY;
     float left = (*cb).left;
+    float bottom = top + (*cb).height;
 
     if (resolution.x >= CONTENT_BREAKPOINT) {
         left += contentLeft;
     } else {
         left += CONTENT_HORIZONTAL_MARGIN;
     }
+
+    bool visible = top >= 0 && top <= windowHeight
+        || bottom >= 0 && bottom <= windowHeight
+        || top < 0 && bottom > windowHeight;
 
     #ifdef DEBUG_TEXT
         auto t0 = std::chrono::high_resolution_clock::now();
@@ -5599,7 +5619,7 @@ bool renderContentBlock(
         contentContainer->reDraw = true;
     }
 
-    return res.renderNextContentBlock;
+    return visible;
 }
 
 void renderContentBlockHighlight() {
