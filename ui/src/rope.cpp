@@ -556,6 +556,7 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
     if (isLeaf()) {
         if (startIndex + length <= text.length()) {
             text.erase(startIndex, length);
+            lenLeft = text.length();
         }
 
         return;
@@ -595,11 +596,13 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
 
                 node->text.erase(index, length);
                 propagateLenLeft(node, -change);
+                node->lenLeft = node->text.length();
             }
         } else if (index == 0 && length < node->text.length()) {
             uint32_t lenBefore = node->text.length();
             uint32_t lenAfter = node->text.length() - length;
             node->text = node->text.substr(length, lenAfter);
+            node->lenLeft = node->text.length();
             propagateLenLeft(node, lenAfter - lenBefore);
         } else if (index + length < node->text.length()) {
             Rope* newLeft = new Rope(node->text.substr(0, index));
@@ -642,6 +645,7 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
                 int64_t change = static_cast<int64_t>(node->text.length() - index);
 
                 node->text.erase(index, change);
+                node->lenLeft = node->text.length();
                 propagateLenLeft(node, -change);
 
                 if (node != endNode) {
@@ -682,6 +686,7 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
 
             uint64_t len = endIndex + 1;
             endNode->text.erase(0, len);
+            endNode->lenLeft = endNode->text.length();
             propagateLenLeft(endNode, -len);
         }
     }
