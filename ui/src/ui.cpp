@@ -3,6 +3,7 @@
 #include <sstream>
 #include <stack>
 #include <thread>
+#include <chrono>
 
 #ifdef DEBUG_TEXT_INPUT
     #include <string_view>
@@ -93,6 +94,13 @@ float mouseY = 25000;
 float mouseDownX = 25000;
 float mouseDownY = 25000;
 float cursorUpdateTime = 0.0;
+
+#ifdef DEBUG_TEXT
+    float prevTextTime = 0.0f;
+    float textTime = 0.0f;
+    float cumulativeTextTime = 0.0f;
+    uint32_t textTimeCalculated = 0;
+#endif
 
 void showWindow() {
     glfwInit();
@@ -677,6 +685,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
             tab->scrollbarUpdated = false;
 
+            reDrawCBsFrom(0, 100);
+
             cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
 
             break;
@@ -801,6 +811,17 @@ void enterRenderLoop() {
         glm::vec2 cursor(mouseX, mouseY);
 
         renderElement(rootContainer, resolution, cursor);
+
+        #ifdef DEBUG_TEXT
+            if (glfwGetTime() - prevTextTime >= 1.0f) {
+                cout << "\nDEBUG: Average text render time per second: " << cumulativeTextTime / textTimeCalculated << " milliseconds";
+
+                textTime = 0.0f;
+                cumulativeTextTime = 0.0f;
+                textTimeCalculated = 0;
+                prevTextTime = glfwGetTime();
+            }
+        #endif
 
         if (showFps) {
             float time = glfwGetTime();
@@ -3590,7 +3611,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
         0.0f,
         0.0f,
         0.0f,
-        0,
+        0, 0, 0, 0,
         new Rope(text),
     };
 
@@ -3610,7 +3631,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
         0.0f,
         0.0f,
         0.0f,
-        0,
+        0, 0, 0, 0,
         new Rope(text),
     });
 }
@@ -3682,7 +3703,7 @@ void newTab(string title) {
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        0,
+        0, 0, 0, 0,
         new Rope(title),
     });
 
@@ -4553,7 +4574,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 itr != tab->contentBlocks.end();
                 ++itr
             ) {
-                renderContentBlock(tab, itr, resolution, cursor);
+                if (!renderContentBlock(tab, itr, resolution, cursor)) {
+                    #ifdef DEBUG_CONTENT_BLOCKS
+                    // std::cout << "\nDEBUG: breaking render at " << to_string((ContentBlock)(*itr));
+                    #endif
+
+                    break;
+                };
             }
 
             renderCBMoveMarker();
@@ -5487,7 +5514,7 @@ inline glm::vec2 getActiveContentDimensions() {
     }; // width, height
 }
 
-void renderContentBlock(
+bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
@@ -5495,12 +5522,12 @@ void renderContentBlock(
 ) {
     if (!((*cb).flags & CONTENT_BLOCK_VISIBLE)) {
         cout << "\nContent block not visible";
-        return;
+        return false;
     }
 
     if (contentContainer->extraData == nullptr) {
         cout << "\nRender Error: UIElement's parent is NULL!";
-        return;
+        return false;
     }
 
     if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
@@ -5527,14 +5554,30 @@ void renderContentBlock(
         left += CONTENT_HORIZONTAL_MARGIN;
     }
 
+    #ifdef DEBUG_TEXT
+        auto t0 = std::chrono::high_resolution_clock::now();
+    #endif
+
     RopeRenderResult res = renderContentRope(
         (*cb).rope,
         glm::vec2(left, top),
         resolution,
+        (*cb).textVAO,
+        (*cb).textVBO,
+        (*cb).bufferSize,
         darkTheme ? WHITE : BLACK,
         getCBFontSize((*cb).type),
-        contentContainer
+        contentContainer,
+        ((*cb).flags & CONTENT_BLOCK_REDRAW) != 0
     );
+
+    #ifdef DEBUG_TEXT
+        auto t1 = std::chrono::high_resolution_clock::now();
+
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
+        cumulativeTextTime += duration.count();
+        ++textTimeCalculated;
+    #endif
 
     if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
         (*cb).height = (res.height == 0.0f && glyphDescender < 0) ?
@@ -5555,6 +5598,8 @@ void renderContentBlock(
         tab->scrollbarUpdated = false;
         contentContainer->reDraw = true;
     }
+
+    return res.renderNextContentBlock;
 }
 
 void renderContentBlockHighlight() {
@@ -6260,7 +6305,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*itr).type,
-            0, 0.0f, 0.0f, 0.0f, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
             new Rope((*itr).rope->getString().substr(
                 cmd->startCursorPos,
                 extCmd->endCursorPos - cmd->startCursorPos
@@ -6284,7 +6329,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
             CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-            0.0f, 0.0f, 0.0f, 0, new Rope()
+            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
     }
@@ -6301,7 +6346,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             lastBlockType,
-            0, 0.0f, 0.0f, 0.0f, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
             new Rope(ropeString),
         });
         return ContentDeletionType::DeleteMultipleCBsPartialLast;
@@ -6317,7 +6362,7 @@ ContentDeletionType deleteSelectedCBText(
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*firstCB).type,
             (*firstCB).flags,
-            0.0f, 0.0f, 0.0f, 0,
+            0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
             new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
         });
         (*firstCB).rope->remove(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos);
@@ -6339,7 +6384,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*firstCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
         new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
     });
 
@@ -6347,7 +6392,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*lastCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
         new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
     });
 
@@ -6370,7 +6415,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 0, new Rope(str)
+                    0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(str)
                 });
             }
 
@@ -6389,7 +6434,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 0, new Rope(str)
+                0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(str)
             });
         }
     }
@@ -6616,7 +6661,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0,
+                0, 0, 0, 0,
                 new Rope()
             }
         );
@@ -6635,7 +6680,7 @@ bool processCBNewLineCommand(
                         cb->type,
                         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                         0.0f, 0.0f, 0.0f,
-                        0,
+                        0, 0, 0, 0,
                         rope
                 });
 
@@ -6653,7 +6698,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0,
+                0, 0, 0, 0,
                 nullptr
             });
     }
@@ -6679,9 +6724,11 @@ bool processCBBackspaceCommand(
         ) {
             tab->commands.back().str = cmd->str + tab->commands.back().str;
             --tab->commands.back().startCursorPos;
+            reDrawCBsFrom(cmd->startCBIndex, 64);
             return false;
         }
 
+        reDrawCBsFrom(cmd->startCBIndex, 64);
         return true;
     }
 
@@ -6898,8 +6945,6 @@ void processCBUndo(ContentTab* tab) {
             tab->cursorPosition = cmd->startCursorPos;
             tab->redrawCursor = true;
 
-            reDrawCBsFrom(cmd->startCBIndex, 64);
-
             decrement = true;
             break;
         }
@@ -7034,7 +7079,7 @@ void processCBUndo(ContentTab* tab) {
                     break;
             }
 
-            reDrawCBsFrom(cmd->startCBIndex, 64);
+            // reDrawCBsFrom(cmd->startCBIndex, 64);
             tab->cursorCBIndex = cmd->startCBIndex;
             tab->cursorPosition = cmd->startCursorPos;
             tab->redrawCursor = true;
@@ -7055,7 +7100,7 @@ void processCBUndo(ContentTab* tab) {
             tab->cursorPosition = cmd->startCursorPos;
             tab->redrawCursor = true;
             tab->cursorCBIndex = cmd->startCBIndex;
-            reDrawCBsFrom(cmd->startCBIndex, 64);
+            // reDrawCBsFrom(cmd->startCBIndex, 64);
             decrement = true;
             break;
         }
@@ -7148,7 +7193,7 @@ void processCBUndo(ContentTab* tab) {
                     break;
             }
 
-            reDrawCBsFrom(cmd->startCBIndex, 64);
+            // reDrawCBsFrom(cmd->startCBIndex, 64);
             tab->redrawCursor = true;
             decrement = true;
 
@@ -7159,6 +7204,8 @@ void processCBUndo(ContentTab* tab) {
     if (decrement) {
         --tab->currentCommand;
     }
+
+    reDrawCBsFrom(cmd->startCBIndex, 64);
 
     #undef START
     #undef END
@@ -7466,6 +7513,11 @@ string elementType(UIElement *elem) {
 #endif
 
 #ifdef DEBUG_CONTENT_BLOCKS
+string to_string(ContentBlock cb) {
+    string str = cb.rope->getString();
+    return to_string(cb.type) + ": " + str.substr(0, 16) + "(" + to_string(str.length()) + ")";
+}
+
 string to_string(ContentBlockType cbType) {
     switch (cbType) {
         case ContentBlockType::Title: return "Title";

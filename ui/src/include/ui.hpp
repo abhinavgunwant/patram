@@ -84,13 +84,14 @@
 
 #define DEBUG_TEXT_SELECTION
 #define DEBUG_TEXT_INPUT
-#define DEBUG_MOUSE_BUTTON
+// #define DEBUG_KEYBOARD_EVENTS
+// #define DEBUG_MOUSE_BUTTON
 // #define DEBUG_TEXTURE
 // #define DEBUG_SCROLL_AREA
 // #define DEBUG_LAYOUT
 // #define DEBUG_RENDER
 #define DEBUG_CONTENT_BLOCKS
-#define DEBUG_SCROLL
+// #define DEBUG_SCROLL
 
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
@@ -373,6 +374,10 @@ struct ContentBlock {
 
     uint32_t rows;
 
+    uint32_t textVAO;
+    uint32_t textVBO;
+    uint32_t bufferSize;
+
     Rope* rope;
 };
 
@@ -483,7 +488,7 @@ void recalculateLayout(UIElement * elem);
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
 glm::vec2 getActiveContentDimensions();
-void renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
+bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
@@ -492,6 +497,7 @@ void renderCBMoveMarker();
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
 void reDrawCBsFrom(uint32_t i, uint32_t limit);
+void reDrawCBsFromIter(vector<ContentBlock>::iterator iter, uint32_t limit);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void cbKeypressType(ContentTab* tab, string text);
 ContentDeletionType deleteSelectedCBText(ContentTab* tab, ContentCommand* cmd, ContentCommandExt* cbExt);
@@ -534,6 +540,7 @@ void printTextInputData(TextInputData* tid, string token = "");
 #endif
 
 #ifdef DEBUG_CONTENT_BLOCKS
+string to_string(ContentBlock cb);
 string to_string(ContentBlockType cbType);
 void printContentBlocks(uint32_t tabIndex);
 void printContentBlocksFromVector(vector<ContentBlock> cblock);

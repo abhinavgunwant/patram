@@ -70,15 +70,20 @@ struct RopeRenderResult {
     float height;
     float width;
     uint32_t rows;
+    bool renderNextContentBlock;
 };
 
 RopeRenderResult renderContentRope(
     Rope* rope,
     glm::vec2 pos,
     glm::vec2& res,
+    uint32_t& textVAO,
+    uint32_t& textVBO,
+    uint32_t& bufferSize,
     glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
-    UIElement* parent = nullptr
+    UIElement* parent = nullptr,
+    bool redraw = true
 );
 
 /**

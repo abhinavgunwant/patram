@@ -1,6 +1,7 @@
 #include "include/text.hpp"
 
 #include <algorithm>
+#include <vector>
 #include <cctype>
 #include <chrono>
 #include <iostream>
@@ -28,6 +29,7 @@ uint32_t fontTextureID = 0;
 Character* characters;
 Shader textShader;
 unsigned int textVAO, textVBO;
+uint32_t resolutionUniform = 0;
 
 void initFontTexture(string path) {
     #ifdef DEBUG_TEXT
@@ -80,23 +82,15 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glGenBuffers(1, &textVBO);
     glBindVertexArray(textVAO);
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 1048576, NULL, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-}
 
-RopeRenderResult renderContentRope(
-    Rope* rope,
-    glm::vec2 pos,
-    glm::vec2& res,
-    glm::fvec3 color,
-    uint8_t fontSize,
-    UIElement* parent
-) {
-    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0 };
     glUseProgram(shaders[SHADER_TEXT].programId);
+
+    glm::vec3 color = darkTheme ? WHITE : BLACK;
 
     glUniform3f(
         glGetUniformLocation(shaders[SHADER_TEXT].programId, "textColor"),
@@ -104,19 +98,41 @@ RopeRenderResult renderContentRope(
         color.g,
         color.b
     );
-    glUniform2f(glGetUniformLocation(shaders[SHADER_TEXT].programId, "resolution"), res.x, res.y);
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(textVAO);
+
+    resolutionUniform = glGetUniformLocation(shaders[SHADER_TEXT].programId, "resolution");
+    glUniform2f(resolutionUniform, resolution.x, resolution.y);
+}
+
+RopeRenderResult renderContentRope(
+    Rope* rope,
+    glm::vec2 pos,
+    glm::vec2& res,
+    uint32_t& cbTextVAO,
+    uint32_t& cbTextVBO,
+    uint32_t& bufferSize,
+    glm::fvec3 color,
+    uint8_t fontSize,
+    UIElement* parent,
+    bool redraw
+) {
+    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
 
     float xpos = pos.x;
     float yNet = pos.y;
+
+    vector<float> vertices;
+
+    if (redraw) {
+        vertices.reserve(20000);
+    }
+
+    uint32_t numVertices = 0;
 
     RopeTraverser rt(rope);
 
     while (rt.hasNext()) {
         Rope* r = rt.next();
 
-        // iterate through all characters in the leaf rope
         for (const char c : r->text) {
             Character* ch = &characters[(int)c];
 
@@ -165,9 +181,13 @@ RopeRenderResult renderContentRope(
                     || xpos + glyphWidth > contentRight
                 )
             ) {
-                yNet += fontSize - fontSize * glyphDescender;
+                yNet += fontSize * (1 - glyphDescender);
                 xpos = pos.x;
                 result.rows++;
+
+                if (yNet > windowHeight) {
+                    result.renderNextContentBlock = false;
+                }
             }
 
             float ypos = yNet + glyphHeight - bearingTop + fontSize;
@@ -192,29 +212,71 @@ RopeRenderResult renderContentRope(
             }
             #endif
 
-            float vertices[6][4] = {
-                { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
-                { xpos,         ypos,           ch->textureX1, ch->textureY2 },
-                { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
-                { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
-                { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
-                { xpos_plus_w,  ypos_plus_h,    ch->textureX2, ch->textureY1 },
-            };
+            if (c != ' ') {
+                if (redraw) {
+                    vertices.insert(vertices.end(), {
+                        xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
+                        xpos,           ypos,           ch->textureX1, ch->textureY2,
+                        xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
+                        xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
+                        xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
+                        xpos_plus_w,    ypos_plus_h,    ch->textureX2, ch->textureY1
+                    });
+                } else {
+                    numVertices += 24;
+                }
+            }
 
-            // render glyph texture over quad
-            glBindTexture(GL_TEXTURE_2D, fontTextureID);
-            // update content of textVBO memory
-            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
-
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            // render quad
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
         }
     }
 
+    glUseProgram(shaders[SHADER_TEXT].programId);
+
+    glActiveTexture(GL_TEXTURE0);
+
+    if (cbTextVAO == 0) {
+        glGenVertexArrays(1, &cbTextVAO);
+        glBindVertexArray(cbTextVAO);
+
+        glGenBuffers(1, &cbTextVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
+
+        bufferSize = vertices.size() * sizeof(float);
+        glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        glEnableVertexAttribArray(0);
+    }
+
+    glBindVertexArray(cbTextVAO);
+    glBindTexture(GL_TEXTURE_2D, fontTextureID);
+    glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
+
+    if (redraw) {
+        glUniform2f(resolutionUniform, res.x, res.y);
+
+        numVertices = vertices.size();
+        uint32_t requiredBufferSize = numVertices * sizeof(float);
+
+        if (bufferSize >= requiredBufferSize) {
+            glBufferSubData(GL_ARRAY_BUFFER, 0, requiredBufferSize, &vertices[0]);
+        } else {
+            while (bufferSize < requiredBufferSize) {
+                bufferSize *= 1.6;
+            }
+
+            glDeleteBuffers(1, &cbTextVBO);
+            glGenBuffers(1, &cbTextVBO);
+            glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
+            glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
+            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+            glEnableVertexAttribArray(0);
+        }
+    }
+
+    glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
