@@ -450,6 +450,9 @@ struct ContentTab {
     uint32_t scrollThumbVAO;
     uint32_t scrollThumbVBO;
 
+    uint32_t firstVisibleCBIndex;
+    uint32_t visibleCBLength;
+
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
