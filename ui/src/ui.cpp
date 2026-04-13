@@ -5537,8 +5537,8 @@ void renderContentBlock(
     );
 
     if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
-        (*cb).height = (res.height == 0.0f) ?
-            static_cast<float>(getCBFontSize((*cb).type)) * (1.0f + glyphDescender)
+        (*cb).height = (res.height == 0.0f && glyphDescender < 0) ?
+            static_cast<float>(getCBFontSize((*cb).type)) * (1.0f - glyphDescender)
             :
             res.height;
 
