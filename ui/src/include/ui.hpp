@@ -24,8 +24,6 @@
 #define TOTAL_ICONS                 3
 
 #define TAB_BAR_HEIGHT              64.0f
-#define CONTENT_BLOCK_MARGIN        1.0f
-#define CONTENT_BLOCK_TITLE_MARGIN  5.0f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
@@ -514,6 +512,8 @@ void getScrollbarDimensions(
 );
 
 uint8_t getCBFontSize(ContentBlockType cbType);
+glm::vec2 getCBVerticalMargins(ContentBlockType cbType);
+
 void getCBScrollbarDimensions(
     ContentTab* tab, float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd

@@ -2433,6 +2433,15 @@ inline uint8_t getCBFontSize(ContentBlockType cbType) {
     return 16;
 }
 
+inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
+    switch (cbType) {
+        case ContentBlockType::Paragraph: return { 4.0f, 4.0f };
+        case ContentBlockType::Title: return { 24.0f, 16.0f };
+
+        default: return { 16.0f, 8.0f };
+    }
+}
+
 SelectionData getCBTextCursor(glm::vec2 &resolution) {
     ContentTab* tab = &tabs[activeTabIndex];
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
@@ -5489,50 +5498,22 @@ void renderContentBlock(
         return;
     }
 
-    uint8_t fontSize = 16;
-    float topMargin = 0.0f;
-
-    switch ((*cb).type) {
-        case ContentBlockType::Heading1: fontSize = 48; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Heading2: fontSize = 40; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Heading3: fontSize = 32; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Heading4: fontSize = 24; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Heading5: fontSize = 16; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Heading6: fontSize = 12; topMargin = CONTENT_BLOCK_MARGIN; break;
-        case ContentBlockType::Paragraph: fontSize = 16; break;
-        case ContentBlockType::Title:  fontSize = 48; topMargin = 5.0f; break;
-    }
-
     if (contentContainer->extraData == nullptr) {
         cout << "\nRender Error: UIElement's parent is NULL!";
         return;
     }
 
     if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
-        if (cb > tabs[activeTabIndex].contentBlocks.begin() && cb - 1 >= tabs[activeTabIndex].contentBlocks.begin()) {
+        if (cb > tabs[activeTabIndex].contentBlocks.begin()) {
             auto prev = cb - 1;
 
-            (*cb).top = (*prev).top + (*prev).height + 8.0f;
+            glm::vec2 prevMargins = getCBVerticalMargins((*prev).type);
+            glm::vec2 currMargins = getCBVerticalMargins((*cb).type);
+
+            (*cb).top = (*prev).top + (*prev).height + prevMargins[1] + currMargins[0];
             (*cb).left = (*prev).left;
-
-            switch ((*prev).type) {
-                case ContentBlockType::Heading1:
-                case ContentBlockType::Heading2:
-                case ContentBlockType::Heading3:
-                case ContentBlockType::Heading4:
-                case ContentBlockType::Heading5:
-                case ContentBlockType::Heading6:
-                    topMargin += CONTENT_BLOCK_MARGIN;
-                    break;
-                case ContentBlockType::Title:
-                    topMargin += 4.0f;
-                default:
-                    break;
-            }
-
-            (*cb).top += topMargin;
         } else {
-            (*cb).top = contentContainer->top;
+            (*cb).top = contentContainer->top + getCBVerticalMargins((*cb).type)[0];
             (*cb).left = contentContainer->left;
         }
     }
@@ -5551,12 +5532,16 @@ void renderContentBlock(
         glm::vec2(left, top),
         resolution,
         darkTheme ? WHITE : BLACK,
-        fontSize,
+        getCBFontSize((*cb).type),
         contentContainer
     );
 
     if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
-        (*cb).height = res.height;
+        (*cb).height = (res.height == 0.0f) ?
+            static_cast<float>(getCBFontSize((*cb).type)) * (1.0f + glyphDescender)
+            :
+            res.height;
+
         (*cb).rows = res.rows;
         (*cb).flags &= ~(CONTENT_BLOCK_REDRAW);
     }
