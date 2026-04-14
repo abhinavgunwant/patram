@@ -43,7 +43,7 @@
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
-#define TRANSPARENT         glm::vec4(0.0, 0.0, 0.0, 0.0)
+#define TRANSPARENT_COLOR   glm::vec4(0.0, 0.0, 0.0, 0.0)
 
 // Theme colors
 //// Light theme colors
@@ -54,6 +54,8 @@
 #define BUTTON_BG                   glm::vec4(0.93, 0.7, 0.7, 1.0)
 #define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
+
+#define OPEN_BUTTON_ID                   1
 
 #define CURSOR_COLOR                glm::vec4(0.0, 0.38, 0.65, 1.0)
 
@@ -317,6 +319,8 @@ struct ContentBlock;
 struct UIElement {
     UIElementType type;
 
+    uint32_t id;
+
     float top;
     float left;
     float width;
@@ -533,6 +537,8 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up);
 
 vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab);
 vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
+
+void openFile();
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);

@@ -9,6 +9,15 @@
 #include "../lib/stb_image_write.h"
 
 #ifdef _WIN32
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #define GLFW_EXPOSE_NATIVE_WGL
+    #define byte byte_whatever
+
+    #include "GLFW/glfw3native.h"
+    #include <windows.h>
+
+    #undef byte
+
     #include <winrt/windows.ui.viewmanagement.h>
     using namespace winrt::Windows::UI::ViewManagement;
 #endif
@@ -48,7 +57,7 @@ inline filesystem::path getHomeDirectoryPath() {
     return filesystem::path(getHomeDirectory());
 }
 
-std::string getCacheDirectory() {
+string getCacheDirectory() {
     string home = getHomeDirectory();
 
     if (!home.empty()) {
@@ -194,7 +203,7 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
         cout << "\nSTARTUP CHECK: Writing font atlas";
     #endif
 
-    std::sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
         if (a.height == b.height) {
             return a.width < b.width;
         }
@@ -301,5 +310,54 @@ bool processFontInfoFile(Character* characters, float& ascender, float& descende
     f.close();
 
     return true;
+}
+
+FileDialogResult openFileDialog(GLFWwindow* window, string title) {
+    #ifdef _WIN32
+        OPENFILENAME ofn = { 0 };
+        char fileTitle[MAX_PATH] = { 0 };
+        char selectedFile[MAX_PATH] = { 0 };
+
+        ofn.lStructSize = sizeof(OPENFILENAME);
+        ofn.hwndOwner = GetFocus();
+        ofn.lpstrFilter = "All Files(.)\0*.*\0";
+        ofn.lpstrFile = selectedFile;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrFileTitle = fileTitle;
+        ofn.nMaxFileTitle = MAX_PATH;
+        ofn.lpstrTitle = (char*) title.c_str();
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+
+        bool success = GetOpenFileNameA(&ofn) == TRUE;
+
+        string path = ofn.lpstrFile;
+
+        if (!success) {
+            cout << "\nError: ";
+            switch (CommDlgExtendedError()) {
+                case CDERR_DIALOGFAILURE: cout << "CDERR_DIALOGFAILURE"; break;
+                case CDERR_FINDRESFAILURE: cout << "CDERR_FINDRESFAILURE"; break;
+                case CDERR_INITIALIZATION: cout << "CDERR_INITIALIZATION"; break;
+                case CDERR_LOADRESFAILURE: cout << "CDERR_LOADRESFAILURE"; break;
+                case CDERR_LOADSTRFAILURE: cout << "CDERR_LOADSTRFAILURE"; break;
+                case CDERR_LOCKRESFAILURE: cout << "CDERR_LOCKRESFAILURE"; break;
+                case CDERR_MEMALLOCFAILURE: cout << "CDERR_MEMALLOCFAILURE"; break;
+                case CDERR_MEMLOCKFAILURE: cout << "CDERR_MEMLOCKFAILURE"; break;
+                case CDERR_NOHINSTANCE: cout << "CDERR_NOHINSTANCE"; break;
+                case CDERR_NOHOOK: cout << "CDERR_NOHOOK"; break;
+                case CDERR_NOTEMPLATE: cout << "CDERR_NOTEMPLATE"; break;
+                case CDERR_STRUCTSIZE: cout << "CDERR_STRUCTSIZE"; break;
+                case FNERR_BUFFERTOOSMALL: cout << "FNERR_BUFFERTOOSMALL"; break;
+                case FNERR_INVALIDFILENAME: cout << "FNERR_INVALIDFILENAME"; break;
+                case FNERR_SUBCLASSFAILURE: cout << "FNERR_SUBCLASSFAILURE"; break;
+                default: cout << "You cancelled.";
+            }
+        }
+
+        return { success, string(ofn.lpstrFile) };
+    #endif
+
+    cerr << "\nError: Opening file is not supported in this platform!";
+    return { false, "" };
 }
 

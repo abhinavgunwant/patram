@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include "GLFW/glfw3.h"
+
 #include "character.hpp"
 
 using namespace std;
@@ -34,6 +36,11 @@ using namespace std;
 #define FILE_EXISTS(p) (filesystem::exists(p) && filesystem::is_regular_file(p))
 #define DIR_EXISTS(p) (filesystem::exists(p) && filesystem::is_directory(p))
 
+struct FileDialogResult {
+    bool success;
+    string filepath;
+};
+
 filesystem::path getHomeDirectoryPath();
 string getHomeDirectory();
 
@@ -55,6 +62,8 @@ void createFontInfoFile(uint8_t index, float ascender, float descender, Characte
 void createFontAtlasFile(uint8_t index, Character* characters);
 
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
+
+FileDialogResult openFileDialog(GLFWwindow* window, string title);
 
 #endif // PATRAM_SYS_FILES
 

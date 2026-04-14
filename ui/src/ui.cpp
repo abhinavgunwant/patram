@@ -293,6 +293,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UI_CONTENT_CONTAINER:
                         contentBlockMouseUpCallback(elem, mouseX, mouseY, resolution);
                         break;
+                    case UI_ICON_BUTTON:
+                        if (elem->id == OPEN_BUTTON_ID) {
+                            openFile();
+                        }
+                        break;
                 }
 
                 // if (mouseDownX == mouseX && mouseDownY == mouseY) {
@@ -764,6 +769,7 @@ void setupUI(bool isDarkTheme) {
 
     openButton->icon = Icon::File;
     openButton->text = "Open";
+    openButton->id = OPEN_BUTTON_ID;
 
     contentContainer->text = "Main Scroll Area";
     contentContainer->extraData->scrollData.width = WINDOW_WIDTH;
@@ -1742,7 +1748,7 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_L: if (capsLck || shift) { TYPE("L"); } else { TYPE("l"); } break;
             case GLFW_KEY_M: if (capsLck || shift) { TYPE("M"); } else { TYPE("m"); } break;
             case GLFW_KEY_N: if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); } break;
-            case GLFW_KEY_O: if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
+            case GLFW_KEY_O: if (ctrl) { openFile(); } else if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
             case GLFW_KEY_P: if (capsLck || shift) { TYPE("P"); } else { TYPE("p"); } break;
             case GLFW_KEY_Q: if (capsLck || shift) { TYPE("Q"); } else { TYPE("q"); } break;
             case GLFW_KEY_R: if (capsLck || shift) { TYPE("R"); } else { TYPE("r"); } break;
@@ -3060,6 +3066,16 @@ vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab) {
     return lastVisibleIter;
 }
 
+void openFile() {
+    FileDialogResult result = openFileDialog(window, "Open file");
+
+    if (result.success) {
+        cout << "\nChoosing file was successful! you chose: " << result.filepath;
+    } else {
+        cout << "\nSome error opening file dialog.";
+    }
+}
+
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     uint32_t currentIndex = 0;
     uint32_t row = 0;
@@ -3430,8 +3446,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     UIExtraData * extraData = nullptr;
     // Rope* rope = nullptr;
 
-    glm::vec4 backgroundColor = TRANSPARENT;
-    glm::vec4 hoverColor = TRANSPARENT;
+    glm::vec4 backgroundColor = TRANSPARENT_COLOR;
+    glm::vec4 hoverColor = TRANSPARENT_COLOR;
     glm::vec4 color = darkTheme ? WHITE : BLACK;
     uint8_t borderRadius = 0;
     UIPositioning positioning = UIPositioning::Absolute;
@@ -3472,8 +3488,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             pref = initPreferences();
             pref->widthPreference = UI_GROW;
 
-            backgroundColor = TRANSPARENT;
-            hoverColor = TRANSPARENT;
+            backgroundColor = TRANSPARENT_COLOR;
+            hoverColor = TRANSPARENT_COLOR;
 
             if (darkTheme) {
                 color = WHITE;
@@ -3485,8 +3501,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         case UI_CONTAINER:
             pref = initPreferences();
 
-            backgroundColor = TRANSPARENT;
-            hoverColor = TRANSPARENT;
+            backgroundColor = TRANSPARENT_COLOR;
+            hoverColor = TRANSPARENT_COLOR;
 
             if (darkTheme) {
                 color = WHITE;
@@ -3506,8 +3522,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 }
             };
 
-            backgroundColor = TRANSPARENT;
-            hoverColor = TRANSPARENT;
+            backgroundColor = TRANSPARENT_COLOR;
+            hoverColor = TRANSPARENT_COLOR;
 
             if (darkTheme) {
                 color = WHITE;
@@ -3522,9 +3538,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         case UI_TEXT_INPUT:
             pref = initPreferences();
 
-            // backgroundColor = TRANSPARENT;
+            // backgroundColor = TRANSPARENT_COLOR;
             backgroundColor = glm::vec4(0.9, 0.9, 0.9, 1.0);
-            hoverColor = TRANSPARENT;
+            hoverColor = TRANSPARENT_COLOR;
 
             if (darkTheme) {
                 color = WHITE;
@@ -3558,13 +3574,14 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             break;
 
         default:
-            backgroundColor = TRANSPARENT;
-            hoverColor = TRANSPARENT;
+            backgroundColor = TRANSPARENT_COLOR;
+            hoverColor = TRANSPARENT_COLOR;
             color = BLACK;
     }
 
     elem = {
         type,
+        0,
         top,
         left,
         width,
@@ -6249,16 +6266,18 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         elem = elemStack.top();
 
         if (
-            elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT
-            || elem->type == UI_TEXT_AREA || elem->type == UI_SCROLL_AREA
-            || elem->type == UI_CONTENT_CONTAINER
-        ) {
-            if (
+            (
+                elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT
+                || elem->type == UI_TEXT_AREA || elem->type == UI_SCROLL_AREA
+                || elem->type == UI_CONTENT_CONTAINER
+                || elem->type == UI_ICON_BUTTON
+            )
+            && (
                 x > elem->left && x < elem->left + elem->width
                 && y > elem->top && y < elem->top + elem->height
-            ) {
-                return elem;
-            }
+            )
+        ) {
+            return elem;
         }
 
         elemStack.pop();
