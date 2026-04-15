@@ -339,7 +339,10 @@ bool processFontInfoFile(Character* characters, float& ascender, float& descende
     return true;
 }
 
-FileDialogResult openFileDialog(GLFWwindow* window, string title) {
+FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode) {
+    bool success = false;
+    string path;
+
     #ifdef _WIN32
         OPENFILENAME ofn = { 0 };
         char fileTitle[MAX_PATH] = { 0 };
@@ -347,17 +350,30 @@ FileDialogResult openFileDialog(GLFWwindow* window, string title) {
 
         ofn.lStructSize = sizeof(OPENFILENAME);
         ofn.hwndOwner = GetFocus();
-        ofn.lpstrFilter = "All Files(.)\0*.*\0";
         ofn.lpstrFile = selectedFile;
         ofn.nMaxFile = MAX_PATH;
         ofn.lpstrFileTitle = fileTitle;
         ofn.nMaxFileTitle = MAX_PATH;
         ofn.lpstrTitle = (char*) title.c_str();
-        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
-        bool success = GetOpenFileNameA(&ofn) == TRUE;
+        if (mode == FileDialogMode::Open) {
+            ofn.lpstrFilter = "All Files(.)\0*.*\0";
+            ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+            success = GetOpenFileNameA(&ofn) == TRUE;
 
-        string path = ofn.lpstrFile;
+            path = ofn.lpstrFile;
+        } else {
+            ofn.lpstrDefExt = NULL;
+            ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0";
+            ofn.Flags = OFN_PATHMUSTEXIST;
+            success = GetSaveFileNameA(&ofn) == TRUE;
+
+            path = ofn.lpstrFile;
+
+            if (success && ofn.nFileExtension == 0) {
+                path += ".txt";
+            }
+        }
 
         if (!success) {
             cout << "\nError: ";
@@ -381,10 +397,10 @@ FileDialogResult openFileDialog(GLFWwindow* window, string title) {
             }
         }
 
-        return { success, string(ofn.lpstrFile) };
+        return { success, path };
     #endif
 
-    cerr << "\nError: Opening file is not supported in this platform!";
+    cerr << "\nError: Opening file is not supported for this platform!";
     return { false, "" };
 }
 

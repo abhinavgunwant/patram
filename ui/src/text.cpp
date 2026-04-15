@@ -237,7 +237,7 @@ RopeRenderResult renderContentRope(
 
     glActiveTexture(GL_TEXTURE0);
 
-    if (cbTextVAO == 0) {
+    if (cbTextVAO == 0 && !vertices.empty()) {
         glGenVertexArrays(1, &cbTextVAO);
         glBindVertexArray(cbTextVAO);
 
@@ -307,12 +307,12 @@ glm::vec4 renderText(
     glUseProgram(pid);
 
     glUniform3f(
-        glGetUniformLocation(pid, "textColor"),
+        uniforms[U_TEXT_COLOR],
         color.r,
         color.g,
         color.b
     );
-    glUniform2f(glGetUniformLocation(pid, "resolution"), res.x, res.y);
+    glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 

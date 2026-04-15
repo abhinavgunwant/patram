@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -67,7 +68,7 @@ HighlightedContentBlock highlightedContentBlock = {
     .dragTabVBO = 0,
 };
 
-ContentBlockMoveMarker cbMove = { 0, 0, 0, 0, false, true };
+ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
 
 vector<ContentTab> tabs;
 uint8_t activeTabIndex;
@@ -96,6 +97,8 @@ float mouseDownX = 25000;
 float mouseDownY = 25000;
 float cursorUpdateTime = 0.0;
 
+uint32_t untitledNotes = 0;
+
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
     float textTime = 0.0f;
@@ -121,6 +124,7 @@ void showWindow() {
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         cerr << "\nFailed to initialize GLAD";
+        exit(1);
     }
 
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -1760,12 +1764,12 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_K: if (capsLck || shift) { TYPE("K"); } else { TYPE("k"); } break;
             case GLFW_KEY_L: if (capsLck || shift) { TYPE("L"); } else { TYPE("l"); } break;
             case GLFW_KEY_M: if (capsLck || shift) { TYPE("M"); } else { TYPE("m"); } break;
-            case GLFW_KEY_N: if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); } break;
+            case GLFW_KEY_N: if (ctrl) { newNote(); } else if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); } break;
             case GLFW_KEY_O: if (ctrl) { openFile(); } else if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
             case GLFW_KEY_P: if (capsLck || shift) { TYPE("P"); } else { TYPE("p"); } break;
             case GLFW_KEY_Q: if (capsLck || shift) { TYPE("Q"); } else { TYPE("q"); } break;
             case GLFW_KEY_R: if (capsLck || shift) { TYPE("R"); } else { TYPE("r"); } break;
-            case GLFW_KEY_S: if (capsLck || shift) { TYPE("S"); } else { TYPE("s"); } break;
+            case GLFW_KEY_S: if (ctrl) { saveFile(); } else if (capsLck || shift) { TYPE("S"); } else { TYPE("s"); } break;
             case GLFW_KEY_T: if (capsLck || shift) { TYPE("T"); } else { TYPE("t"); } break;
             case GLFW_KEY_U: if (capsLck || shift) { TYPE("U"); } else { TYPE("u"); } break;
             case GLFW_KEY_V:
@@ -3080,7 +3084,7 @@ vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab) {
 }
 
 void openFile() {
-    FileDialogResult result = openFileDialog(window, "Open file");
+    FileDialogResult result = openFileDialog(window, "Open file", FileDialogMode::Open);
 
     if (result.success) {
         cout << "\nDEBUG: Choosing file was successful! you chose: " << result.filepath;
@@ -3094,6 +3098,9 @@ void openFile() {
             newTab(fileName);
 
             ContentTab* tab = &tabs[activeTabIndex];
+
+            tab->contentBlocks.erase(tab->contentBlocks.begin());
+            tab->filePath = path;
 
             vector<string> lines = readFileText(path);
 
@@ -3115,6 +3122,50 @@ void openFile() {
     } else {
         cout << "\nSome error opening file dialog.";
     }
+}
+
+void saveFile() {
+    ContentTab* tab = CURRENT_TAB;
+
+    if (tab->filePath.empty()) {
+        FileDialogResult fdr = openFileDialog(window, "Save", FileDialogMode::Save);
+        if (fdr.success) {
+            tab->filePath = fdr.filepath;
+        } else {
+            cout << "\nError: some error occured!";
+            return;
+        }
+    }
+
+    ofstream fout(tab->filePath);
+
+    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
+        if (itr != tab->contentBlocks.begin()) {
+            fout << "\n";
+        }
+
+        fout << (*itr).rope->getString();
+    }
+}
+
+void newNote() {
+    string title = "Untitled Note";
+
+    if (untitledNotes > 0) {
+        title += " " + to_string(untitledNotes);
+    }
+
+    ++untitledNotes;
+
+    newTab(title);
+
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    tab->contentBlocks.emplace_back(ContentBlock {
+        ContentBlockType::Paragraph,
+        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
+    });
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -3785,7 +3836,7 @@ void newTab(string title) {
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
-        commands, extCommands, content
+        commands, extCommands, content, ""
     });
 
     activeTabIndex = tabs.size() - 1;
@@ -4216,15 +4267,13 @@ inline void renderScrollbars(UIElement* elem) {
         glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-        uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
         glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
 
         if (darkTheme) {
             color = SCROLL_BAR_TRACK_COLOR_DARK;
         }
 
-        glUniform4f(colorU, color.r, color.g, color.b, color.a);
+        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4263,8 +4312,7 @@ inline void renderScrollbars(UIElement* elem) {
         glBindVertexArray(SCROLL_DATA.verticalScrollThumbVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-        colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-        glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     } else {
@@ -4354,9 +4402,7 @@ inline void renderScrollbars(UIElement* elem) {
         glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-        uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
-        glUniform4f(colorU, 0.9f, 0.9f, 0.9f, 1.0f);
+        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.9f, 0.9f, 0.9f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4395,8 +4441,7 @@ inline void renderScrollbars(UIElement* elem) {
         glBindVertexArray(SCROLL_DATA.horizontalScrollThumbVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-        colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-        glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     } else {
@@ -4482,15 +4527,13 @@ inline void renderCBScrollbar() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
     glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
 
     if (darkTheme) {
         color = SCROLL_BAR_TRACK_COLOR_DARK;
     }
 
-    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+    glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4510,8 +4553,7 @@ inline void renderCBScrollbar() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-    glUniform4f(colorU, 0.6f, 0.6f, 0.6f, 1.0f);
+    glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4614,24 +4656,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-            uint32_t resU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "resolution");
-            uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-            uint32_t timeU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "time");
-
             // cout << "\n" << elem.text << ": background color: "
             //     << elem.backgroundColor.x << ", " << elem.backgroundColor.y << ", "
             //     << elem.backgroundColor.z << ", " << elem.backgroundColor.w;
 
-            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
-                colorU,
+                uniforms[U_DEFAULT_COLOR],
                 elem.backgroundColor.x,
                 elem.backgroundColor.y,
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
-
-            glUniform1f(timeU, TIME());
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4729,19 +4765,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
-                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
-                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
-
                 glm::vec4 color = CURSOR_COLOR;
 
                 if (darkTheme) {
                     color = CURSOR_COLOR_DARK;
                 }
 
-                glUniform4f(colorU, color.x, color.y, color.z, color.w);
-                glUniform2f(resU, resolution.x, resolution.y);
-                glUniform1f(timeU, TIME() - tab->lastCursorTime);
+                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
+                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
+                glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tab->lastCursorTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
@@ -4841,37 +4873,26 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_BUTTON].programId);
 
-            uint32_t resU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "resolution");
-            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "backgroundColor");
-            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "hoverColor");
-            uint32_t timeU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "time");
-            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "borderRadius");
-            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "topLeft");
-            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "dimensions");
-            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_BUTTON].programId, "cursor");
-
-            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
-                backgroundColorU,
+                uniforms[U_BUTTON_BG_COLOR],
                 elem.backgroundColor.x,
                 elem.backgroundColor.y,
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
             glUniform4f(
-                hoverColorU,
+                uniforms[U_BUTTON_HOV_COLOR],
                 elem.hoverColor.x,
                 elem.hoverColor.y,
                 elem.hoverColor.z,
                 elem.hoverColor.w
             );
 
-            glUniform2f(topleftU, elem.left, elem.top);
-            glUniform2f(dimensionsU, elem.width, elem.height);
-
-            glUniform1f(timeU, TIME());
-            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
-            glUniform2f(cursorU, cursor.x, cursor.y);
+            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
+            glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
+            glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -4982,45 +5003,34 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindVertexArray(iconButtonVAO);
             glUseProgram(shaders[SHADER_ICON_BUTTON].programId);
 
-            int resU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "resolution");
-            int colorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "solidColor");
-            int bgU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "backgroundColor");
-            int hoverColorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "hoverColor");
-            int timeU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "time");
-            int topLeftU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "topLeft");
-            int widthU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "width");
-            int heightU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "height");
-            int cursorU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "cursor");
-
             // cout << "icon button color: r: " << elem.color.r << " g: " << elem.color.g << " b: " << elem.color.b << " a: " << elem.color.a;
 
-            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform2f(uniforms[U_ICON_BUTTON_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
-                bgU,
+                uniforms[U_ICON_BUTTON_BG_COLOR],
                 elem.backgroundColor.r,
                 elem.backgroundColor.g,
                 elem.backgroundColor.b,
                 elem.backgroundColor.a
             );
             glUniform4f(
-                colorU,
+                uniforms[U_ICON_BUTTON_COLOR],
                 elem.color.r,
                 elem.color.g,
                 elem.color.b,
                 elem.color.a
             );
             glUniform4f(
-                hoverColorU,
+                uniforms[U_ICON_BUTTON_HOV_COLOR],
                 elem.hoverColor.r,
                 elem.hoverColor.g,
                 elem.hoverColor.b,
                 elem.hoverColor.a
             );
-            glUniform2f(topLeftU, elem.left, elem.top);
-            glUniform2f(cursorU, cursor.x, cursor.y);
-            glUniform1f(timeU, TIME());
-            glUniform1f(widthU, elem.width);
-            glUniform1f(heightU, elem.height);
+            glUniform2f(uniforms[U_ICON_BUTTON_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_ICON_BUTTON_CURSOR], cursor.x, cursor.y);
+            glUniform1f(uniforms[U_ICON_BUTTON_WIDTH], elem.width);
+            glUniform1f(uniforms[U_ICON_BUTTON_HEIGHT], elem.height);
 
             if (elem.icon != Icon::None) {
                 if (elem.texture == 0) {
@@ -5056,8 +5066,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glBindTexture(GL_TEXTURE_2D, elem.texture);
             }
 
-            uint32_t itexU = glGetUniformLocation(shaders[SHADER_ICON_BUTTON].programId, "iconTexture");
-            glUniform1i(itexU, 0);
+            glUniform1i(uniforms[U_ICON_BUTTON_TEXTURE], 0);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5096,45 +5105,33 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
-            uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "resolution");
-            uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "color");
-            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "backgroundColor");
-            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "hoverColor");
-            uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "time");
-            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "borderRadius");
-            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "topLeft");
-            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "dimensions");
-            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "cursor");
-
-            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
-                colorU,
+                uniforms[U_TEXT_INPUT_COLOR],
                 elem.color.x,
                 elem.color.y,
                 elem.color.z,
                 elem.color.w
             );
             glUniform4f(
-                backgroundColorU,
+                uniforms[U_TEXT_INPUT_BG_COLOR],
                 elem.backgroundColor.x,
                 elem.backgroundColor.y,
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
             glUniform4f(
-                hoverColorU,
+                uniforms[U_TEXT_INPUT_HOV_COLOR],
                 elem.hoverColor.x,
                 elem.hoverColor.y,
                 elem.hoverColor.z,
                 elem.hoverColor.w
             );
 
-            glUniform2f(topleftU, elem.left, elem.top);
-            glUniform2f(dimensionsU, elem.width, elem.height);
-
-            glUniform1f(timeU, TIME());
-            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
-            glUniform2f(cursorU, cursor.x, cursor.y);
+            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
+            glUniform1f(uniforms[U_TEXT_INPUT_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
+            glUniform2f(uniforms[U_TEXT_INPUT_CURSOR], cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5143,12 +5140,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glUseProgram(pid);
 
             glUniform3f(
-                glGetUniformLocation(pid, "textColor"),
+                uniforms[U_TEXT_COLOR],
                 elem.color.r,
                 elem.color.g,
                 elem.color.b
             );
-            glUniform2f(glGetUniformLocation(pid, "resolution"), resolution.x, resolution.y);
+            glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
             glActiveTexture(GL_TEXTURE0);
             glBindVertexArray(textVAO);
             glBindBuffer(GL_ARRAY_BUFFER, textVBO);
@@ -5223,19 +5220,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
-                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
-                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
-
                 glm::vec4 color = CURSOR_COLOR;
 
                 if (darkTheme) {
                     color = CURSOR_COLOR_DARK;
                 }
 
-                glUniform4f(colorU, color.x, color.y, color.z, color.w);
-                glUniform2f(resU, resolution.x, resolution.y);
-                glUniform1f(timeU, TIME() - tid->lastActiveTime);
+                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
+                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
+                glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5268,15 +5261,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
                     glm::vec4 color = CURSOR_COLOR;
 
                     if (darkTheme) {
                         color = CURSOR_COLOR_DARK;
                     }
 
-                    glUniform4f(colorU, color.x, color.y, color.z, 0.25);
+                    glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 }
@@ -5317,45 +5308,35 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
-            uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "resolution");
-            uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "color");
-            uint32_t backgroundColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "backgroundColor");
-            uint32_t hoverColorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "hoverColor");
-            uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "time");
-            uint32_t borderRadiusU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "borderRadius");
-            uint32_t topleftU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "topLeft");
-            uint32_t dimensionsU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "dimensions");
-            uint32_t cursorU = glGetUniformLocation(shaders[SHADER_TEXT_INPUT].programId, "cursor");
-
-            glUniform2f(resU, resolution.x, resolution.y);
+            glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
-                colorU,
+                uniforms[U_TEXT_INPUT_COLOR],
                 elem.color.x,
                 elem.color.y,
                 elem.color.z,
                 elem.color.w
             );
             glUniform4f(
-                backgroundColorU,
+                uniforms[U_TEXT_INPUT_BG_COLOR],
                 elem.backgroundColor.x,
                 elem.backgroundColor.y,
                 elem.backgroundColor.z,
                 elem.backgroundColor.w
             );
             glUniform4f(
-                hoverColorU,
+                uniforms[U_TEXT_INPUT_HOV_COLOR],
                 elem.hoverColor.x,
                 elem.hoverColor.y,
                 elem.hoverColor.z,
                 elem.hoverColor.w
             );
 
-            glUniform2f(topleftU, elem.left, elem.top);
-            glUniform2f(dimensionsU, elem.width, elem.height);
+            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
 
-            glUniform1f(timeU, TIME());
-            glUniform1f(borderRadiusU, static_cast<float>(elem.borderRadius));
-            glUniform2f(cursorU, cursor.x, cursor.y);
+            // glUniform1f(uniforms[U_TEXT_INPUT_TIME], TIME());
+            glUniform1f(uniforms[U_TEXT_INPUT_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
+            glUniform2f(uniforms[U_TEXT_INPUT_CURSOR], cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5364,12 +5345,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             glUseProgram(pid);
 
             glUniform3f(
-                glGetUniformLocation(pid, "textColor"),
+                uniforms[U_TEXT_COLOR],
                 elem.color.r,
                 elem.color.g,
                 elem.color.b
             );
-            glUniform2f(glGetUniformLocation(pid, "resolution"), resolution.x, resolution.y);
+            glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
             glActiveTexture(GL_TEXTURE0);
             glBindVertexArray(textVAO);
             glBindBuffer(GL_ARRAY_BUFFER, textVBO);
@@ -5534,19 +5515,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                uint32_t colorU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "color");
-                uint32_t resU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "resolution");
-                uint32_t timeU = glGetUniformLocation(shaders[SHADER_TEXT_CURSOR].programId, "time");
-
                 glm::vec4 color = CURSOR_COLOR;
 
                 if (darkTheme) {
                     color = CURSOR_COLOR_DARK;
                 }
 
-                glUniform4f(colorU, color.x, color.y, color.z, color.w);
-                glUniform2f(resU, resolution.x, resolution.y);
-                glUniform1f(timeU, TIME() - tid->lastActiveTime);
+                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
+                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
+                glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5585,15 +5562,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    uint32_t colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
                     glm::vec4 color = CURSOR_COLOR;
 
                     if (darkTheme) {
                         color = CURSOR_COLOR_DARK;
                     }
 
-                    glUniform4f(colorU, color.x, color.y, color.z, 0.25);
+                    glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
 
                     glDrawArrays(GL_TRIANGLES, 0, selectionVertices.size() / 2);
                 }
@@ -5720,8 +5695,6 @@ void renderContentBlockHighlight() {
         return;
     }
 
-    uint32_t colorU;
-
     glBindVertexArray(highlightedContentBlock.backgroundVAO);
     glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
 
@@ -5738,15 +5711,13 @@ void renderContentBlockHighlight() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
     glm::vec4 color = CONTENT_HIGHLIGHT_BG;
 
     if (darkTheme) {
         color = CONTENT_HIGHLIGHT_BG_DARK;
     }
 
-    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+    glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -5766,15 +5737,13 @@ void renderContentBlockHighlight() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-
     color = CONTENT_HIGHLIGHT_DRAG;
 
     if (darkTheme) {
         color = CONTENT_HIGHLIGHT_DRAG_DARK;
     }
 
-    glUniform4f(colorU, color.r, color.g, color.b, color.a);
+    glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -6023,16 +5992,12 @@ void renderCBTextSelection(ContentTab* tab) {
 
     glUseProgram(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId);
 
-    uint32_t resolutionU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "resolution");
-    uint32_t colorU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "solidColor");
-    uint32_t scrollOffsetU = glGetUniformLocation(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId, "scrollOffsetY");
-
-    glUniform2f(resolutionU, resolution.x, resolution.y);
-    glUniform1f(scrollOffsetU, tab->scrollOffsetY);
+    glUniform2f(uniforms[U_TEXT_HL_RESOLUTION], resolution.x, resolution.y);
+    glUniform1f(uniforms[U_TEXT_HL_SCROLL_OFFSET_Y], tab->scrollOffsetY);
 
     glm::vec4 textSelColor = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
-    glUniform4f(colorU, textSelColor.r, textSelColor.g, textSelColor.b, 0.25f);
+    glUniform4f(uniforms[U_TEXT_HL_COLOR], textSelColor.r, textSelColor.g, textSelColor.b, 0.25f);
 
     glDrawArrays(GL_TRIANGLES, 0, tab->selVertexCount/2);
 }
@@ -6119,10 +6084,6 @@ void renderCBMoveMarker() {
         && cbMove.show
     ) {
         if (cbMove.updated) {
-            if (cbMove.colorU == 0) {
-                cbMove.colorU = glGetUniformLocation(shaders[SHADER_DEFAULT].programId, "solidColor");
-            }
-
             float top;
 
             if (cbMove.targetIndex == 0) {
@@ -6165,7 +6126,7 @@ void renderCBMoveMarker() {
 
         glBindVertexArray(cbMove.vao);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
-        glUniform4f(cbMove.colorU, 1.0f, 0.0f, 0.0f, 1.0f);
+        glUniform4f(uniforms[U_DEFAULT_COLOR], 1.0f, 0.0f, 0.0f, 1.0f);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
 

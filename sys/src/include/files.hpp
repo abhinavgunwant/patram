@@ -47,6 +47,11 @@ enum class OpenedFileType : uint8_t {
     InvalidFile,
 };
 
+enum class FileDialogMode : uint8_t {
+    Open,
+    Save,
+};
+
 filesystem::path getHomeDirectoryPath();
 string getHomeDirectory();
 
@@ -72,7 +77,7 @@ void createFontAtlasFile(uint8_t index, Character* characters);
 
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
-FileDialogResult openFileDialog(GLFWwindow* window, string title);
+FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode);
 
 #endif // PATRAM_SYS_FILES
 

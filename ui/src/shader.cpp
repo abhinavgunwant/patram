@@ -7,6 +7,8 @@
 
 using namespace std;
 
+uint32_t uniforms[TOTAL_UNIFORMS];
+
 string vertexShaders[] = {
     // Default Shader
     "#version 330 core\n"
@@ -79,7 +81,6 @@ string fragmentShaders[] = {
     "uniform vec4 solidColor;\n"
     "uniform vec4 backgroundColor;\n"
     "uniform vec4 hoverColor;\n"
-    "uniform float time;\n"
     "uniform float width;\n"
     "uniform float height;\n"
     "uniform vec2 topLeft;\n"
@@ -350,5 +351,54 @@ void initShaders() {
     for (uint8_t i=0; i<TOTAL_SHADERS; ++i) {
         shaders[i].programId = compile(i, shaders[i].vsIndex, shaders[i].fsIndex);
     }
+
+    uint32_t id = shaders[SHADER_DEFAULT].programId;
+    uniforms[U_DEFAULT_COLOR] = glGetUniformLocation(id, "solidColor");
+    uniforms[U_DEFAULT_RESOLUTION] = glGetUniformLocation(id, "resolution");
+
+    id = shaders[SHADER_TEXT].programId;
+    uniforms[U_TEXT_COLOR] = glGetUniformLocation(id, "textColor");
+    uniforms[U_TEXT_RESOLUTION] = glGetUniformLocation(id, "resolution");
+
+    id = shaders[SHADER_ICON_BUTTON].programId;
+    uniforms[U_ICON_BUTTON_COLOR] = glGetUniformLocation(id, "solidColor");
+    uniforms[U_ICON_BUTTON_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_ICON_BUTTON_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
+    uniforms[U_ICON_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
+    uniforms[U_ICON_BUTTON_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
+    uniforms[U_ICON_BUTTON_WIDTH] = glGetUniformLocation(id, "width");
+    uniforms[U_ICON_BUTTON_HEIGHT] = glGetUniformLocation(id, "height");
+    uniforms[U_ICON_BUTTON_CURSOR] = glGetUniformLocation(id, "cursor");
+    uniforms[U_ICON_BUTTON_TEXTURE] = glGetUniformLocation(id, "iconTexture");
+
+    id = shaders[SHADER_BUTTON].programId;
+    uniforms[U_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
+    uniforms[U_BUTTON_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_BUTTON_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
+    uniforms[U_BUTTON_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
+    uniforms[U_BUTTON_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
+    uniforms[U_BUTTON_DIMENSIONS] = glGetUniformLocation(id, "dimensions");
+    uniforms[U_BUTTON_CURSOR] = glGetUniformLocation(id, "cursor");
+
+    id = shaders[SHADER_TEXT_INPUT].programId;
+    uniforms[U_TEXT_INPUT_COLOR] = glGetUniformLocation(id, "color");
+    uniforms[U_TEXT_INPUT_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_TEXT_INPUT_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
+    uniforms[U_TEXT_INPUT_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
+    uniforms[U_TEXT_INPUT_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
+    uniforms[U_TEXT_INPUT_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
+    uniforms[U_TEXT_INPUT_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
+    uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
+
+    id = shaders[SHADER_TEXT_CURSOR].programId;
+    uniforms[U_TEXT_CURSOR_COLOR] = glGetUniformLocation(id, "color");
+    uniforms[U_TEXT_CURSOR_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_TEXT_CURSOR_TIME] = glGetUniformLocation(id, "time");
+
+    id = shaders[SHADER_CB_TEXT_HIGHLIGHT].programId;
+    uniforms[U_TEXT_HL_COLOR] = glGetUniformLocation(id, "solidColor");
+    uniforms[U_TEXT_HL_RESOLUTION] = glGetUniformLocation(id, "resolution");
+    uniforms[U_TEXT_HL_SCROLL_OFFSET_Y] = glGetUniformLocation(id, "scrollOffsetY");
 }
 

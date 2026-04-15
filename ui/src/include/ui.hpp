@@ -1,6 +1,7 @@
 #ifndef PATRAM_UI
 #define PATRAM_UI
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -407,7 +408,6 @@ struct ContentBlockMoveMarker {
     uint32_t targetIndex;
     uint32_t vao;
     uint32_t vbo;
-    uint32_t colorU;
 
     bool show;
     bool updated;
@@ -460,6 +460,7 @@ struct ContentTab {
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
+    filesystem::path filePath;
 };
 
 void defaultCallback(UIElement* elem);
@@ -540,6 +541,8 @@ vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab);
 vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
 
 void openFile();
+void saveFile();
+void newNote();
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
