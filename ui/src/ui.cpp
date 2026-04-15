@@ -4,6 +4,7 @@
 #include <stack>
 #include <thread>
 #include <chrono>
+#include <filesystem>
 
 #ifdef DEBUG_TEXT_INPUT
     #include <string_view>
@@ -1432,6 +1433,18 @@ void cbKeyCallback(int key, int action, int mod) {
                 }
                 break;
 
+            case GLFW_KEY_TAB:
+                if (ctrl && shift) {
+                    if (activeTabIndex > 0) {
+                        --activeTabIndex;
+                    } else {
+                        activeTabIndex = tabs.size() - 1;
+                    }
+                } else if (ctrl) {
+                    activeTabIndex = (activeTabIndex + 1) % tabs.size();
+                }
+                break;
+
             case GLFW_KEY_ENTER:
                 #ifdef DEBUG_TEXT_INPUT
                 #ifdef DEBUG_KEYBOARD_EVENTS
@@ -1803,7 +1816,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     TYPE("v");
                 }
                 break;
-            case GLFW_KEY_W: if (capsLck || shift) { TYPE("W"); } else { TYPE("w"); } break;
+            case GLFW_KEY_W: if (ctrl) { closeCurrentTab(); } else if (capsLck || shift) { TYPE("W"); } else { TYPE("w"); } break;
             case GLFW_KEY_X: if (capsLck || shift) { TYPE("X"); } else { TYPE("x"); } break;
 
             case GLFW_KEY_Y:
@@ -3070,7 +3083,35 @@ void openFile() {
     FileDialogResult result = openFileDialog(window, "Open file");
 
     if (result.success) {
-        cout << "\nChoosing file was successful! you chose: " << result.filepath;
+        cout << "\nDEBUG: Choosing file was successful! you chose: " << result.filepath;
+
+        filesystem::path path = result.filepath;
+        string fileName = path.filename().string();
+
+        cout << "\nDEBUG: File Name: " << fileName;
+
+        if (checkFile(path) == OpenedFileType::TextFile) {
+            newTab(fileName);
+
+            ContentTab* tab = &tabs[activeTabIndex];
+
+            vector<string> lines = readFileText(path);
+
+            for (string line: lines) {
+                tab->contentBlocks.emplace_back(ContentBlock {
+                    ContentBlockType::Paragraph,
+                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                    0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
+                });
+            }
+
+            #ifdef DEBUG_CONTENT_BLOCKS
+                cout << "\nRead following content from file ("
+                    << tab->contentBlocks.size() << "): ";
+
+                printContentBlocksFromVector(tab->contentBlocks);
+            #endif
+        }
     } else {
         cout << "\nSome error opening file dialog.";
     }
@@ -3748,6 +3789,41 @@ void newTab(string title) {
     });
 
     activeTabIndex = tabs.size() - 1;
+}
+
+void closeCurrentTab() {
+    if (tabs.size() == 1) { return; }
+
+    ContentTab* tab = &tabs[activeTabIndex];
+
+    for (auto itr = tab->extCommands.begin(); itr != tab->extCommands.end(); ++itr) {
+        for (auto ibItr = (*itr).insertedBlocks.begin(); ibItr != (*itr).insertedBlocks.end(); ++ibItr) {
+            if ((*ibItr).rope != nullptr) {
+                delete (*ibItr).rope;
+                (*ibItr).rope = nullptr;
+            }
+        }
+
+        for (auto delItr = (*itr).deletedBlocks.begin(); delItr != (*itr).deletedBlocks.end(); ++delItr) {
+            if ((*delItr).rope != nullptr) {
+                delete (*delItr).rope;
+                (*delItr).rope = nullptr;
+            }
+        }
+    }
+
+    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
+        if ((*itr).rope != nullptr) {
+            delete (*itr).rope;
+            (*itr).rope = nullptr;
+        }
+    }
+
+    tabs.erase(tabs.begin() + activeTabIndex);
+
+    if (activeTabIndex >= tabs.size()) {
+        activeTabIndex = tabs.size() - 1;
+    }
 }
 
 void closeTab(uint32_t index) {

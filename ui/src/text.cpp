@@ -254,7 +254,7 @@ RopeRenderResult renderContentRope(
     glBindTexture(GL_TEXTURE_2D, fontTextureID);
     glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
 
-    if (redraw) {
+    if (redraw && bufferSize > 0) {
         glUniform2f(resolutionUniform, res.x, res.y);
 
         numVertices = vertices.size();

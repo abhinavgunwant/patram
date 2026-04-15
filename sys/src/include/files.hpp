@@ -41,6 +41,12 @@ struct FileDialogResult {
     string filepath;
 };
 
+enum class OpenedFileType : uint8_t {
+    None,
+    TextFile,
+    InvalidFile,
+};
+
 filesystem::path getHomeDirectoryPath();
 string getHomeDirectory();
 
@@ -55,6 +61,9 @@ filesystem::path getFontInfoPath(uint8_t index);
 
 bool fileExists(filesystem::path p);
 bool dirExists(filesystem::path p);
+
+OpenedFileType checkFile(filesystem::path p);
+vector<string> readFileText(filesystem::path p);
 
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);

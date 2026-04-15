@@ -485,6 +485,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
 void newTab(string title = "Untitled");
+void closeCurrentTab();
 void closeTab(uint32_t index);
 string getSelectedTextFromCurrentTab();
 UIPreferences* initPreferences();

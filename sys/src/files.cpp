@@ -97,6 +97,33 @@ inline bool dirExists(filesystem::path p) {
     return filesystem::exists(p) && filesystem::is_directory(p);
 }
 
+OpenedFileType checkFile(filesystem::path p) {
+    if (
+        filesystem::exists(p) && (filesystem::is_regular_file(p)
+        || filesystem::is_symlink(p))
+    ) {
+        // TODO: Check if the file is supported (extension and contents)
+
+        return OpenedFileType::TextFile;
+    }
+
+    return OpenedFileType::InvalidFile;
+}
+
+vector<string> readFileText(filesystem::path p) {
+    ifstream f(p.string());
+    string line;
+    vector<string> lines;
+    lines.reserve(128);
+
+    while (getline(f, line)) {
+        lines.emplace_back(line);
+    }
+
+    f.close();
+    return lines;
+}
+
 void createCacheDirectory() {
     filesystem::create_directories(getCacheDirectory());
 }
