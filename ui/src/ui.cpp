@@ -141,7 +141,6 @@ void showWindow() {
     glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
 
     glClearColor(0, 0, 0, 1.0);
-
 }
 
 void updateCursorShape(CursorShape shape) {
@@ -784,7 +783,9 @@ void setupUI(bool isDarkTheme) {
     contentContainer->active = true;
     activeElement = contentContainer;
 
-    newTab("This is a test note title!");
+    newTab("Test note title");
+
+    updateWindowTitle();
 
     appendContentBlock(0, ContentBlockType::Paragraph, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan lobortis sapien a facilisis. Fusce volutpat odio at purus ullamcorper, a feugiat leo vulputate. Etiam et tortor odio.");
     appendContentBlock(0, ContentBlockType::Heading1, "Vivamus scelerisque ac lorem quis lacinia.");
@@ -1447,6 +1448,8 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (ctrl) {
                     activeTabIndex = (activeTabIndex + 1) % tabs.size();
                 }
+
+                updateWindowTitle();
                 break;
 
             case GLFW_KEY_ENTER:
@@ -3095,7 +3098,7 @@ void openFile() {
         cout << "\nDEBUG: File Name: " << fileName;
 
         if (checkFile(path) == OpenedFileType::TextFile) {
-            newTab(fileName);
+            newTab(result.filepath);
 
             ContentTab* tab = &tabs[activeTabIndex];
 
@@ -3118,6 +3121,8 @@ void openFile() {
 
                 printContentBlocksFromVector(tab->contentBlocks);
             #endif
+
+            updateWindowTitle();
         }
     } else {
         cout << "\nSome error opening file dialog.";
@@ -3159,6 +3164,8 @@ void newNote() {
 
     newTab(title);
 
+    updateWindowTitle();
+
     ContentTab* tab = &tabs[activeTabIndex];
 
     tab->contentBlocks.emplace_back(ContentBlock {
@@ -3166,6 +3173,11 @@ void newNote() {
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
     });
+}
+
+void updateWindowTitle() {
+    ContentTab* tab = CURRENT_TAB;
+    glfwSetWindowTitle(window, ("patram - " + tab->filePath.filename().string()).c_str());
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -3803,7 +3815,7 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     #endif
 }
 
-void newTab(string title) {
+void newTab(filesystem::path path = "Untitled Note") {
     vector<ContentBlock> content;
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
@@ -3817,7 +3829,7 @@ void newTab(string title) {
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
         0, 0, 0, 0,
-        new Rope(title),
+        new Rope(path.filename().string()),
     });
 
     uint32_t vao[4];
@@ -3836,7 +3848,7 @@ void newTab(string title) {
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
-        commands, extCommands, content, ""
+        commands, extCommands, content, path
     });
 
     activeTabIndex = tabs.size() - 1;

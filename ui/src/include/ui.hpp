@@ -485,7 +485,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, uint32_t index);
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
-void newTab(string title = "Untitled");
+void newTab(filesystem::path tabPath);
 void closeCurrentTab();
 void closeTab(uint32_t index);
 string getSelectedTextFromCurrentTab();
@@ -543,6 +543,7 @@ vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
 void openFile();
 void saveFile();
 void newNote();
+void updateWindowTitle();
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
