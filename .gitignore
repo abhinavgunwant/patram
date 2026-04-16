@@ -4,6 +4,7 @@ X64
 *.vcxproj*
 *.sln
 Debug
+Release
 *.dir
 .vs/
 
