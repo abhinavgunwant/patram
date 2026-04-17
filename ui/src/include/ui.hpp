@@ -507,6 +507,28 @@ void hideCBMoveMarker();
 void reDrawAllContentBlocks();
 void reDrawCBsFrom(uint32_t i, uint32_t limit);
 void reDrawCBsFromIter(vector<ContentBlock>::iterator iter, uint32_t limit);
+
+void insertCBs(
+    ContentTab* tab,
+    uint32_t index,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to,
+    uint32_t count
+);
+
+void deleteCBs(
+    ContentTab* tab,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to
+);
+
+void deleteCBsToDeletedBlocks(
+    ContentTab* tab,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to,
+    ContentCommandExt* extCmd
+);
+
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void cbKeypressType(ContentTab* tab, string text);
 ContentDeletionType deleteSelectedCBText(ContentTab* tab, ContentCommand* cmd, ContentCommandExt* cbExt);

@@ -6177,6 +6177,62 @@ void reDrawCBsFrom(uint32_t i, uint32_t limit) {
     }
 }
 
+void insertCBs(
+    ContentTab* tab,
+    uint32_t index,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to,
+    uint32_t count
+) {
+    tab->contentBlocks.insert(tab->contentBlocks.begin() + index, from, to);
+
+    auto start = tab->contentBlocks.begin() + index;
+
+    for (auto cbIter = start; cbIter != start + count; ++cbIter) {
+        (*cbIter).rope = Rope::deepCopy((*cbIter).rope);
+    }
+}
+
+void deleteCBs(
+    ContentTab* tab,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to
+) {
+    for (auto cbIter = from; cbIter != to; ++cbIter) {
+        if ((*cbIter).textVAO != 0) {
+            glDeleteVertexArrays(1, &(*cbIter).textVAO);
+            glDeleteBuffers(1, &(*cbIter).textVBO);
+        }
+
+        delete (*cbIter).rope;
+    }
+
+    tab->contentBlocks.erase(from, to);
+}
+
+void deleteCBsToDeletedBlocks(
+    ContentTab* tab,
+    vector<ContentBlock>::iterator from,
+    vector<ContentBlock>::iterator to,
+    ContentCommandExt* extCmd
+) {
+    for (auto cbIter = from; cbIter != to; ++cbIter) {
+        if ((*cbIter).textVAO != 0) {
+            glDeleteVertexArrays(1, &(*cbIter).textVAO);
+            glDeleteBuffers(1, &(*cbIter).textVBO);
+        }
+
+        delete (*cbIter).rope;
+
+        extCmd->deletedBlocks.emplace_back(ContentBlock {
+            (*cbIter).type,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
+        });
+    }
+
+    tab->contentBlocks.erase(from, to);
+}
+
 void processRedo(UIElement* element) {
     #define CUR_CMD element->extraData->textInputData.cmdList.currentCommand
     #define CUR_POS element->extraData->textInputData.cursorPosition
@@ -6622,8 +6678,19 @@ bool processCBReplaceCommand(
     switch (extCmd->delType) {
         case ContentDeletionType::DeleteMultipleCBs:
         case ContentDeletionType::DeleteSingleCB:
-            tab->contentBlocks.erase(START);
-            tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end());
+            // tab->contentBlocks.erase(START);
+
+            deleteCBs(tab, START, START + 1);
+
+            // tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end());
+
+            insertCBs(
+                tab,
+                cmd->startCBIndex,
+                pastedCBs.begin(),
+                pastedCBs.end(),
+                pastedCBs.size()
+            );
 
             tab->cursorPosition = pastedCBs.back().rope->length();
 
@@ -6648,7 +6715,15 @@ bool processCBReplaceCommand(
                     (*firstCB).rope->length() - firstCBPastedEnd
                 );
 
-                tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
+                // tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
+
+                insertCBs(
+                    tab,
+                    cmd->startCBIndex + 1,
+                    pastedCBs.begin() + 1,
+                    pastedCBs.end(),
+                    pastedCBs.size() - 1
+                );
 
                 auto lastPastedCB = START + pastedCBs.size() - 1;
 
@@ -6672,7 +6747,16 @@ bool processCBReplaceCommand(
         }
 
         case ContentDeletionType::DeleteMultipleCBsPartial: {
-            tab->contentBlocks.insert(START + 1, pastedCBs.begin(), pastedCBs.end());
+            // tab->contentBlocks.insert(START + 1, pastedCBs.begin(), pastedCBs.end());
+
+            insertCBs(
+                tab,
+                cmd->startCBIndex + 1,
+                pastedCBs.begin(),
+                pastedCBs.end(),
+                pastedCBs.size() - 1
+            );
+
             string firstCBString = (*(START)).rope->getString();
 
             (*(START)).rope->remove(cmd->startCursorPos, firstCBString.length() - cmd->startCursorPos);
@@ -6700,7 +6784,15 @@ bool processCBReplaceCommand(
             (*firstCB).rope->append(pastedFirstStr);
 
             if (pastedCBs.size() > 1) {
-                tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
+                // tab->contentBlocks.insert(START + 1, pastedCBs.begin() + 1, pastedCBs.end());
+
+                insertCBs(
+                    tab,
+                    cmd->startCBIndex + 1,
+                    pastedCBs.begin() + 1,
+                    pastedCBs.end(),
+                    pastedCBs.size() - 1
+                );
             }
 
             tab->cursorPosition = pastedCBs.back().rope->length();
@@ -6712,7 +6804,15 @@ bool processCBReplaceCommand(
         }
 
         case ContentDeletionType::DeleteMultipleCBsPartialLast: {
-            tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end() - 1);
+            // tab->contentBlocks.insert(START, pastedCBs.begin(), pastedCBs.end() - 1);
+
+            insertCBs(
+                tab,
+                cmd->startCBIndex,
+                pastedCBs.begin(),
+                pastedCBs.end() - 1,
+                pastedCBs.size() - 1
+            );
 
             auto lastPastedCB = START + pastedCBs.size() - 1;
 
@@ -7022,7 +7122,8 @@ void processCBUndo(ContentTab* tab) {
                 string secondString = (*(START + extCmd->insertedBlocks.size() - 1)).rope->getString();
                 delete (*(START + extCmd->insertedBlocks.size() - 1)).rope;
 
-                tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+                deleteCBs(tab, START + 1, START + extCmd->insertedBlocks.size());
+                // tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
 
                 (*(START)).rope->append(secondString.substr(lastCBRopeLen, secondString.length() - lastCBRopeLen));
             } else {
@@ -7044,7 +7145,7 @@ void processCBUndo(ContentTab* tab) {
                         tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
                     }
 
-                    // delete (*(START)).rope;
+                    delete (*(START)).rope;
                     (*(START)).rope = new Rope(extCmd->deletedBlocks.back().rope->getString());
                     break;
 
@@ -7065,7 +7166,8 @@ void processCBUndo(ContentTab* tab) {
                                 extCmd->insertedBlocks.back().rope->length()
                             );
 
-                            tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+                            deleteCBs(tab, START + 1, START + extCmd->insertedBlocks.size());
+                            // tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
                         }
 
                         (*firstCB).rope->remove(
@@ -7081,29 +7183,49 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBs:
-                    tab->contentBlocks.erase(
-                        START,
-                        START + extCmd->insertedBlocks.size()
+                    deleteCBs(tab, START, START + extCmd->insertedBlocks.size());
+
+                    // tab->contentBlocks.erase(
+                    //     START,
+                    //     START + extCmd->insertedBlocks.size()
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end(),
+                        extCmd->deletedBlocks.size()
                     );
 
-                    tab->contentBlocks.insert(
-                        START,
-                        extCmd->deletedBlocks.begin(),
-                        extCmd->deletedBlocks.end()
-                    );
+                    // tab->contentBlocks.insert(
+                    //     START,
+                    //     extCmd->deletedBlocks.begin(),
+                    //     extCmd->deletedBlocks.end()
+                    // );
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartialLast:
-                    tab->contentBlocks.erase(
-                        START,
-                        START + extCmd->insertedBlocks.size() - 1
+                    deleteCBs(tab, START, START + extCmd->insertedBlocks.size() - 1);
+
+                    // tab->contentBlocks.erase(
+                    //     START,
+                    //     START + extCmd->insertedBlocks.size() - 1
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex,
+                        extCmd->deletedBlocks.begin(),
+                        extCmd->deletedBlocks.end() - 1,
+                        extCmd->deletedBlocks.size() - 1
                     );
 
-                    tab->contentBlocks.insert(
-                        START,
-                        extCmd->deletedBlocks.begin(),
-                        extCmd->deletedBlocks.end() - 1
-                    );
+                    // tab->contentBlocks.insert(
+                    //     START,
+                    //     extCmd->deletedBlocks.begin(),
+                    //     extCmd->deletedBlocks.end() - 1
+                    // );
 
                     CB_ROPE(extCmd->endCBIndex)->remove(
                         0,
@@ -7114,7 +7236,9 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartialFirst:
-                    tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
+                    deleteCBs(tab, START + 1, START + extCmd->insertedBlocks.size());
+
+                    // tab->contentBlocks.erase(START + 1, START + extCmd->insertedBlocks.size());
 
                     CB_ROPE(cmd->startCBIndex)->remove(
                         cmd->startCursorPos,
@@ -7125,11 +7249,20 @@ void processCBUndo(ContentTab* tab) {
                         extCmd->deletedBlocks.front().rope->getString()
                     );
 
-                    tab->contentBlocks.insert(
-                        START + 1,
+                    // tab->contentBlocks.insert(
+                    //     START + 1,
+                    //     extCmd->deletedBlocks.begin() + 1,
+                    //     extCmd->deletedBlocks.end()
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex + 1,
                         extCmd->deletedBlocks.begin() + 1,
-                        extCmd->deletedBlocks.end()
+                        extCmd->deletedBlocks.end(),
+                        extCmd->deletedBlocks.size()
                     );
+
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartial:
@@ -7140,15 +7273,25 @@ void processCBUndo(ContentTab* tab) {
                     (*firstCB).rope->remove(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos);
                     (*firstCB).rope->append(extCmd->deletedBlocks.front().rope->getString());
 
-                    tab->contentBlocks.erase(
-                        START + 1,
-                        START + extCmd->insertedBlocks.size()
-                    );
+                    // tab->contentBlocks.erase(
+                    //     START + 1,
+                    //     START + extCmd->insertedBlocks.size()
+                    // );
 
-                    tab->contentBlocks.insert(
-                        START + 1,
+                    deleteCBs(tab, START + 1, START + extCmd->insertedBlocks.size());
+
+                    // tab->contentBlocks.insert(
+                    //     START + 1,
+                    //     extCmd->deletedBlocks.begin() + 1,
+                    //     extCmd->deletedBlocks.end() - 1
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex + 1,
                         extCmd->deletedBlocks.begin() + 1,
-                        extCmd->deletedBlocks.end() - 1
+                        extCmd->deletedBlocks.end() - 1,
+                        extCmd->deletedBlocks.size() - 2
                     );
 
                     cout << "\nDEBUG: End rope is: \"" << (*(END)).rope->getString() << "\"";
@@ -7167,7 +7310,6 @@ void processCBUndo(ContentTab* tab) {
                     break;
             }
 
-            // reDrawCBsFrom(cmd->startCBIndex, 64);
             tab->cursorCBIndex = cmd->startCBIndex;
             tab->cursorPosition = cmd->startCursorPos;
             tab->redrawCursor = true;
@@ -7178,17 +7320,26 @@ void processCBUndo(ContentTab* tab) {
 
         case CommandType::NewLine: {
             if (cmd->startCursorPos == 0) {
-                tab->contentBlocks.erase(tab->contentBlocks.begin() + cmd->startCBIndex);
+                auto cbIter = tab->contentBlocks.begin() + cmd->startCBIndex;
+
+                delete (*cbIter).rope;
+
+                // tab->contentBlocks.erase(cbIter);
+                deleteCBs(tab, cbIter, cbIter + 1);
             } else {
-                string newLineString = CB_ROPE(cmd->startCBIndex + 1)->getString();
-                tab->contentBlocks.erase(tab->contentBlocks.begin() + cmd->startCBIndex + 1);
+                auto cbIter = tab->contentBlocks.begin() + cmd->startCBIndex + 1;
+                string newLineString = (*cbIter).rope->getString();
+
+                delete (*cbIter).rope;
+
+                // tab->contentBlocks.erase(cbIter);
+                deleteCBs(tab, cbIter, cbIter + 1);
                 CB_ROPE(cmd->startCBIndex)->append(newLineString);
             }
 
             tab->cursorPosition = cmd->startCursorPos;
             tab->redrawCursor = true;
             tab->cursorCBIndex = cmd->startCBIndex;
-            // reDrawCBsFrom(cmd->startCBIndex, 64);
             decrement = true;
             break;
         }
@@ -7213,7 +7364,7 @@ void processCBUndo(ContentTab* tab) {
             switch (extCmd->delType) {
                 case ContentDeletionType::DeleteSingleCB:
                     delete (*(START)).rope;
-                    (*(START)).rope = extCmd->deletedBlocks.back().rope;
+                    (*(START)).rope = Rope::deepCopy(extCmd->deletedBlocks.back().rope);
                     break;
 
                 case ContentDeletionType::PartiallyDeleteSingleCB:
@@ -7225,21 +7376,49 @@ void processCBUndo(ContentTab* tab) {
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBs:
-                    tab->contentBlocks.erase(START);
+                    // delete (*(START)).rope;
 
-                    tab->contentBlocks.insert(
-                        START,
+                    // tab->contentBlocks.erase(START);
+                    deleteCBs(tab, START, START + 1);
+
+                    // tab->contentBlocks.insert(
+                    //     START,
+                    //     extCmd->deletedBlocks.begin(),
+                    //     extCmd->deletedBlocks.end()
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex,
                         extCmd->deletedBlocks.begin(),
-                        extCmd->deletedBlocks.end()
+                        extCmd->deletedBlocks.end(),
+                        extCmd->deletedBlocks.size()
                     );
+
                     break;
 
                 case ContentDeletionType::DeleteMultipleCBsPartialLast:
-                    tab->contentBlocks.insert(
-                        START,
+                    // tab->contentBlocks.insert(
+                    //     START,
+                    //     extCmd->deletedBlocks.begin(),
+                    //     extCmd->deletedBlocks.end() - 1
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex,
                         extCmd->deletedBlocks.begin(),
-                        extCmd->deletedBlocks.end() - 1
+                        extCmd->deletedBlocks.end() - 1,
+                        extCmd->deletedBlocks.size() - 1
                     );
+
+                    // for (
+                    //     auto cbIter = START;
+                    //     cbIter != START + extCmd->deletedBlocks.size() - 1;
+                    //     ++cbIter
+                    // ) {
+                    //     (*cbIter).rope = Rope::deepCopy((*cbIter).rope);
+                    // }
 
                     tab->contentBlocks[extCmd->endCBIndex].rope->prepend(extCmd->deletedBlocks.back().rope->getString());
                     break;
@@ -7254,11 +7433,20 @@ void processCBUndo(ContentTab* tab) {
                         extCmd->deletedBlocks.front().rope->getString()
                     );
 
-                    tab->contentBlocks.insert(
-                        START + 1,
+                    // tab->contentBlocks.insert(
+                    //     START + 1,
+                    //     extCmd->deletedBlocks.begin() + 1,
+                    //     extCmd->deletedBlocks.end()
+                    // );
+
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex + 1,
                         extCmd->deletedBlocks.begin() + 1,
-                        extCmd->deletedBlocks.end()
+                        extCmd->deletedBlocks.end(),
+                        extCmd->deletedBlocks.size()
                     );
+
                     break;
                 case ContentDeletionType::DeleteMultipleCBsPartial:
                     auto firstCB = START;
@@ -7274,6 +7462,14 @@ void processCBUndo(ContentTab* tab) {
                         extCmd->deletedBlocks.end()
                     );
 
+                    insertCBs(
+                        tab,
+                        cmd->startCBIndex + 1,
+                        extCmd->deletedBlocks.begin() + 1,
+                        extCmd->deletedBlocks.end(),
+                        extCmd->deletedBlocks.size()
+                    );
+
                     (*(END)).rope->append(firstRopeString.substr(
                         cmd->startCursorPos,
                         firstRopeString.length() - cmd->startCursorPos
@@ -7281,7 +7477,6 @@ void processCBUndo(ContentTab* tab) {
                     break;
             }
 
-            // reDrawCBsFrom(cmd->startCBIndex, 64);
             tab->redrawCursor = true;
             decrement = true;
 

@@ -26,6 +26,10 @@ class Rope {
         Rope(Rope r1, Rope r2);
         Rope(string s1, string s2);
 
+        static Rope* deepCopy(Rope* rope) {
+            return new Rope(rope->getString());
+        }
+
         inline bool isLeaf();
         string getString();
         char operator[](uint32_t i);
