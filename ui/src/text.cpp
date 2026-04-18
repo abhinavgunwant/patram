@@ -73,7 +73,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glUseProgram(pid);
 
     glUniform2f(
-        glGetUniformLocation(pid, "resolution"),
+        uniforms[U_TEXT_RESOLUTION],
         static_cast<float>(width),
         static_cast<float>(height)
     );
@@ -93,14 +93,13 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glm::vec3 color = darkTheme ? WHITE : BLACK;
 
     glUniform3f(
-        glGetUniformLocation(shaders[SHADER_TEXT].programId, "textColor"),
+        uniforms[U_TEXT_COLOR],
         color.r,
         color.g,
         color.b
     );
 
-    resolutionUniform = glGetUniformLocation(shaders[SHADER_TEXT].programId, "resolution");
-    glUniform2f(resolutionUniform, resolution.x, resolution.y);
+    glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
 }
 
 RopeRenderResult renderContentRope(
@@ -434,8 +433,8 @@ glm::vec4 renderText(
 
     glUseProgram(pid);
 
-    glUniform3f(glGetUniformLocation(pid, "textColor"), color.r, color.g, color.b);
-    glUniform2f(glGetUniformLocation(pid, "resolution"), res.x, res.y);
+    glUniform3f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b);
+    glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 
