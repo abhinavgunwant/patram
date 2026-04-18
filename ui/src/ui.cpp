@@ -2711,7 +2711,13 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                 xpos <= mouseX && xpos + (glyphWidth/2) >= mouseX
                 && ypos >= mouseY && ypos_plus_h <= mouseY
             ) {
+                #ifdef DEBUG_TEXT
                 cout << "\n2: xpos: " << xpos << ", ypos: " << ypos;
+
+                if (tab->activeCBIndex == 2) {
+                    cout << "\nArey bhai!!!! h: " << height;
+                }
+                #endif
 
                 return SelectionData {
                     .cursorPosition = index,
@@ -2726,7 +2732,13 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                 xpos + (glyphWidth/2) <= mouseX && xpos_plus_w >= mouseX
                 && ypos >= mouseY && ypos_plus_h <= mouseY
             ) {
+                #ifdef DEBUG_TEXT
                 cout << "\n3: xpos: " << xpos << ", ypos: " << ypos;
+
+                if (tab->activeCBIndex == 2) {
+                    cout << "\nArey bhai!!!! h: " << height;
+                }
+                #endif
 
                 return SelectionData {
                     .cursorPosition = index + 1,
@@ -4605,7 +4617,6 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
-    // tab->cursorX = static_cast<uint16_t>(sd.x);
     tab->cursorCBIndex = sd.cursorCBIndex;
 
     glBindVertexArray(tab->cursorVAO);
@@ -4618,9 +4629,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         sd.x - 1.0f, sd.y,
     };
 
+    #ifdef DEBUG_TEXT
     cout << "\nSetting cursor dimensions: " << sd.x + 1 << ", "
         << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
         << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
+    #endif
 
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 
@@ -4751,9 +4764,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
                 tab->cursorRow = sd.row;
 
+                #ifdef DEBUG_TEXT
                 cout << "\nSetting cursor dimensions (redraw): " << sd.x + 1 << ", "
                     << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
                     << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
+                #endif
 
                 if (tab->showCursor && !tab->textSelected) {
                     float vertices[] = {
@@ -6066,6 +6081,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
 
     SelectionData sd = getCBTextCursorFromScreenCoords(mouseX, mouseY, res);
 
+    #ifdef DEBUG_TEXT
     cout << "\nDEBUG: contentBlockMouseUpCallback: " << "\n    selStartCBIndex: " << tab->selStartCBIndex
         << "\n    selEndCBIndex: " << tab->selEndCBIndex
         << "\n    selStartCursorPosition: " << tab->selStartCursorPosition
@@ -6076,6 +6092,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
         << "\n    updateCursorX: " << tab->updateCursorX
         << "\n    redrawSel: " << tab->redrawSel
         << "\n    selVertexCount: " << tab->selVertexCount;
+    #endif
 
     tab->cbTextMouseDown = false;
 

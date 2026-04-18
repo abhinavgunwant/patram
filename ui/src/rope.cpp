@@ -495,63 +495,6 @@ void Rope::insert(uint32_t i, string s) {
     oldLeaf->lenLeft = newLeft->text.length();
 }
 
-/*
-void Rope::insert(uint32_t i, char* s) {
-    if (i == 0) {
-        prepend(s);
-        return;
-    }
-
-    if (i == length()) {
-        append(s);
-        return;
-    }
-
-    tuple<Rope*, uint32_t> oldLeafTuple = findLeafForIndex(i);
-
-    Rope* oldLeaf = get<0>(oldLeafTuple);
-
-    if (oldLeaf == nullptr) {
-        return;
-    }
-
-    uint32_t len_ = oldLeaf->text.length();
-    uint32_t indx = get<1>(oldLeafTuple);
-
-    string str1 = oldLeaf->text.substr(0, indx);
-    string str2 = oldLeaf->text.substr(indx, len_ - indx);
-
-    if (str2.empty()) {
-        Rope* newLeft = new Rope(str1);
-        Rope* newRight = new Rope(s);
-
-        newLeft->parent = oldLeaf;
-        newRight->parent = oldLeaf;
-
-        oldLeaf->left = newLeft;
-        oldLeaf->right = newRight;
-
-        oldLeaf->text = "";
-        oldLeaf->lenLeft = newLeft->text.length();
-        return;
-    }
-
-    Rope* newLeft = new Rope(str1);
-    Rope* newRightLeft = new Rope(s);
-    Rope* newRightRight = new Rope(str2);
-
-    newLeft->parent = oldLeaf;
-
-    oldLeaf->left = newLeft;
-    oldLeaf->right = new Rope(newRightLeft, newRightRight);
-
-    oldLeaf->right->parent = oldLeaf;
-
-    oldLeaf->text = "";
-    oldLeaf->lenLeft = newLeft->text.length();
-}
-*/
-
 void Rope::remove(uint32_t startIndex, uint32_t length) {
     if (isLeaf()) {
         if (startIndex + length <= text.length()) {
