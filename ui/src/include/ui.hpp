@@ -154,17 +154,17 @@ enum class CursorShape: uint8_t {
     Pointer,
 };
 
-enum UIElementType {
-    UI_LABEL,
-    UI_BUTTON,
-    UI_SCROLL_AREA,
-    UI_ICON_BUTTON,
-    UI_CONTAINER,
-    UI_CONTENT_CONTAINER,
-    UI_TEXT_INPUT,
-    UI_TEXT_AREA,
-    UI_TAB_BAR,
-    UI_TAB,
+enum class UIElementType: uint8_t {
+    Label,
+    Button,
+    ScrollArea,
+    IconButton,
+    Container,
+    ContentContainer,
+    TextInput,
+    TextArea,
+    TabBar,
+    Tab,
 };
 
 enum class ContentBlockType: uint8_t {

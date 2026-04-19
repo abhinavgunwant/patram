@@ -152,7 +152,7 @@ void updateCursorShape(CursorShape shape) {
         case CursorShape::Auto: {
             UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
 
-            if (elem != nullptr && (elem->type == UI_TEXT_AREA || elem->type == UI_TEXT_INPUT)) {
+            if (elem != nullptr && (elem->type == UIElementType::TextArea || elem->type == UIElementType::TextInput)) {
                 glfwSetCursor(window, textCursor);
             } else {
                 glfwSetCursor(window, nullptr);
@@ -240,14 +240,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 elem->active = true;
 
                 switch (activeElement->type) {
-                    case UI_CONTENT_CONTAINER:
+                    case UIElementType::ContentContainer:
                         contentBlockMouseDownCallback(elem, mouseX, mouseY, resolution);
                         break;
-                    case UI_SCROLL_AREA:
+                    case UIElementType::ScrollArea:
                         scrollAreaMouseDownCallback(elem, mouseX, mouseY, resolution);
                         break;
-                    case UI_TEXT_AREA:
-                    case UI_TEXT_INPUT:
+                    case UIElementType::TextArea:
+                    case UIElementType::TextInput:
                         textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
                         break;
                 }
@@ -290,14 +290,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
             if (elem != nullptr) {
                 switch (activeElement->type) {
-                    case UI_TEXT_AREA:
-                    case UI_TEXT_INPUT:
+                    case UIElementType::TextArea:
+                    case UIElementType::TextInput:
                         textInputMouseUpCallback(elem, mouseX, mouseY, resolution);
                         break;
-                    case UI_CONTENT_CONTAINER:
+                    case UIElementType::ContentContainer:
                         contentBlockMouseUpCallback(elem, mouseX, mouseY, resolution);
                         break;
-                    case UI_ICON_BUTTON:
+                    case UIElementType::IconButton:
                         if (elem->id == OPEN_BUTTON_ID) {
                             openFile();
                         }
@@ -324,10 +324,10 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
         return;
     }
 
-    if (action == GLFW_PRESS && activeElement->type != UI_CONTENT_CONTAINER) {
+    if (action == GLFW_PRESS && activeElement->type != UIElementType::ContentContainer) {
         switch (key) {
             case GLFW_KEY_ESCAPE: {
-                if (activeElement != nullptr && activeElement->type != UI_TEXT_INPUT) {
+                if (activeElement != nullptr && activeElement->type != UIElementType::TextInput) {
                     activeElement->active = false;
                     activeElement = nullptr;
                 }
@@ -342,9 +342,9 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
     }
 
     switch (activeElement->type) {
-        case UI_CONTENT_CONTAINER: cbKeyCallback(key, action, mods); break;
-        case UI_TEXT_INPUT:
-        case UI_TEXT_AREA: textInputKeyCallback(activeElement, key, action, mods); break;
+        case UIElementType::ContentContainer: cbKeyCallback(key, action, mods); break;
+        case UIElementType::TextInput:
+        case UIElementType::TextArea: textInputKeyCallback(activeElement, key, action, mods); break;
     }
 
     if (!activeElement->active) {
@@ -597,12 +597,12 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS
     ) {
         switch (activeElement->type) {
-            case UI_SCROLL_AREA:
+            case UIElementType::ScrollArea:
                 cShape = CursorShape::Text;
                 scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
                 break;
-            case UI_TEXT_AREA:
-            case UI_TEXT_INPUT:
+            case UIElementType::TextArea:
+            case UIElementType::TextInput:
                 cShape = CursorShape::Text;
                 textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
                 break;
@@ -626,7 +626,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
     if (elem != nullptr) {
         switch (elem->type) {
-            case UI_SCROLL_AREA: {
+            case UIElementType::ScrollArea: {
                 bool scrolled = false;
                 bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
                     || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
@@ -675,7 +675,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             }
             break;
 
-        case UI_CONTENT_CONTAINER:
+        case UIElementType::ContentContainer:
             ContentTab* tab = &tabs[activeTabIndex];
 
             if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
@@ -745,11 +745,11 @@ void setupUI(bool isDarkTheme) {
     UIElement* openButton = &elements[2];
     contentContainer = &elements[3];
 
-    initElement(rootContainer, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(rootContainer, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
     initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
     initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(*contentContainer, UI_CONTENT_CONTAINER, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(*contentContainer, UIElementType::ContentContainer, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
 
     if (darkTheme) {
         rootContainer.backgroundColor = ROOT_BG_DARK;
@@ -2007,7 +2007,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_UP:
-                if (elem->type == UI_TEXT_AREA) {
+                if (elem->type == UIElementType::TextArea) {
                 }
                 break;
 
@@ -2019,7 +2019,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     cout << "\nEnter pressed";
                 #endif
 
-                if (shift && elem->type == UI_TEXT_AREA) {
+                if (shift && elem->type == UIElementType::TextArea) {
                     TYPE("\n");
                     INCR_CURSOR();
                 }
@@ -3433,7 +3433,7 @@ void textInputUnselect(TextInputData * tid, string token) {
 }
 
 void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
-    if (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER) {
+    if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
         float top, left, bottom, right, thumbStart, thumbEnd;
 
         if (elem->extraData->scrollData.showVerticalScrollbar) {
@@ -3573,7 +3573,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     UIPreferences* pref = nullptr;
 
     switch (type) {
-        case UI_BUTTON: {
+        case UIElementType::Button: {
             if (darkTheme) {
                 backgroundColor = BUTTON_BG_DARK;
                 hoverColor = BUTTON_HOVER_BG_DARK;
@@ -3588,7 +3588,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             break;
         }
 
-        case UI_ICON_BUTTON:
+        case UIElementType::IconButton:
             if (darkTheme) {
                 backgroundColor = ICON_BUTTON_BG_DARK;
                 hoverColor = ICON_BUTTON_HOVER_BG_DARK;
@@ -3600,7 +3600,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
-        case UI_LABEL:
+        case UIElementType::Label:
             pref = initPreferences();
             pref->widthPreference = UI_GROW;
 
@@ -3614,7 +3614,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
-        case UI_CONTAINER:
+        case UIElementType::Container:
             pref = initPreferences();
 
             backgroundColor = TRANSPARENT_COLOR;
@@ -3627,8 +3627,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
-        case UI_CONTENT_CONTAINER:
-        case UI_SCROLL_AREA:
+        case UIElementType::ContentContainer:
+        case UIElementType::ScrollArea:
             pref = initPreferences();
             pref->widthPreference = UI_GROW;
 
@@ -3649,9 +3649,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
             break;
 
-        case UI_TEXT_AREA:
+        case UIElementType::TextArea:
             // rope = new Rope();
-        case UI_TEXT_INPUT:
+        case UIElementType::TextInput:
             pref = initPreferences();
 
             // backgroundColor = TRANSPARENT_COLOR;
@@ -4116,7 +4116,7 @@ void recalculateLayout(UIElement * elem) {
 
                     elem->width = width;
 
-                    if (elem->type == UI_SCROLL_AREA && elem->extraData->scrollData.width < width) {
+                    if (elem->type == UIElementType::ScrollArea && elem->extraData->scrollData.width < width) {
                         cout << "\n!!!!!";
                         elem->extraData->scrollData.width = width;
                         elem->extraData->scrollData.xOffset = 0;
@@ -4205,7 +4205,7 @@ void recalculateLayout(UIElement * elem) {
             cout << "\n    -> Updated dimensions: width: " << elem->width << ", height: " << elem->height;
         #endif
 
-        if (elem->type == UI_SCROLL_AREA || elem->type == UI_CONTENT_CONTAINER) {
+        if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
 
@@ -4226,7 +4226,7 @@ void recalculateLayout(UIElement * elem) {
     }
 }
 
-// NOTE: only for UI_CONTENT_CONTAINER and UI_SCROLL_AREA.
+// NOTE: only for UIElementType::ContentContainer and UIElementType::ScrollArea.
 inline void renderScrollbars(UIElement* elem) {
     #define SCROLL_DATA elem->extraData->scrollData
 
@@ -4509,7 +4509,7 @@ inline void renderScrollbars(UIElement* elem) {
     #undef SCROLL_DATA
 }
 
-// NOTE: only for UI_CONTENT_CONTAINER.
+// NOTE: only for UIElementType::ContentContainer.
 inline void renderCBScrollbar() {
     ContentTab* tab = &tabs[activeTabIndex];
 
@@ -4644,10 +4644,8 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
     // cout << "resolution: " << resolution.x << "x" << resolution.y;
     switch (elem.type) {
-        case UI_CONTAINER: {
+        case UIElementType::Container: {
             if (elem.reDraw) {
-                // recalculateLayout(&elem);
-
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Container";
                 #endif
@@ -4707,7 +4705,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_CONTENT_CONTAINER: {
+        case UIElementType::ContentContainer: {
             elem.reDraw = false;
 
             ContentTab* tab = CURRENT_TAB;
@@ -4811,14 +4809,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_LABEL: {
+        case UIElementType::Label: {
             glm::vec4 dim;
 
             if (elem.positioning == UIPositioning::Relative) {
                 float top = elem.parent->top + elem.top;
                 float left = elem.parent->left + elem.left;
 
-                if (elem.parent->type == UI_SCROLL_AREA) {
+                if (elem.parent->type == UIElementType::ScrollArea) {
                     top -= elem.parent->extraData->scrollData.yOffset;
                     left -= elem.parent->extraData->scrollData.xOffset;
                 }
@@ -4828,14 +4826,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 if (
                     elem.reDraw
                     && elem.preferences->widthPreference == UI_GROW
-                    && elem.parent->type == UI_SCROLL_AREA
+                    && elem.parent->type == UIElementType::ScrollArea
                     && elem.parent->extraData->scrollData.width < dim.w
                 ) {
                     elem.parent->extraData->scrollData.width = dim.w;
                     elem.reDraw = false;
                 }
 
-                if (elem.parent->type == UI_SCROLL_AREA) {
+                if (elem.parent->type == UIElementType::ScrollArea) {
                     if (elem.parent->extraData->scrollData.height < dim.z) {
                         #ifdef DEBUG_SCROLL_AREA
                             cout << "\nScroll height less than dim.z " << dim.z;
@@ -4854,7 +4852,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             if (
                 elem.reDraw
                 && elem.preferences->widthPreference == UI_GROW
-                && elem.parent->type == UI_SCROLL_AREA
+                && elem.parent->type == UIElementType::ScrollArea
                 && elem.parent->extraData->scrollData.width < dim.w
             ) {
                 elem.parent->extraData->scrollData.width = dim.w;
@@ -4863,7 +4861,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_BUTTON: {
+        case UIElementType::Button: {
             if (elem.reDraw) {
                 // recalculateLayout(&elem);
 
@@ -4943,7 +4941,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_SCROLL_AREA: {
+        case UIElementType::ScrollArea: {
             // TODO: Render the rectangle with background colors. If borders
             // are set, then render borders.
 
@@ -4984,7 +4982,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_ICON_BUTTON: {
+        case UIElementType::IconButton: {
             if (iconButtonVertices[0] == -1.0) {
                 // TODO: update this to run on every initialization and changes
                 // in appearance settings
@@ -5101,7 +5099,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_TEXT_INPUT: {
+        case UIElementType::TextInput: {
             if (elem.reDraw) {
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Text Input";
@@ -5303,7 +5301,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_TEXT_AREA: {
+        case UIElementType::TextArea: {
             if (elem.reDraw) {
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
@@ -5604,14 +5602,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             break;
         }
 
-        case UI_TAB_BAR: {
+        case UIElementType::TabBar: {
             break;
         }
 
-        case UI_TAB: {
+        case UIElementType::Tab: {
             break;
         }
-
 
         default: break;
     }
@@ -6389,10 +6386,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
 
         if (
             (
-                elem->type == UI_BUTTON || elem->type == UI_TEXT_INPUT
-                || elem->type == UI_TEXT_AREA || elem->type == UI_SCROLL_AREA
-                || elem->type == UI_CONTENT_CONTAINER
-                || elem->type == UI_ICON_BUTTON
+                elem->type == UIElementType::Button || elem->type == UIElementType::TextInput
+                || elem->type == UIElementType::TextArea || elem->type == UIElementType::ScrollArea
+                || elem->type == UIElementType::ContentContainer
+                || elem->type == UIElementType::IconButton
             )
             && (
                 x > elem->left && x < elem->left + elem->width
@@ -7552,7 +7549,7 @@ void processCBRedo(ContentTab* tab) {
 void processCommand(UIElement* elem, Command* cmd) {
     #define CUR_POS elem->extraData->textInputData.cursorPosition
     if (
-        (elem->type == UI_TEXT_INPUT || elem->type == UI_TEXT_AREA)
+        (elem->type == UIElementType::TextInput || elem->type == UIElementType::TextArea)
         && elem->extraData != nullptr
     ) {
         bool append = false;
@@ -7753,15 +7750,15 @@ void getCBScrollbarDimensions(
 
 string elementType(UIElement *elem) {
     switch(elem->type) {
-        case UI_LABEL: return "UI Element Type: Label";
-        case UI_BUTTON: return "UI Element Type: Button";
-        case UI_ICON_BUTTON: return "UI Element Type: Icon Button";
-        case UI_CONTAINER: return "UI Element Type: Container";
-        case UI_TEXT_INPUT: return "UI Element Type: Text Input";
-        case UI_TEXT_AREA: return "UI Element Type: Text Area";
-        case UI_TAB_BAR: return "UI Element Type: Tab Bar";
-        case UI_TAB: return "UI Element Type: Tab";
-        case UI_SCROLL_AREA: return "UI Element Type: Scroll Area";
+        case UIElementType::Label: return "UI Element Type: Label";
+        case UIElementType::Button: return "UI Element Type: Button";
+        case UIElementType::IconButton: return "UI Element Type: Icon Button";
+        case UIElementType::Container: return "UI Element Type: Container";
+        case UIElementType::TextInput: return "UI Element Type: Text Input";
+        case UIElementType::TextArea: return "UI Element Type: Text Area";
+        case UIElementType::TabBar: return "UI Element Type: Tab Bar";
+        case UIElementType::Tab: return "UI Element Type: Tab";
+        case UIElementType::ScrollArea: return "UI Element Type: Scroll Area";
     }
 
     return "UI Element Type: Unknown";
