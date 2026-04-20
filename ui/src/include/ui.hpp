@@ -24,7 +24,9 @@
 
 #define TOTAL_ICONS                 3
 
-#define TAB_BAR_HEIGHT              64.0f
+#define TAB_BAR_HEIGHT              48.0f
+#define TAB_VERTICAL_PADDING        13.165f
+#define TAB_HORIZONTAL_PADDING      13.165f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
@@ -101,13 +103,20 @@
 
 #define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0)
 #define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0)
-#define ROOT_BG_DARK        glm::vec4(0.10, 0.09, 0.09, 1.0)
-#define TOOL_BAR_BG_DARK    glm::vec4(0.19, 0.17, 0.17, 1.0)
+#define ROOT_BG_DARK        glm::vec4(0.16, 0.15, 0.15, 1.0)
+#define TOOL_BAR_BG_DARK    glm::vec4(0.24, 0.22, 0.22, 1.0)
+
+#define ROOT_CONTAINER      elements[0]
+#define CONTENT_CONTAINER   elements[1]
+#define TAB_BAR             elements[2]
 
 using namespace std;
 
 struct ContentTab;
+struct ContentTabDisplay;
 struct UIElement;
+
+extern UIElement elements[16];
 
 extern float iconButtonVertices[16];
 extern bool darkTheme;
@@ -122,7 +131,6 @@ extern HighlightedContentBlock highlightedContentBlock;
 extern ContentBlockMoveMarker cbMove;
 
 extern GLFWwindow* window;
-extern UIElement rootContainer;
 extern bool minimized;
 extern bool focused;
 extern bool showFps;
@@ -140,8 +148,9 @@ void showWindow();
 void setupUI(bool darkTheme);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
+extern ContentTabDisplay tabsDisplay[100];
 extern uint8_t activeTabIndex;
-extern UIElement* contentContainer;
+// extern UIElement* contentContainer;
 extern UIElement* activeElement;
 extern glm::vec2 resolution;
 extern uint16_t windowHeight;
@@ -320,7 +329,7 @@ struct ContentBlock;
 struct UIElement {
     UIElementType type;
 
-    uint32_t id;
+    uint16_t id;
 
     float top;
     float left;
@@ -463,6 +472,16 @@ struct ContentTab {
     filesystem::path filePath;
 };
 
+struct ContentTabDisplay {
+    uint32_t vao;
+    uint32_t vbo;
+    uint32_t activeBgVao;
+    uint32_t activeBgVbo;
+    uint16_t bytes;
+    uint16_t numVertices;
+    float width;
+};
+
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
@@ -470,6 +489,7 @@ void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
 void cbKeyCallback(int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void textInputUnselect(TextInputData * tid, string token = "");

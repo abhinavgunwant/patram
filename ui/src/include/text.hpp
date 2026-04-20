@@ -73,6 +73,36 @@ struct RopeRenderResult {
     bool renderNextContentBlock;
 };
 
+inline void getCharParams(
+    Character& c,
+    glm::vec2& pos,
+    float& xpos,
+    float& ypos,
+    float& yNet,
+    float& xpos_plus_w,
+    float& ypos_plus_h,
+    float& height,
+    float& texX1,
+    float& texX2,
+    float& texY1,
+    float& texY2,
+    float& advance,
+    float parentWidth,
+    uint32_t& rows,
+    uint8_t fontSize,
+    bool& renderNextContentBlock
+);
+
+inline void drawTextBuffers(
+    uint32_t& vao,
+    uint32_t& vbo,
+    uint32_t& bufferSize,
+    uint32_t& numVertices,
+    glm::vec2& res,
+    vector<float>& vertices,
+    bool redraw
+);
+
 RopeRenderResult renderContentRope(
     Rope* rope,
     glm::vec2 pos,
@@ -80,9 +110,23 @@ RopeRenderResult renderContentRope(
     uint32_t& textVAO,
     uint32_t& textVBO,
     uint32_t& bufferSize,
+    float parentWidth,
     glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
-    UIElement* parent = nullptr,
+    bool redraw = true
+);
+
+RopeRenderResult renderTextCached(
+    string str,
+    glm::vec2 pos,
+    glm::vec2& res,
+    uint32_t& vao,
+    uint32_t& vbo,
+    uint32_t& bufferSize,
+    uint32_t& numVertices,
+    float parentWidth,
+    glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
+    uint8_t fontSize = 16,
     bool redraw = true
 );
 

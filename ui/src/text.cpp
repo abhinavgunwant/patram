@@ -29,7 +29,6 @@ uint32_t fontTextureID = 0;
 Character* characters;
 Shader textShader;
 unsigned int textVAO, textVBO;
-uint32_t resolutionUniform = 0;
 
 void initFontTexture(string path) {
     #ifdef DEBUG_TEXT
@@ -102,6 +101,149 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
 }
 
+inline void getCharParams(
+    Character& c,
+    glm::vec2& pos,
+    float& xpos,
+    float& ypos,
+    float& yNet,
+    float& xpos_plus_w,
+    float& ypos_plus_h,
+    float& height,
+    float& texX1,
+    float& texX2,
+    float& texY1,
+    float& texY2,
+    float& advance,
+    float parentWidth,
+    uint32_t& rows,
+    uint8_t fontSize,
+    bool& renderNextContentBlock
+) {
+    float aspectRatio = static_cast<float>(c.width) / static_cast<float>(c.height);
+    float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
+    float glyphHeight = static_cast<float>(c.height) * fontHeightRatio;
+    float glyphWidth = glyphHeight * aspectRatio;
+
+    if (glyphWidth != glyphWidth) {
+        if (c.width != 0) {
+            glyphWidth = static_cast<float>(c.width) / static_cast<float>(fontSize);
+        } else {
+            glyphWidth = 0.0f;
+        }
+    }
+
+    float widthRatio = glyphWidth / c.width;
+    float heightRatio = glyphHeight / c.height;
+    float bearingTop = c.bearingTop * heightRatio;
+    float bearingLeft = c.bearingLeft * widthRatio;
+
+    if (bearingLeft != bearingLeft) {
+        bearingLeft = 0.0f;
+    }
+
+    if (bearingTop != bearingTop) {
+        bearingTop = 0.0f;
+    }
+
+    xpos += bearingLeft;
+
+    if (
+        parentWidth < 800.0f
+        && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
+        || xpos + glyphWidth > contentRight
+    ) {
+        yNet += fontSize * (1 - glyphDescender);
+        xpos = pos.x;
+        rows++;
+
+        if (yNet > windowHeight) {
+            renderNextContentBlock = false;
+        }
+    }
+
+    ypos = yNet + glyphHeight - bearingTop + fontSize;
+
+    if (glyphDescender < 0) {
+        height = ypos - pos.y - (glyphDescender * fontSize);
+    } else {
+        height = ypos - pos.y;
+    }
+
+    xpos_plus_w = xpos + glyphWidth;
+    ypos_plus_h = ypos - glyphHeight;
+
+    advance = (static_cast<uint32_t>(c.advance * fontHeightRatio) >> 6) - bearingLeft;
+
+    texX1 = c.textureX1;
+    texX2 = c.textureX2;
+    texY1 = c.textureY1;
+    texY2 = c.textureY2;
+}
+
+inline void drawTextBuffers(
+    uint32_t& vao,
+    uint32_t& vbo,
+    uint32_t& bufferSize,
+    uint32_t& numVertices,
+    glm::vec2& res,
+    vector<float>& vertices,
+    bool redraw
+) {
+    glUseProgram(shaders[SHADER_TEXT].programId);
+
+    glActiveTexture(GL_TEXTURE0);
+
+    if (vao == 0 && !vertices.empty()) {
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+
+        glGenBuffers(1, &vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+        bufferSize = vertices.size() * sizeof(float);
+        glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        glEnableVertexAttribArray(0);
+    }
+
+    glBindVertexArray(vao);
+    glBindTexture(GL_TEXTURE_2D, fontTextureID);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    if (redraw && bufferSize > 0) {
+        glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
+
+        numVertices = vertices.size();
+        uint32_t requiredBufferSize = numVertices * sizeof(float);
+
+        if (bufferSize >= requiredBufferSize) {
+            uint32_t zeros = bufferSize - requiredBufferSize;
+
+            for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(0.0f); }
+
+            glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, &vertices[0]);
+        } else {
+            while (bufferSize < requiredBufferSize) {
+                bufferSize *= 1.6;
+            }
+
+            glDeleteBuffers(1, &vbo);
+            glGenBuffers(1, &vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
+            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+            glEnableVertexAttribArray(0);
+        }
+    }
+
+    glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 RopeRenderResult renderContentRope(
     Rope* rope,
     glm::vec2 pos,
@@ -109,15 +251,23 @@ RopeRenderResult renderContentRope(
     uint32_t& cbTextVAO,
     uint32_t& cbTextVBO,
     uint32_t& bufferSize,
+    float parentWidth,
     glm::fvec3 color,
     uint8_t fontSize,
-    UIElement* parent,
     bool redraw
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
 
     float xpos = pos.x;
+    float ypos = 0.0f;
     float yNet = pos.y;
+    float texX1 = 0.0f;
+    float texX2 = 0.0f;
+    float texY1 = 0.0f;
+    float texY2 = 0.0f;
+    float xpos_plus_w = 0.0f;
+    float ypos_plus_h = 0.0f;
+    float advance = 0.0f;
 
     vector<float> vertices;
 
@@ -139,72 +289,31 @@ RopeRenderResult renderContentRope(
         }
 
         for (const char c : r->text) {
-            Character* ch = &characters[(int)c];
-
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
                 cout << "\n--> Rendering character: '" << (char) c << "'";
             }
             #endif
 
-            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
-
-            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
-
-            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
-            float glyphWidth = glyphHeight * aspectRatio;
-
-            if (glyphWidth != glyphWidth) {
-                if (ch->width != 0) {
-                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
-                } else {
-                    glyphWidth = 0.0f;
-                }
-            }
-
-            float widthRatio = glyphWidth / ch->width;
-            float heightRatio = glyphHeight / ch->height;
-
-            float bearingTop = ch->bearingTop * heightRatio;
-            float bearingLeft = ch->bearingLeft * widthRatio;
-
-            if (bearingLeft != bearingLeft) {
-                bearingLeft = 0.0f;
-            }
-
-            if (bearingTop != bearingTop) {
-                bearingTop = 0.0f;
-            }
-
-            xpos += bearingLeft;
-
-            if (
-                parent != nullptr
-                && (
-                    parent->width < 800.0f
-                    && xpos + glyphWidth > parent->width - CONTENT_HORIZONTAL_MARGIN
-                    || xpos + glyphWidth > contentRight
-                )
-            ) {
-                yNet += fontSize * (1 - glyphDescender);
-                xpos = pos.x;
-                result.rows++;
-
-                if (yNet > windowHeight) {
-                    result.renderNextContentBlock = false;
-                }
-            }
-
-            float ypos = yNet + glyphHeight - bearingTop + fontSize;
-
-            if (glyphDescender < 0) {
-                result.height = ypos - pos.y - (glyphDescender * fontSize);
-            } else {
-                result.height = ypos - pos.y;
-            }
-
-            float xpos_plus_w = xpos + glyphWidth;
-            float ypos_plus_h = ypos - glyphHeight; // ypos + h
+            getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                xpos_plus_w,
+                ypos_plus_h,
+                result.height,
+                texX1,
+                texX2,
+                texY1,
+                texY2,
+                advance,
+                parentWidth,
+                result.rows,
+                fontSize,
+                result.renderNextContentBlock
+            );
 
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
@@ -219,73 +328,110 @@ RopeRenderResult renderContentRope(
 
             if (redraw && c != ' ') {
                 vertices.insert(vertices.end(), {
-                    xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
-                    xpos,           ypos,           ch->textureX1, ch->textureY2,
-                    xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
-                    xpos,           ypos_plus_h,    ch->textureX1, ch->textureY1,
-                    xpos_plus_w,    ypos,           ch->textureX2, ch->textureY2,
-                    xpos_plus_w,    ypos_plus_h,    ch->textureX2, ch->textureY1
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos,           ypos,           texX1, texY2,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
                 });
             }
 
-            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+            xpos += advance;
         }
     }
 
-    glUseProgram(shaders[SHADER_TEXT].programId);
-
-    glActiveTexture(GL_TEXTURE0);
-
-    if (cbTextVAO == 0 && !vertices.empty()) {
-        glGenVertexArrays(1, &cbTextVAO);
-        glBindVertexArray(cbTextVAO);
-
-        glGenBuffers(1, &cbTextVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
-
-        bufferSize = vertices.size() * sizeof(float);
-        glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-        glEnableVertexAttribArray(0);
-    }
-
-    glBindVertexArray(cbTextVAO);
-    glBindTexture(GL_TEXTURE_2D, fontTextureID);
-    glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
-
-    if (redraw && bufferSize > 0) {
-        glUniform2f(resolutionUniform, res.x, res.y);
-
-        numVertices = vertices.size();
-        uint32_t requiredBufferSize = numVertices * sizeof(float);
-
-        if (bufferSize >= requiredBufferSize) {
-            uint32_t zeros = bufferSize - requiredBufferSize;
-
-            for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(0.0f); }
-
-            glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, &vertices[0]);
-        } else {
-            while (bufferSize < requiredBufferSize) {
-                bufferSize *= 1.6;
-            }
-
-            glDeleteBuffers(1, &cbTextVBO);
-            glGenBuffers(1, &cbTextVBO);
-            glBindBuffer(GL_ARRAY_BUFFER, cbTextVBO);
-            glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
-            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-            glEnableVertexAttribArray(0);
-        }
-    }
-
-    glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, res, vertices, redraw);
 
     result.width = pos.x;
+
+    if (result.rows) {
+        ++result.rows;
+    }
+
+    return result;
+}
+
+RopeRenderResult renderTextCached(
+    string str,
+    glm::vec2 pos,
+    glm::vec2& res,
+    uint32_t& vao,
+    uint32_t& vbo,
+    uint32_t& bufferSize,
+    uint32_t& numVertices,
+    float parentWidth,
+    glm::fvec3,
+    uint8_t fontSize,
+    bool redraw
+) {
+    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
+
+    float xpos = pos.x;
+    float ypos = 0.0f;
+    float yNet = pos.y;
+    float texX1 = 0.0f;
+    float texX2 = 0.0f;
+    float texY1 = 0.0f;
+    float texY2 = 0.0f;
+    float xpos_plus_w = 0.0f;
+    float ypos_plus_h = 0.0f;
+    float advance = 0.0f;
+
+    vector<float> vertices;
+
+    if (redraw) {
+        vertices.reserve(800);
+    } else {
+        vertices.reserve(0);
+    }
+
+    uint32_t _numVertices = 0;
+
+    if (!redraw) {
+        _numVertices += str.length() * 24;
+    }
+
+    for (char c: str) {
+        getCharParams(
+            characters[(int)c],
+            pos,
+            xpos,
+            ypos,
+            yNet,
+            xpos_plus_w,
+            ypos_plus_h,
+            result.height,
+            texX1,
+            texX2,
+            texY1,
+            texY2,
+            advance,
+            parentWidth,
+            result.rows,
+            fontSize,
+            result.renderNextContentBlock
+        );
+
+        if (redraw && c != ' ') {
+            vertices.insert(vertices.end(), {
+                xpos,           ypos_plus_h,    texX1, texY1,
+                xpos,           ypos,           texX1, texY2,
+                xpos_plus_w,    ypos,           texX2, texY2,
+                xpos,           ypos_plus_h,    texX1, texY1,
+                xpos_plus_w,    ypos,           texX2, texY2,
+                xpos_plus_w,    ypos_plus_h,    texX2, texY1
+            });
+        }
+
+        xpos += advance;
+    }
+
+    drawTextBuffers(vao, vbo, bufferSize, _numVertices, res, vertices, redraw);
+
+    numVertices = _numVertices;
+
+    result.width = xpos - pos.x;
 
     if (result.rows) {
         ++result.rows;
@@ -503,8 +649,8 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
     float yNet = y;
 
     if (
-        contentContainer->width < 800.0f
-        && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+        CONTENT_CONTAINER.width < 800.0f
+        && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
         || xpos + glyphWidth > contentRight
     ) {
         yNet += fontSize + 4.0f;

@@ -71,14 +71,14 @@ HighlightedContentBlock highlightedContentBlock = {
 ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
 
 vector<ContentTab> tabs;
+ContentTabDisplay tabsDisplay[100];
 uint8_t activeTabIndex;
-UIElement* contentContainer;
+// UIElement* contentContainer;
 UIElement* activeElement = nullptr;
 uint16_t windowHeight;
 uint16_t windowWidth;
 glm::vec2 resolution;
 GLFWwindow* window;
-UIElement rootContainer;
 bool minimized = false;
 bool focused = true;
 bool mouse1Down = false;
@@ -150,7 +150,7 @@ void updateCursorShape(CursorShape shape) {
 
     switch (shape) {
         case CursorShape::Auto: {
-            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
             if (elem != nullptr && (elem->type == UIElementType::TextArea || elem->type == UIElementType::TextInput)) {
                 glfwSetCursor(window, textCursor);
@@ -225,7 +225,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
             }
 
-            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
             if (elem != nullptr) {
                 #ifdef DEBUG_MOUSE_BUTTON
@@ -249,6 +249,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UIElementType::TextArea:
                     case UIElementType::TextInput:
                         textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
+                    case UIElementType::TabBar:
+                        tabBarMouseDownCallback(elem, mouseX, mouseY, resolution);
                         break;
                 }
 
@@ -286,7 +288,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 return;
             }
 
-            UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
             if (elem != nullptr) {
                 switch (activeElement->type) {
@@ -363,8 +365,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         contentRight = width - CONTENT_HORIZONTAL_MARGIN;
     }
 
-    rootContainer.width = width;
-    rootContainer.height = height;
+    ROOT_CONTAINER.width = width;
+    ROOT_CONTAINER.height = height;
 
     windowWidth = width;
     windowHeight = height;
@@ -374,8 +376,9 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
             cout << "\nRecalculating layout";
         #endif
 
-        recalculateLayout(&rootContainer);
+        recalculateLayout(&ROOT_CONTAINER);
     }
+
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
 
@@ -392,7 +395,16 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     tab->scrollbarUpdated = false;
 
-    renderElement(rootContainer, resolution, cursor);
+    TAB_BAR.reDraw = true;
+
+    renderElement(ROOT_CONTAINER, resolution, cursor);
+
+    if (tabs.size() > 1) {
+        for (auto tabIter = tabs.begin(); tabIter != tabs.end(); ++tabIter) {
+            (*tabIter).scrollbarUpdated = false;
+        }
+    }
+
     glfwSwapBuffers(window);
 }
 
@@ -538,7 +550,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     }
 
     if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
-        #define SCROLL_DATA contentContainer->extraData->scrollData
+        #define SCROLL_DATA CONTENT_CONTAINER.extraData->scrollData
 
         for (
             auto itr = tab->contentBlocks.begin();
@@ -622,7 +634,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
-    UIElement* elem = getElementFromScreenCoords(&rootContainer, mouseX, mouseY);
+    UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
     if (elem != nullptr) {
         switch (elem->type) {
@@ -687,7 +699,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             if (tab->scrollOffsetY < 0) {
                 tab->scrollOffsetY = 0;
             } else if (tab->scrollOffsetY > tab->maxHeight) {
-                tab->scrollOffsetY = tab->maxHeight - contentContainer->height;
+                tab->scrollOffsetY = tab->maxHeight - CONTENT_CONTAINER.height;
             }
 
             if (tab->showCursor) {
@@ -740,48 +752,71 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
 
-    UIElement* menuBar = &elements[0];
-    UIElement* newButton = &elements[1];
-    UIElement* openButton = &elements[2];
-    contentContainer = &elements[3];
+    // UIElement* menuBar = &elements[0];
+    // UIElement* newButton = &elements[1];
+    // UIElement* openButton = &elements[2];
+    // contentContainer = &elements[1];
+    // UIElement* tabBar = &elements[2];
 
-    initElement(rootContainer, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
-    initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
-    initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(*contentContainer, UIElementType::ContentContainer, 64.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
+    // initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
+    initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
 
-    if (darkTheme) {
-        rootContainer.backgroundColor = ROOT_BG_DARK;
-        menuBar->backgroundColor = TOOL_BAR_BG_DARK;
-        menuBar->color = WHITE;
-    } else {
-        rootContainer.backgroundColor = ROOT_BG;
-        menuBar->backgroundColor = TOOL_BAR_BG;
-        menuBar->color = BLACK;
+    SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
+    SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
+    SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
+
+    for (int i=0; i<100; ++i) {
+        tabsDisplay[i].vao = 0;
+        tabsDisplay[i].vbo = 0;
+        tabsDisplay[i].activeBgVao = 0;
+        tabsDisplay[i].activeBgVbo = 0;
+        tabsDisplay[i].vbo = 0;
+        tabsDisplay[i].bytes = 0;
+        tabsDisplay[i].numVertices = 0;
+        tabsDisplay[i].width = 0.0f;
     }
 
-    menuBar->text = "test";
+    if (darkTheme) {
+        ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
+        TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
+        // menuBar->backgroundColor = TOOL_BAR_BG_DARK;
+        // menuBar->color = WHITE;
+    } else {
+        ROOT_CONTAINER.backgroundColor = ROOT_BG;
+        TAB_BAR.backgroundColor = TOOL_BAR_BG;
+        // menuBar->backgroundColor = TOOL_BAR_BG;
+        // menuBar->color = BLACK;
+    }
 
-    menuBar->preferences->widthPreference = UI_FULL;
-    menuBar->preferences->heightPreference = UI_FIXED;
-    menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
-    menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
+    TAB_BAR.preferences->widthPreference = UI_FULL;
+    TAB_BAR.preferences->heightPreference = UI_FIXED;
+    TAB_BAR.preferences->verticalAlign = UI_ALIGN_START;
+    TAB_BAR.preferences->horizontalAlign = UI_ALIGN_CENTER;
 
-    newButton->text = "New";
-    newButton->icon = Icon::Plus;
+    // menuBar->text = "test";
 
-    openButton->icon = Icon::File;
-    openButton->text = "Open";
-    openButton->id = OPEN_BUTTON_ID;
+    // menuBar->preferences->widthPreference = UI_FULL;
+    // menuBar->preferences->heightPreference = UI_FIXED;
+    // menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
+    // menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
 
-    contentContainer->text = "Main Scroll Area";
-    contentContainer->extraData->scrollData.width = WINDOW_WIDTH;
-    contentContainer->extraData->scrollData.height = WINDOW_HEIGHT - 64;
-    contentContainer->preferences->widthPreference = UI_FULL;
-    contentContainer->preferences->heightPreference = UI_STRETCH;
-    contentContainer->active = true;
-    activeElement = contentContainer;
+    // newButton->text = "New";
+    // newButton->icon = Icon::Plus;
+
+    // openButton->icon = Icon::File;
+    // openButton->text = "Open";
+    // openButton->id = OPEN_BUTTON_ID;
+
+    CONTENT_CONTAINER.text = "Main Scroll Area";
+    CONTENT_CONTAINER.extraData->scrollData.width = WINDOW_WIDTH;
+    CONTENT_CONTAINER.extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    CONTENT_CONTAINER.preferences->widthPreference = UI_FULL;
+    CONTENT_CONTAINER.preferences->heightPreference = UI_STRETCH;
+    CONTENT_CONTAINER.active = true;
 
     newTab("Test note title");
 
@@ -795,15 +830,16 @@ void setupUI(bool isDarkTheme) {
     appendContentBlock(0, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
     appendContentBlock(0, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
 
-    addChild(menuBar, newButton);
-    addChild(menuBar, openButton);
+    addChild(&ROOT_CONTAINER, &TAB_BAR);
+    // addChild(menuBar, newButton);
+    // addChild(menuBar, openButton);
 
-    addChild(&rootContainer, menuBar);
-    addChild(&rootContainer, contentContainer);
+    // addChild(&ROOT_CONTAINER, menuBar);
+    addChild(&ROOT_CONTAINER, &CONTENT_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
 
-    activeElement = contentContainer;
+    activeElement = &CONTENT_CONTAINER;
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);
@@ -826,7 +862,7 @@ void enterRenderLoop() {
 
         glm::vec2 cursor(mouseX, mouseY);
 
-        renderElement(rootContainer, resolution, cursor);
+        renderElement(ROOT_CONTAINER, resolution, cursor);
 
         #ifdef DEBUG_TEXT
             if (glfwGetTime() - prevTextTime >= 1.0f) {
@@ -1511,7 +1547,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     if (tab->scrollOffsetY + dim.y < tab->maxHeight - dim.y) {
                         tab->scrollOffsetY += dim.y;
                     } else {
-                        tab->scrollOffsetY = tab->maxHeight - contentContainer->height;
+                        tab->scrollOffsetY = tab->maxHeight - CONTENT_CONTAINER.height;
                     }
 
                     vector<ContentBlock>::iterator fvcb = getLastVisibleCB(tab);
@@ -2570,8 +2606,8 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             float ypos = yNet + static_cast<float>(fontSize);
 
             if (
-                contentContainer->width < 800.0f
-                && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                CONTENT_CONTAINER.width < 800.0f
+                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
                 || xpos + glyphWidth > contentRight
             ) {
                 yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
@@ -2681,8 +2717,8 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
             float ypos = yNet + fontSize;
 
             if (
-                contentContainer->width < 800.0f
-                && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                CONTENT_CONTAINER.width < 800.0f
+                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
                 || xpos + glyphWidth > contentRight
             ) {
                 yNet += fontSize - fontSize * glyphDescender;
@@ -2894,8 +2930,8 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
             float ypos = yNet + static_cast<float>(fontSize);
 
             if (
-                contentContainer->width < 800.0f
-                && xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                CONTENT_CONTAINER.width < 800.0f
+                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
                 || xpos + glyphWidth > contentRight
             ) {
                 yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
@@ -3280,6 +3316,30 @@ void textInputMouseDownCallback(
     tid->lastActiveTime = TIME();
 }
 
+void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+    float x = 0;
+
+    for (int i=0; i<tabs.size(); ++i) {
+        x += TAB_HORIZONTAL_PADDING + tabsDisplay[i].width + TAB_HORIZONTAL_PADDING;
+
+        if (mouseX <= x) {
+            activeTabIndex = i;
+            TAB_BAR.reDraw = true;
+            TAB_BAR.active = false;
+            activeElement = &CONTENT_CONTAINER;
+
+            ContentTab* tab = CURRENT_TAB;
+
+            if (tab->scrollbarUpdated == false) {
+                tab->redrawCursor = true;
+                reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+            }
+
+            break;
+        }
+    }
+}
+
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
     if (elem->extraData == nullptr) { return; }
 
@@ -3614,6 +3674,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UIElementType::TabBar:
         case UIElementType::Container:
             pref = initPreferences();
 
@@ -3864,6 +3925,10 @@ void newTab(filesystem::path path = "Untitled Note") {
     });
 
     activeTabIndex = tabs.size() - 1;
+
+    SETUP_BUFFERS(tabsDisplay[activeTabIndex].activeBgVao, tabsDisplay[activeTabIndex].activeBgVbo, vertices);
+
+    TAB_BAR.reDraw = true;
 }
 
 void closeCurrentTab() {
@@ -4541,9 +4606,9 @@ inline void renderCBScrollbar() {
     if (update) {
         float vertices[] = {
             right, bottom,
-            right, contentContainer->top,
+            right, CONTENT_CONTAINER.top,
             left, bottom,
-            left, contentContainer->top,
+            left, CONTENT_CONTAINER.top,
         };
 
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
@@ -4603,13 +4668,13 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
     tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
 
-    if (sd.y - tab->scrollOffsetY > contentContainer->height + contentContainer->top) {
-        tab->scrollOffsetY += sd.y - contentContainer->height - contentContainer->top;
+    if (sd.y - tab->scrollOffsetY > CONTENT_CONTAINER.height + CONTENT_CONTAINER.top) {
+        tab->scrollOffsetY += sd.y - CONTENT_CONTAINER.height - CONTENT_CONTAINER.top;
         tab->redrawCursor = true;
         highlightedContentBlock.show = false;
         tab->scrollbarUpdated = false;
-    } else if (sd.y - sd.height < contentContainer->top && sd.y != 0 && sd.height != 0) {
-        tab->scrollOffsetY -= contentContainer->top - sd.y + sd.height;
+    } else if (sd.y - sd.height < CONTENT_CONTAINER.top && sd.y != 0 && sd.height != 0) {
+        tab->scrollOffsetY -= CONTENT_CONTAINER.top - sd.y + sd.height;
         tab->redrawCursor = true;
         tab->scrollbarUpdated = false;
     }
@@ -4642,21 +4707,12 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 }
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
-    // cout << "resolution: " << resolution.x << "x" << resolution.y;
     switch (elem.type) {
         case UIElementType::Container: {
             if (elem.reDraw) {
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Container";
                 #endif
-
-                if (elem.vao != 0) {
-                    glDeleteVertexArrays(1, &elem.vao);
-                }
-
-                if (elem.vbo != 0) {
-                    glDeleteBuffers(1, &elem.vbo);
-                }
 
                 float right = elem.left + elem.width;
                 float bottom = elem.top + elem.height;
@@ -4668,20 +4724,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                // cout << "\nvertices: (" << vertices[0] << ", " << vertices[1]
-                //     << "),\n(" << vertices[2] << ", " << vertices[3]
-                //     << "),\n(" << vertices[4] << ", " << vertices[5]
-                //     << "),\n(" << vertices[6] << ", " << vertices[7] << ")";
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
 
-                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
             }
 
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-            // cout << "\n" << elem.text << ": background color: "
-            //     << elem.backgroundColor.x << ", " << elem.backgroundColor.y << ", "
-            //     << elem.backgroundColor.z << ", " << elem.backgroundColor.w;
 
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
@@ -5603,6 +5653,132 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UIElementType::TabBar: {
+            bool drawCachedText = false;
+
+            if (elem.reDraw) {
+                #ifdef DEBUG_RENDER
+                    cout << "\nRe-drawing Container";
+                #endif
+
+                float right = elem.left + elem.width;
+                float bottom = elem.top + elem.height;
+
+                float vertices[] = {
+                    right, bottom,
+                    right, elem.top,
+                    elem.left, bottom,
+                    elem.left, elem.top,
+                };
+
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            } else {
+                drawCachedText = true;
+            }
+
+            glBindVertexArray(elem.vao);
+            glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
+            glUniform4f(
+                uniforms[U_DEFAULT_COLOR],
+                elem.backgroundColor.x,
+                elem.backgroundColor.y,
+                elem.backgroundColor.z,
+                elem.backgroundColor.w
+            );
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            if (elem.reDraw) {
+                float x = 0.0f;
+                float y = TAB_VERTICAL_PADDING;
+
+                for (int i=0; i<tabs.size(); ++i) {
+                    x += TAB_HORIZONTAL_PADDING;
+
+                    if (i == activeTabIndex) {
+                        glBindVertexArray(tabsDisplay[i].activeBgVao);
+                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
+                        glUseProgram(shaders[SHADER_DEFAULT].programId);
+                        glm::vec4 color = ROOT_BG_DARK;
+                        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
+                        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
+                        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    }
+
+                    uint32_t bytes = static_cast<uint32_t>(tabsDisplay[i].bytes);
+                    uint32_t verts = static_cast<uint32_t>(tabsDisplay[i].numVertices);
+
+                    RopeRenderResult rRes = renderTextCached(
+                        tabs[i].filePath.filename().string().substr(0, 16),
+                        { x, y },
+                        resolution,
+                        tabsDisplay[i].vao,
+                        tabsDisplay[i].vbo,
+                        verts,
+                        bytes,
+                        elem.width,
+                        WHITE,
+                        16,
+                        true
+                    );
+
+                    if (i == activeTabIndex) {
+                        float vertices[8] = {
+                            x + rRes.width + TAB_HORIZONTAL_PADDING, 0.0f,
+                            x + rRes.width + TAB_HORIZONTAL_PADDING, TAB_BAR_HEIGHT,
+                            x - TAB_HORIZONTAL_PADDING, 0.0f,
+                            x - TAB_HORIZONTAL_PADDING, TAB_BAR_HEIGHT,
+                        };
+
+                        glBindVertexArray(tabsDisplay[i].activeBgVao);
+                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
+
+                        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                    }
+
+                    x += rRes.width + TAB_HORIZONTAL_PADDING;
+
+                    tabsDisplay[i].width = rRes.width;
+                    tabsDisplay[i].bytes = bytes;
+                    tabsDisplay[i].numVertices = verts;
+                }
+            } else {
+                vector<float> v;
+                uint32_t bytes;
+                uint32_t verts;
+
+                for (int i=0; i<tabs.size(); ++i) {
+                    bytes = static_cast<uint32_t>(tabsDisplay[i].bytes);
+                    verts = static_cast<uint32_t>(tabsDisplay[i].numVertices);
+
+                    if (i == activeTabIndex) {
+                        glBindVertexArray(tabsDisplay[i].activeBgVao);
+                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
+                        glUseProgram(shaders[SHADER_DEFAULT].programId);
+                        glm::vec4 color = ROOT_BG_DARK;
+                        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
+                        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
+                        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    }
+
+                    drawTextBuffers(
+                        tabsDisplay[i].vao,
+                        tabsDisplay[i].vbo,
+                        bytes,
+                        verts,
+                        resolution,
+                        v,
+                        false
+                    );
+                }
+            }
+
+            elem.reDraw = false;
+
             break;
         }
 
@@ -5632,7 +5808,7 @@ bool renderContentBlock(
         return false;
     }
 
-    if (contentContainer->extraData == nullptr) {
+    if (CONTENT_CONTAINER.extraData == nullptr) {
         cout << "\nRender Error: UIElement's parent is NULL!";
         return false;
     }
@@ -5647,8 +5823,8 @@ bool renderContentBlock(
             (*cb).top = (*prev).top + (*prev).height + prevMargins[1] + currMargins[0];
             (*cb).left = (*prev).left;
         } else {
-            (*cb).top = contentContainer->top + getCBVerticalMargins((*cb).type)[0];
-            (*cb).left = contentContainer->left;
+            (*cb).top = CONTENT_CONTAINER.top + getCBVerticalMargins((*cb).type)[0];
+            (*cb).left = CONTENT_CONTAINER.left;
         }
     }
 
@@ -5677,9 +5853,9 @@ bool renderContentBlock(
         (*cb).textVAO,
         (*cb).textVBO,
         (*cb).bufferSize,
+        CONTENT_CONTAINER.width,
         darkTheme ? WHITE : BLACK,
         getCBFontSize((*cb).type),
-        contentContainer,
         ((*cb).flags & CONTENT_BLOCK_REDRAW) != 0
     );
 
@@ -5708,7 +5884,7 @@ bool renderContentBlock(
 
         tab->maxHeight = (*cb).top + (*cb).height;
         tab->scrollbarUpdated = false;
-        contentContainer->reDraw = true;
+        CONTENT_CONTAINER.reDraw = true;
     }
 
     return visible;
@@ -5880,7 +6056,7 @@ void renderCBTextSelection(ContentTab* tab) {
                     }
 
                     if (
-                        xpos + glyphWidth > contentContainer->width - CONTENT_HORIZONTAL_MARGIN
+                        xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
                         || xpos + glyphWidth > contentRight
                     ) {
                         if (selectionStarted) {
@@ -6031,8 +6207,8 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
         cout << "\nDEBUG: Mouse down on content block!";
     #endif
 
-    contentContainer->active = true;
-    activeElement = contentContainer;
+    CONTENT_CONTAINER.active = true;
+    activeElement = &CONTENT_CONTAINER;
 
     activateCBFromScreenCoords(mouseX, mouseY);
 
@@ -6103,7 +6279,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
 }
 
 void renderCBMoveMarker() {
-    #define GET_TOP(block) block->top - 1.5f - contentContainer->extraData->scrollData.yOffset
+    #define GET_TOP(block) block->top - 1.5f - CONTENT_CONTAINER.extraData->scrollData.yOffset
 
     if (
         highlightedContentBlock.mouseDown
@@ -6390,6 +6566,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
                 || elem->type == UIElementType::TextArea || elem->type == UIElementType::ScrollArea
                 || elem->type == UIElementType::ContentContainer
                 || elem->type == UIElementType::IconButton
+                || elem->type == UIElementType::TabBar
             )
             && (
                 x > elem->left && x < elem->left + elem->width
@@ -7731,14 +7908,14 @@ void getCBScrollbarDimensions(
     float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd
 ) {
-    float height = contentContainer->height;
-    top = contentContainer->top;
-    right = contentContainer->left + contentContainer->width;
+    float height = CONTENT_CONTAINER.height;
+    top = CONTENT_CONTAINER.top;
+    right = CONTENT_CONTAINER.left + CONTENT_CONTAINER.width;
     left = right - SCROLL_BAR_THICKNESS;
     bottom = top + height;
 
     thumbStart = top + tab->scrollOffsetY / tab->maxHeight * height;
-    thumbEnd = thumbStart + contentContainer->height / tab->maxHeight * height;
+    thumbEnd = thumbStart + CONTENT_CONTAINER.height / tab->maxHeight * height;
 
     if (thumbEnd > top + height) {
         float barWidth = thumbEnd - thumbStart;
