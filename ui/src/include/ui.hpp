@@ -187,20 +187,20 @@ enum class ContentBlockType: uint8_t {
     Heading6,
 };
 
-enum UIAlignment {
-    UI_ALIGN_START,
-    UI_ALIGN_END,
-    UI_ALIGN_CENTER,
-    UI_ALIGN_SPACE_BETWEEN,
-    UI_ALIGN_SPACE_AROUND,
+enum class UIAlignment : uint8_t {
+    Start,
+    End,
+    Center,
+    SpaceBetween,
+    SpaceAround,
 };
 
-enum UISizePreference {
-    UI_FIXED,
-    UI_PERCENT,
-    UI_STRETCH,
-    UI_FULL,
-    UI_GROW,
+enum class UISizePreference : uint8_t {
+    Fixed,
+    Percent,
+    Stretch,
+    Full,
+    Grow,
 };
 
 enum class Icon : uint8_t {

@@ -783,19 +783,23 @@ void setupUI(bool isDarkTheme) {
     if (darkTheme) {
         ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
         TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
+        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG_DARK;
+        title->color = WHITE;
         // menuBar->backgroundColor = TOOL_BAR_BG_DARK;
         // menuBar->color = WHITE;
     } else {
         ROOT_CONTAINER.backgroundColor = ROOT_BG;
         TAB_BAR.backgroundColor = TOOL_BAR_BG;
+        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG;
+        title->color = BLACK;
         // menuBar->backgroundColor = TOOL_BAR_BG;
         // menuBar->color = BLACK;
     }
 
-    TAB_BAR.preferences->widthPreference = UI_FULL;
-    TAB_BAR.preferences->heightPreference = UI_FIXED;
-    TAB_BAR.preferences->verticalAlign = UI_ALIGN_START;
-    TAB_BAR.preferences->horizontalAlign = UI_ALIGN_CENTER;
+    TAB_BAR.preferences->widthPreference = UISizePreference::Full;
+    TAB_BAR.preferences->heightPreference = UISizePreference::Fixed;
+    TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
+    TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
 
     // menuBar->text = "test";
 
@@ -814,9 +818,20 @@ void setupUI(bool isDarkTheme) {
     CONTENT_CONTAINER.text = "Main Scroll Area";
     CONTENT_CONTAINER.extraData->scrollData.width = WINDOW_WIDTH;
     CONTENT_CONTAINER.extraData->scrollData.height = WINDOW_HEIGHT - 64;
-    CONTENT_CONTAINER.preferences->widthPreference = UI_FULL;
-    CONTENT_CONTAINER.preferences->heightPreference = UI_STRETCH;
+    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
     CONTENT_CONTAINER.active = true;
+
+    WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Full;
+
+    welcomeMainContainer->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeMainContainer->preferences->widthPreference = UISizePreference::Fixed;
+    welcomeMainContainer->text = "Welcome Main Container";
+
+    title->text = "patram";
+    title->fontSize = 48;
+    title->preferences->horizontalAlign = UIAlignment::Center;
+    title->preferences->widthPreference = UISizePreference::Grow;
 
     newTab("Test note title");
 
@@ -3662,7 +3677,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         case UIElementType::Label:
             pref = initPreferences();
-            pref->widthPreference = UI_GROW;
+            pref->widthPreference = UISizePreference::Grow;
 
             backgroundColor = TRANSPARENT_COLOR;
             hoverColor = TRANSPARENT_COLOR;
@@ -3691,7 +3706,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         case UIElementType::ContentContainer:
         case UIElementType::ScrollArea:
             pref = initPreferences();
-            pref->widthPreference = UI_GROW;
+            pref->widthPreference = UISizePreference::Grow;
 
             extraData = new UIExtraData {
                 .scrollData = ScrollData {
@@ -4062,10 +4077,10 @@ UIPreferences* initPreferences() {
     pref->maxWidth = -1;
     pref->maxHeight = -1;
     pref->direction = true;
-    pref->verticalAlign = UI_ALIGN_START;
-    pref->horizontalAlign = UI_ALIGN_START;
-    pref->heightPreference = UI_FIXED;
-    pref->widthPreference = UI_FIXED;
+    pref->verticalAlign = UIAlignment::Start;
+    pref->horizontalAlign = UIAlignment::Start;
+    pref->heightPreference = UISizePreference::Fixed;
+    pref->widthPreference = UISizePreference::Fixed;
 
     return pref;
 }
@@ -4118,7 +4133,7 @@ void recalculateLayout(UIElement * elem) {
 
     if (elem->preferences != nullptr) {
         switch (elem->preferences->widthPreference) {
-            case UI_FULL:
+            case UISizePreference::Full:
                 if (elem->parent != nullptr) {
                     #ifdef DEBUG_LAYOUT
                         cout << "\n-> Resizing width of element (text: "
@@ -4130,7 +4145,7 @@ void recalculateLayout(UIElement * elem) {
                 }
                 break;
 
-            case UI_STRETCH:
+            case UISizePreference::Stretch:
                 if (elem->parent != nullptr) {
                     #ifdef DEBUG_LAYOUT
                         cout << "\n-> Resizing width of element (text: "
@@ -4149,15 +4164,15 @@ void recalculateLayout(UIElement * elem) {
 
                         if (siblingElem != elem && siblingElem->preferences != nullptr) {
                             switch (siblingElem->preferences->widthPreference) {
-                                case UI_FIXED:
-                                case UI_GROW:
+                                case UISizePreference::Fixed:
+                                case UISizePreference::Grow:
                                     width -= siblingElem->width;
                                     break;
 
-                                case UI_PERCENT:
+                                case UISizePreference::Percent:
                                     width -= elem->parent->width * siblingElem->width;
 
-                                case UI_STRETCH:
+                                case UISizePreference::Stretch:
                                     ++stretchCandidates;
                                     break;
 
@@ -4196,7 +4211,7 @@ void recalculateLayout(UIElement * elem) {
         }
 
         switch (elem->preferences->heightPreference) {
-            case UI_FULL:
+            case UISizePreference::Full:
                 if (elem->parent != nullptr) {
                     #ifdef DEBUG_LAYOUT
                         cout << "\n-> Resizing height of element (text: "
@@ -4208,7 +4223,7 @@ void recalculateLayout(UIElement * elem) {
                 }
                 break;
 
-            case UI_STRETCH:
+            case UISizePreference::Stretch:
                 if (elem->parent != nullptr) {
                     #ifdef DEBUG_LAYOUT
                         cout << "\n-> Resizing height of element (text: "
@@ -4227,15 +4242,15 @@ void recalculateLayout(UIElement * elem) {
 
                         if (siblingElem != elem && siblingElem->preferences != nullptr) {
                             switch (siblingElem->preferences->heightPreference) {
-                                case UI_FIXED:
-                                case UI_GROW:
+                                case UISizePreference::Fixed:
+                                case UISizePreference::Grow:
                                     height -= siblingElem->height;
                                     break;
 
-                                case UI_PERCENT:
+                                case UISizePreference::Percent:
                                     height -= elem->parent->height * siblingElem->height;
 
-                                case UI_STRETCH:
+                                case UISizePreference::Stretch:
                                     ++stretchCandidates;
                                     break;
 
@@ -4261,6 +4276,26 @@ void recalculateLayout(UIElement * elem) {
                 break;
 
             default:
+                break;
+        }
+
+        switch (elem->preferences->horizontalAlign) {
+            case UIAlignment::Start:
+                if (elem->parent != nullptr) {
+                    elem->left = elem->parent->left;
+                }
+                break;
+
+            case UIAlignment::End:
+                if (elem->parent != nullptr) {
+                    elem->left = elem->parent->width - elem->width;
+                }
+                break;
+
+            case UIAlignment::Center:
+                if (elem->parent != nullptr) {
+                    elem->left = (elem->parent->width - elem->width) / 2;
+                }
                 break;
         }
     }
@@ -4860,22 +4895,26 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UIElementType::Label: {
+            if (!elem.show) { break; }
+
             glm::vec4 dim;
 
+            glm::vec2 pos = glm::vec2(elem.left, elem.top);
+
             if (elem.positioning == UIPositioning::Relative) {
-                float top = elem.parent->top + elem.top;
-                float left = elem.parent->left + elem.left;
+                pos.x = elem.parent->left + elem.left;
+                pos.y = elem.parent->top + elem.top;
 
                 if (elem.parent->type == UIElementType::ScrollArea) {
-                    top -= elem.parent->extraData->scrollData.yOffset;
-                    left -= elem.parent->extraData->scrollData.xOffset;
+                    pos.x -= elem.parent->extraData->scrollData.xOffset;
+                    pos.y -= elem.parent->extraData->scrollData.yOffset;
                 }
 
-                dim = renderText(elem.text, glm::vec2(left, top), resolution, elem.color, elem.fontSize);
+                dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
 
                 if (
                     elem.reDraw
-                    && elem.preferences->widthPreference == UI_GROW
+                    && elem.preferences->widthPreference == UISizePreference::Grow
                     && elem.parent->type == UIElementType::ScrollArea
                     && elem.parent->extraData->scrollData.width < dim.w
                 ) {
@@ -4897,17 +4936,24 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 break;
             }
 
-            dim = renderText(elem.text, glm::vec2(elem.left, elem.top), resolution, elem.color, elem.fontSize);
+            dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
 
-            if (
-                elem.reDraw
-                && elem.preferences->widthPreference == UI_GROW
-                && elem.parent->type == UIElementType::ScrollArea
-                && elem.parent->extraData->scrollData.width < dim.w
-            ) {
-                elem.parent->extraData->scrollData.width = dim.w;
-                elem.reDraw = false;
+            if (elem.reDraw) { 
+                if (
+                    elem.preferences->widthPreference == UISizePreference::Grow
+                    && elem.parent->type == UIElementType::ScrollArea
+                    && elem.parent->extraData->scrollData.width < dim.w
+                ) {
+                    elem.parent->extraData->scrollData.width = dim.w;
+                    elem.reDraw = false;
+                } else if (
+                    elem.preferences->widthPreference == UISizePreference::Grow
+                ) {
+                    elem.width = dim.w - elem.left;
+                }
             }
+
+            elem.reDraw = false;
             break;
         }
 
