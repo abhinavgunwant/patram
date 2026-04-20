@@ -207,7 +207,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouseDownX = mouseX;
             mouseDownY = mouseY;
 
-            if (highlightedContentBlock.show) {
+            if (highlightedContentBlock.show && !tabs.empty()) {
                 if (
                     mouseX >= highlightedContentBlock.left - 20.0f
                     && mouseX <= highlightedContentBlock.left
@@ -297,7 +297,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         textInputMouseUpCallback(elem, mouseX, mouseY, resolution);
                         break;
                     case UIElementType::ContentContainer:
-                        contentBlockMouseUpCallback(elem, mouseX, mouseY, resolution);
+                        if (!tabs.empty()) {
+                            contentBlockMouseUpCallback(elem, mouseX, mouseY, resolution);
+                        }
                         break;
                     case UIElementType::IconButton:
                         if (elem->id == OPEN_BUTTON_ID) {
@@ -385,25 +387,27 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     resolution = glm::vec2(width, height);
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
-    ContentTab* tab = CURRENT_TAB;
+    if (!tabs.empty()) {
+        ContentTab* tab = CURRENT_TAB;
 
-    reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
+        reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
 
-    if (tab->showCursor) {
-        tab->redrawCursor = true;
-    }
+        if (tab->showCursor) {
+            tab->redrawCursor = true;
+        }
 
-    tab->scrollbarUpdated = false;
+        tab->scrollbarUpdated = false;
 
-    TAB_BAR.reDraw = true;
+        TAB_BAR.reDraw = true;
 
-    renderElement(ROOT_CONTAINER, resolution, cursor);
-
-    if (tabs.size() > 1) {
-        for (auto tabIter = tabs.begin(); tabIter != tabs.end(); ++tabIter) {
-            (*tabIter).scrollbarUpdated = false;
+        if (tabs.size() > 1) {
+            for (auto tabIter = tabs.begin(); tabIter != tabs.end(); ++tabIter) {
+                (*tabIter).scrollbarUpdated = false;
+            }
         }
     }
+
+    renderElement(ROOT_CONTAINER, resolution, cursor);
 
     glfwSwapBuffers(window);
 }
@@ -412,11 +416,11 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseX = xpos;
     mouseY = ypos;
 
-    ContentTab* tab = &tabs[activeTabIndex];
-
     CursorShape cShape = CursorShape::Default;
 
-    if (!highlightedContentBlock.mouseDown) {
+    if (!highlightedContentBlock.mouseDown && !tabs.empty()) {
+        ContentTab* tab = CURRENT_TAB;
+
         float top;
         highlightedContentBlock.show = false;
 
@@ -549,8 +553,9 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
     }
 
-    if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
+    if (highlightedContentBlock.show && highlightedContentBlock.mouseDown && !tabs.empty()) {
         #define SCROLL_DATA CONTENT_CONTAINER.extraData->scrollData
+        ContentTab* tab = CURRENT_TAB;
 
         for (
             auto itr = tab->contentBlocks.begin();
@@ -934,6 +939,9 @@ void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
 }
 
 void cbKeyCallback(int key, int action, int mod) {
+    if (tabs.empty()) {
+        return;
+    }
     ContentTab* tab = &tabs[activeTabIndex];
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
 
@@ -2501,6 +2509,8 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
 // NOTE: might not need this since the active content block calculation is done
 // with the highlighted content box.
 void activateCBFromScreenCoords(float mouseX, float mouseY) {
+    if (tabs.empty()) { return; }
+
     ContentTab* tab = &tabs[activeTabIndex];
 
     for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
@@ -3239,8 +3249,13 @@ void newNote() {
 }
 
 void updateWindowTitle() {
-    ContentTab* tab = CURRENT_TAB;
-    glfwSetWindowTitle(window, ("patram - " + tab->filePath.filename().string()).c_str());
+    if (!tabs.empty()) {
+        ContentTab* tab = CURRENT_TAB;
+        glfwSetWindowTitle(window, ("patram - " + tab->filePath.filename().string()).c_str());
+        return;
+    }
+
+    glfwSetWindowTitle(window, "patram");
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -3947,8 +3962,6 @@ void newTab(filesystem::path path = "Untitled Note") {
 }
 
 void closeCurrentTab() {
-    if (tabs.size() == 1) { return; }
-
     ContentTab* tab = &tabs[activeTabIndex];
 
     for (auto itr = tab->extCommands.begin(); itr != tab->extCommands.end(); ++itr) {
@@ -3974,16 +3987,6 @@ void closeCurrentTab() {
         }
     }
 
-    tabs.erase(tabs.begin() + activeTabIndex);
-
-    if (activeTabIndex >= tabs.size()) {
-        activeTabIndex = tabs.size() - 1;
-    }
-}
-
-void closeTab(uint32_t index) {
-    ContentTab* tab = &tabs[activeTabIndex];
-
     if (tab->selVAO != 0) {
         glDeleteVertexArrays(1, &tab->selVAO);
     }
@@ -4005,7 +4008,7 @@ void closeTab(uint32_t index) {
     }
 
     if (tab->scrollbarVAO != 0) {
-        glDeleteBuffers(1, &tab->scrollbarVAO);
+        glDeleteBuffers(1, &tab->scrollbarVBO);
     }
 
     if (tab->scrollThumbVAO != 0) {
@@ -4013,16 +4016,22 @@ void closeTab(uint32_t index) {
     }
 
     if (tab->scrollThumbVAO != 0) {
-        glDeleteBuffers(1, &tab->scrollThumbVAO);
+        glDeleteBuffers(1, &tab->scrollThumbVBO);
     }
 
-    for (auto cbIter = tab->contentBlocks.begin(); cbIter != tab->contentBlocks.end(); ++cbIter) {
-        delete (*cbIter).rope;
+    tabs.erase(tabs.begin() + activeTabIndex);
+
+    if (activeTabIndex >= tabs.size() && activeTabIndex > 0) {
+        activeTabIndex = tabs.size() - 1;
     }
 
-    auto itr = tabs.begin() + index;
+    TAB_BAR.reDraw = true;
 
-    tabs.erase(itr, itr + 1);
+    if (tabs.empty()) {
+        WELCOME_SCREEN.show = true;
+    }
+
+    updateWindowTitle();
 }
 
 string getSelectedTextFromCurrentTab() {
@@ -4309,7 +4318,7 @@ void recalculateLayout(UIElement * elem) {
             elem->extraData->scrollData.renderedUpdate = false;
             elem->reDraw = true;
 
-            if (!tabs[activeTabIndex].contentBlocks.empty()) {
+            if (!tabs.empty() && !tabs[activeTabIndex].contentBlocks.empty()) {
                 reDrawAllContentBlocks();
 
                 elem->extraData->scrollData.height = 0;
@@ -4744,6 +4753,8 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
     switch (elem.type) {
         case UIElementType::Container: {
+            if (!elem.show) { break; }
+
             if (elem.reDraw) {
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Container";
@@ -4792,6 +4803,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
         case UIElementType::ContentContainer: {
             elem.reDraw = false;
+
+            if (tabs.empty()) { return; }
 
             ContentTab* tab = CURRENT_TAB;
 
@@ -5699,6 +5712,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UIElementType::TabBar: {
+            if (tabs.empty()) { return; }
             bool drawCachedText = false;
 
             if (elem.reDraw) {
@@ -6252,6 +6266,8 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
     #ifdef DEBUG_CONTENT_BLOCKS
         cout << "\nDEBUG: Mouse down on content block!";
     #endif
+
+    if (tabs.empty()) { return; }
 
     CONTENT_CONTAINER.active = true;
     activeElement = &CONTENT_CONTAINER;
