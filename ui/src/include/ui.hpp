@@ -107,8 +107,9 @@
 #define TOOL_BAR_BG_DARK    glm::vec4(0.24, 0.22, 0.22, 1.0)
 
 #define ROOT_CONTAINER      elements[0]
-#define CONTENT_CONTAINER   elements[1]
-#define TAB_BAR             elements[2]
+#define WELCOME_SCREEN      elements[1]
+#define CONTENT_CONTAINER   elements[2]
+#define TAB_BAR             elements[3]
 
 using namespace std;
 
@@ -338,7 +339,7 @@ struct UIElement {
 
     bool active;
     bool disabled;
-    bool autosizeChildren;
+    bool show;
     bool reDraw;
 
     // void (*onClick)(UIElement*);
@@ -512,6 +513,7 @@ UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
+inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
 void recalculateLayout(UIElement * elem);
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);

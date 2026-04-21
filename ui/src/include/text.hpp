@@ -130,6 +130,11 @@ RopeRenderResult renderTextCached(
     bool redraw = true
 );
 
+RopeRenderResult getTextDimensions(
+    string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
+    float parentWidth
+);
+
 /**
  * Renders text
  *

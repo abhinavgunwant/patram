@@ -440,6 +440,56 @@ RopeRenderResult renderTextCached(
     return result;
 }
 
+RopeRenderResult getTextDimensions(
+    string str, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
+    float parentWidth
+) {
+    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
+
+    float xpos = pos.x;
+    float ypos = 0.0f;
+    float yNet = pos.y;
+    float texX1 = 0.0f;
+    float texX2 = 0.0f;
+    float texY1 = 0.0f;
+    float texY2 = 0.0f;
+    float xpos_plus_w = 0.0f;
+    float ypos_plus_h = 0.0f;
+    float advance = 0.0f;
+
+    for (char c: str) {
+        getCharParams(
+            characters[(int)c],
+            pos,
+            xpos,
+            ypos,
+            yNet,
+            xpos_plus_w,
+            ypos_plus_h,
+            result.height,
+            texX1,
+            texX2,
+            texY1,
+            texY2,
+            advance,
+            parentWidth,
+            result.rows,
+            fontSize,
+            result.renderNextContentBlock
+        );
+
+        xpos += advance;
+    }
+
+    result.width = xpos - pos.x;
+
+    if (result.rows) {
+        ++result.rows;
+    }
+
+    return result;
+}
+
 // render line of text
 glm::vec4 renderText(
     string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
@@ -562,7 +612,7 @@ glm::vec4 renderText(
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    dimensions.w = pos.x;
+    dimensions.w = xpos;
 
     return dimensions;
 }

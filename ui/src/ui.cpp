@@ -762,6 +762,14 @@ void setupUI(bool isDarkTheme) {
     // UIElement* openButton = &elements[2];
     // contentContainer = &elements[1];
     // UIElement* tabBar = &elements[2];
+    UIElement* welcomeMainContainer = &elements[4];
+    UIElement* title = &elements[5];
+    UIElement* version = &elements[6];
+    UIElement* welcomeLine1 = &elements[7];
+    UIElement* welcomeLine2 = &elements[8];
+    UIElement* welcomeLine3 = &elements[9];
+    UIElement* welcomeLine4 = &elements[10];
+    UIElement* welcomeLine5 = &elements[11];
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -769,6 +777,15 @@ void setupUI(bool isDarkTheme) {
     // initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
     initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
+    initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
+    initElement(*title, UIElementType::Label, 80.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*version, UIElementType::Label, 140.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*welcomeLine1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*welcomeLine2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*welcomeLine3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*welcomeLine4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*welcomeLine5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
@@ -838,6 +855,36 @@ void setupUI(bool isDarkTheme) {
     title->preferences->horizontalAlign = UIAlignment::Center;
     title->preferences->widthPreference = UISizePreference::Grow;
 
+    version->text = "v0.1.0";
+    version->fontSize = 16;
+    version->preferences->horizontalAlign = UIAlignment::Center;
+    version->preferences->widthPreference = UISizePreference::Grow;
+
+    welcomeLine1->text = "Welcome to patram - the lightweight notes manager!";
+    welcomeLine1->fontSize = 16;
+    welcomeLine1->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeLine1->preferences->widthPreference = UISizePreference::Grow;
+
+    welcomeLine2->text = "You begin by creating a note vault.";
+    welcomeLine2->fontSize = 16;
+    welcomeLine2->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeLine2->preferences->widthPreference = UISizePreference::Grow;
+
+    welcomeLine3->text = "Note vaults contain notes and folders.";
+    welcomeLine3->fontSize = 16;
+    welcomeLine3->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeLine3->preferences->widthPreference = UISizePreference::Grow;
+
+    welcomeLine4->text = "Folders can have other notes and folders.";
+    welcomeLine4->fontSize = 16;
+    welcomeLine4->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeLine4->preferences->widthPreference = UISizePreference::Grow;
+
+    welcomeLine5->text = "You can password-protect a note vault - this encrypts all the notes in it.";
+    welcomeLine5->fontSize = 16;
+    welcomeLine5->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeLine5->preferences->widthPreference = UISizePreference::Grow;
+
     newTab("Test note title");
 
     updateWindowTitle();
@@ -850,6 +897,17 @@ void setupUI(bool isDarkTheme) {
     appendContentBlock(0, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
     appendContentBlock(0, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
 
+    // addChild(welcomeMainContainer, title);
+    // addChild(&WELCOME_SCREEN, welcomeMainContainer);
+    addChild(&WELCOME_SCREEN, title);
+    addChild(&WELCOME_SCREEN, version);
+    addChild(&WELCOME_SCREEN, welcomeLine1);
+    addChild(&WELCOME_SCREEN, welcomeLine2);
+    addChild(&WELCOME_SCREEN, welcomeLine3);
+    addChild(&WELCOME_SCREEN, welcomeLine4);
+    addChild(&WELCOME_SCREEN, welcomeLine5);
+
+    addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     // addChild(menuBar, newButton);
     // addChild(menuBar, openButton);
@@ -3796,7 +3854,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         false,
         false,
-        false,
+        true,
         true,
 
         "",
@@ -3959,6 +4017,7 @@ void newTab(filesystem::path path = "Untitled Note") {
     SETUP_BUFFERS(tabsDisplay[activeTabIndex].activeBgVao, tabsDisplay[activeTabIndex].activeBgVbo, vertices);
 
     TAB_BAR.reDraw = true;
+    WELCOME_SCREEN.show = false;
 }
 
 void closeCurrentTab() {
@@ -4136,8 +4195,7 @@ void addChild(UIElement* parent, UIElement * child) {
     ++parent->totalChildren;
 }
 
-void recalculateLayout(UIElement * elem) {
-    elem->reDraw = true;
+inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
     bool updated = false;
 
     if (elem->preferences != nullptr) {
@@ -4309,7 +4367,13 @@ void recalculateLayout(UIElement * elem) {
         }
     }
 
-    if (updated) {
+    return updated;
+}
+
+void recalculateLayout(UIElement * elem) {
+    elem->reDraw = true;
+
+    if (updateElementDimensionsAccordingToPreferences(elem)) {
         #ifdef DEBUG_SCROLL_AREA
             cout << "\n    -> Updated dimensions: width: " << elem->width << ", height: " << elem->height;
         #endif
@@ -4949,9 +5013,22 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 break;
             }
 
+            if (
+                elem.reDraw
+                && elem.preferences->widthPreference == UISizePreference::Grow
+            ) {
+                RopeRenderResult rRes = getTextDimensions(
+                    elem.text, pos, resolution, elem.fontSize, elem.parent->width
+                );
+
+                pos.x = rRes.x;
+                elem.width = rRes.width;
+                updateElementDimensionsAccordingToPreferences(&elem);
+            }
+
             dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
 
-            if (elem.reDraw) { 
+            if (elem.reDraw) {
                 if (
                     elem.preferences->widthPreference == UISizePreference::Grow
                     && elem.parent->type == UIElementType::ScrollArea
