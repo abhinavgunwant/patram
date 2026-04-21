@@ -5075,6 +5075,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 pos.x = rRes.x;
                 elem.width = rRes.width;
                 updateElementDimensionsAccordingToPreferences(&elem);
+                pos.x = elem.left;
 
                 if (
                     elem.parent->type == UIElementType::ScrollArea
