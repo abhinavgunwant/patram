@@ -118,7 +118,8 @@ inline void getCharParams(
     float parentWidth,
     uint32_t& rows,
     uint8_t fontSize,
-    bool& renderNextContentBlock
+    bool& renderNextContentBlock,
+    bool breakLine
 ) {
     float aspectRatio = static_cast<float>(c.width) / static_cast<float>(c.height);
     float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
@@ -149,9 +150,11 @@ inline void getCharParams(
     xpos += bearingLeft;
 
     if (
-        parentWidth < 800.0f
-        && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
-        || xpos + glyphWidth > contentRight
+        breakLine && (
+            parentWidth < 800.0f
+            && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
+            || xpos + glyphWidth > contentRight
+        )
     ) {
         yNet += fontSize * (1 - glyphDescender);
         xpos = pos.x;
@@ -442,7 +445,7 @@ RopeRenderResult renderTextCached(
 
 RopeRenderResult getTextDimensions(
     string str, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
-    float parentWidth
+    float parentWidth, bool breakLine
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
 
@@ -475,7 +478,8 @@ RopeRenderResult getTextDimensions(
             parentWidth,
             result.rows,
             fontSize,
-            result.renderNextContentBlock
+            result.renderNextContentBlock,
+            breakLine
         );
 
         xpos += advance;

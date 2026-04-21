@@ -744,7 +744,7 @@ void minimizedCallback(GLFWwindow* window, int isMinimized) {
 }
 
 void maximizedCallback(GLFWwindow* window, int min) {
-    minimized = min == 0;
+    // minimized = min == 0;
 }
 
 void windowFocusCallback(GLFWwindow *window, int isFocused) {
@@ -784,6 +784,7 @@ void setupUI(bool isDarkTheme) {
     UIElement* welcomeLine3 = &elements[9];
     UIElement* welcomeLine4 = &elements[10];
     UIElement* welcomeLine5 = &elements[11];
+    UIElement* createVaultButton = &elements[12];
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -800,10 +801,12 @@ void setupUI(bool isDarkTheme) {
     initElement(*welcomeLine3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
     initElement(*welcomeLine4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
     initElement(*welcomeLine5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*createVaultButton, UIElementType::Button, 380.0f, 0.0f, 100.0f, 100.0f);
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
+    SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
 
     for (int i=0; i<100; ++i) {
         tabsDisplay[i].vao = 0;
@@ -899,6 +902,12 @@ void setupUI(bool isDarkTheme) {
     welcomeLine5->preferences->horizontalAlign = UIAlignment::Center;
     welcomeLine5->preferences->widthPreference = UISizePreference::Grow;
 
+    createVaultButton->text = "Create a note vault";
+    createVaultButton->fontSize = 16;
+    createVaultButton->preferences->horizontalAlign = UIAlignment::Center;
+    createVaultButton->preferences->widthPreference = UISizePreference::Grow;
+    createVaultButton->preferences->heightPreference = UISizePreference::Grow;
+
     #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
 
@@ -923,6 +932,7 @@ void setupUI(bool isDarkTheme) {
     addChild(&WELCOME_SCREEN, welcomeLine3);
     addChild(&WELCOME_SCREEN, welcomeLine4);
     addChild(&WELCOME_SCREEN, welcomeLine5);
+    addChild(&WELCOME_SCREEN, createVaultButton);
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     // addChild(menuBar, newButton);
@@ -3747,6 +3757,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     switch (type) {
         case UIElementType::Button: {
+            pref = initPreferences();
+
             if (darkTheme) {
                 backgroundColor = BUTTON_BG_DARK;
                 hoverColor = BUTTON_HOVER_BG_DARK;
@@ -4299,6 +4311,13 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                     updated = true;
                 }
                 break;
+
+            case UISizePreference::Grow:
+                if (elem->parent != nullptr && elem->width > elem->parent->width) {
+                    float diff = elem->width - elem->parent->width;
+                    elem->left -= diff/2;
+                    updated = true;
+                }
 
             default:
                 break;
@@ -5045,30 +5064,22 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 && elem.preferences->widthPreference == UISizePreference::Grow
             ) {
                 RopeRenderResult rRes = getTextDimensions(
-                    elem.text, pos, resolution, elem.fontSize, elem.parent->width
+                    elem.text, pos, resolution, elem.fontSize, elem.parent->width, false
                 );
 
                 pos.x = rRes.x;
                 elem.width = rRes.width;
                 updateElementDimensionsAccordingToPreferences(&elem);
-            }
 
-            dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
-
-            if (elem.reDraw) {
                 if (
-                    elem.preferences->widthPreference == UISizePreference::Grow
-                    && elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->extraData->scrollData.width < dim.w
+                    elem.parent->type == UIElementType::ScrollArea
+                    && elem.parent->extraData->scrollData.width < elem.width
                 ) {
-                    elem.parent->extraData->scrollData.width = dim.w;
-                    elem.reDraw = false;
-                } else if (
-                    elem.preferences->widthPreference == UISizePreference::Grow
-                ) {
-                    elem.width = dim.w - elem.left;
+                    elem.parent->extraData->scrollData.width = elem.width;
                 }
             }
+
+            renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
 
             elem.reDraw = false;
             break;
@@ -5077,18 +5088,28 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         case UIElementType::Button: {
             if (elem.reDraw) {
                 // recalculateLayout(&elem);
+                if (
+                    elem.preferences->widthPreference == UISizePreference::Grow
+                    || elem.preferences->heightPreference == UISizePreference::Grow
+                ) {
+                    glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING);
+
+                    RopeRenderResult rRes = getTextDimensions(elem.text, pos, resolution, elem.fontSize, elem.parent->width, false);
+
+                    if (elem.preferences->widthPreference == UISizePreference::Grow) {
+                        elem.width = BUTTON_PADDING + rRes.width + BUTTON_PADDING;
+                    }
+
+                    if (elem.preferences->heightPreference == UISizePreference::Grow) {
+                        elem.height = BUTTON_PADDING + rRes.height + BUTTON_PADDING;
+                    }
+
+                    updateElementDimensionsAccordingToPreferences(&elem);
+                }
 
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing";
                 #endif
-
-                if (elem.vao != 0) {
-                    glDeleteVertexArrays(1, &elem.vao);
-                }
-
-                if (elem.vbo != 0) {
-                    glDeleteBuffers(1, &elem.vbo);
-                }
 
                 float right = elem.left + elem.width;
                 float bottom = elem.top + elem.height;
@@ -5100,12 +5121,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                // cout << "\nvertices: (" << vertices[0] << ", " << vertices[1]
-                //     << "),\n(" << vertices[2] << ", " << vertices[3]
-                //     << "),\n(" << vertices[4] << ", " << vertices[5]
-                //     << "),\n(" << vertices[6] << ", " << vertices[7] << ")";
-
-                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
             }
 
             glBindVertexArray(elem.vao);
@@ -5134,7 +5152,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glm::vec4 textDimensions = renderText(
+            renderText(
                 elem.text,
                 glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING),
                 resolution,
@@ -5142,14 +5160,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.fontSize
             );
 
-            if (elem.width == textDimensions.w + BUTTON_PADDING) {
-                elem.reDraw = false;
-            } else {
-                elem.reDraw = true;
-                elem.width = textDimensions.w + BUTTON_PADDING;
-                elem.height = textDimensions.z + BUTTON_PADDING - elem.top;
-                cout << "\nRecalculating dimensions of button";
-            }
+            elem.reDraw = false;
 
             break;
         }

@@ -90,7 +90,8 @@ inline void getCharParams(
     float parentWidth,
     uint32_t& rows,
     uint8_t fontSize,
-    bool& renderNextContentBlock
+    bool& renderNextContentBlock,
+    bool breakLine = true
 );
 
 inline void drawTextBuffers(
@@ -132,7 +133,7 @@ RopeRenderResult renderTextCached(
 
 RopeRenderResult getTextDimensions(
     string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
-    float parentWidth
+    float parentWidth, bool breakLine = true
 );
 
 /**
