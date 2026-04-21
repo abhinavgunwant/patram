@@ -5087,7 +5087,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
         case UIElementType::Button: {
             if (elem.reDraw) {
-                // recalculateLayout(&elem);
                 if (
                     elem.preferences->widthPreference == UISizePreference::Grow
                     || elem.preferences->heightPreference == UISizePreference::Grow
@@ -5329,14 +5328,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cout << "\nRe-drawing Text Input";
                 #endif
 
-                if (elem.vao != 0) {
-                    glDeleteVertexArrays(1, &elem.vao);
-                }
-
-                if (elem.vbo != 0) {
-                    glDeleteBuffers(1, &elem.vbo);
-                }
-
                 float right = elem.left + elem.width;
                 float bottom = elem.top + elem.height;
 
@@ -5347,7 +5338,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
                 elem.reDraw = false;
             }
 
@@ -5531,14 +5525,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
                 #endif
 
-                if (elem.vao != 0) {
-                    glDeleteVertexArrays(1, &elem.vao);
-                }
-
-                if (elem.vbo != 0) {
-                    glDeleteBuffers(1, &elem.vbo);
-                }
-
                 float right = elem.left + elem.width;
                 float bottom = elem.top + elem.height;
 
@@ -5549,7 +5535,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.left, elem.top,
                 };
 
-                SETUP_BUFFERS(elem.vao, elem.vbo, vertices);
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 
                 elem.reDraw = false;
             }
