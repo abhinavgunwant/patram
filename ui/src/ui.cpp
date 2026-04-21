@@ -3911,6 +3911,11 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         0,
         0,
 
+        0,
+        0,
+        0,
+        0,
+
         Icon::None,
 
         fontSize,
@@ -5079,7 +5084,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 }
             }
 
-            renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
+            renderTextCached(
+                elem.text,
+                pos,
+                resolution,
+                elem.textVAO,
+                elem.textVBO,
+                elem.textBufferSize,
+                elem.textVerticesCount,
+                elem.parent->width,
+                elem.color,
+                elem.fontSize,
+                elem.reDraw,
+                false
+            );
 
             elem.reDraw = false;
             break;
@@ -5151,12 +5169,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            renderText(
+            glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING);
+
+            renderTextCached(
                 elem.text,
-                glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING),
+                pos,
                 resolution,
+                elem.textVAO,
+                elem.textVBO,
+                elem.textBufferSize,
+                elem.textVerticesCount,
+                elem.parent->width,
                 elem.color,
-                elem.fontSize
+                elem.fontSize,
+                elem.reDraw,
+                false
             );
 
             elem.reDraw = false;

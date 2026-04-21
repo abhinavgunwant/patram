@@ -101,7 +101,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
 }
 
-inline void getCharParams(
+inline bool getCharParams(
     Character& c,
     glm::vec2& pos,
     float& xpos,
@@ -150,12 +150,14 @@ inline void getCharParams(
     xpos += bearingLeft;
 
     if (
-        breakLine && (
-            parentWidth < 800.0f
-            && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
-            || xpos + glyphWidth > contentRight
-        )
+        parentWidth < 800.0f
+        && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
+        || xpos + glyphWidth > contentRight
     ) {
+        if (!breakLine) {
+            return false;
+        }
+
         yNet += fontSize * (1 - glyphDescender);
         xpos = pos.x;
         rows++;
@@ -182,6 +184,8 @@ inline void getCharParams(
     texX2 = c.textureX2;
     texY1 = c.textureY1;
     texY2 = c.textureY2;
+
+    return true;
 }
 
 inline void drawTextBuffers(
@@ -298,7 +302,7 @@ RopeRenderResult renderContentRope(
             }
             #endif
 
-            getCharParams(
+            if (!getCharParams(
                 characters[(int)c],
                 pos,
                 xpos,
@@ -316,7 +320,9 @@ RopeRenderResult renderContentRope(
                 result.rows,
                 fontSize,
                 result.renderNextContentBlock
-            );
+            )) {
+                break;
+            }
 
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
@@ -366,7 +372,8 @@ RopeRenderResult renderTextCached(
     float parentWidth,
     glm::fvec3,
     uint8_t fontSize,
-    bool redraw
+    bool redraw,
+    bool lineBreak
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
 
@@ -396,7 +403,7 @@ RopeRenderResult renderTextCached(
     }
 
     for (char c: str) {
-        getCharParams(
+        if (!getCharParams(
             characters[(int)c],
             pos,
             xpos,
@@ -413,8 +420,11 @@ RopeRenderResult renderTextCached(
             parentWidth,
             result.rows,
             fontSize,
-            result.renderNextContentBlock
-        );
+            result.renderNextContentBlock,
+            lineBreak
+        )) {
+            break;
+        }
 
         if (redraw && c != ' ') {
             vertices.insert(vertices.end(), {
@@ -461,7 +471,7 @@ RopeRenderResult getTextDimensions(
     float advance = 0.0f;
 
     for (char c: str) {
-        getCharParams(
+        if (!getCharParams(
             characters[(int)c],
             pos,
             xpos,
@@ -480,7 +490,9 @@ RopeRenderResult getTextDimensions(
             fontSize,
             result.renderNextContentBlock,
             breakLine
-        );
+        )) {
+            break;
+        }
 
         xpos += advance;
     }

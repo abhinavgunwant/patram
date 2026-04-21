@@ -73,7 +73,7 @@ struct RopeRenderResult {
     bool renderNextContentBlock;
 };
 
-inline void getCharParams(
+inline bool getCharParams(
     Character& c,
     glm::vec2& pos,
     float& xpos,
@@ -128,7 +128,8 @@ RopeRenderResult renderTextCached(
     float parentWidth,
     glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
-    bool redraw = true
+    bool redraw = true,
+    bool lineBreak = true
 );
 
 RopeRenderResult getTextDimensions(

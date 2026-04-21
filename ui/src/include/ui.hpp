@@ -368,6 +368,11 @@ struct UIElement {
     uint32_t vbo;
     uint32_t texture;
 
+    uint32_t textVAO;
+    uint32_t textVBO;
+    uint32_t textBufferSize;
+    uint32_t textVerticesCount;
+
     Icon icon;
 
     uint8_t fontSize;
