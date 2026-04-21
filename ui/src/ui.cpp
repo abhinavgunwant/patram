@@ -232,6 +232,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     cout << " for " << elementType(elem);
                 #endif
 
+                UIElement* prevActiveElement = activeElement;
+
                 if (activeElement != nullptr) {
                     activeElement->active = false;
                 }
@@ -241,7 +243,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
                 switch (activeElement->type) {
                     case UIElementType::ContentContainer:
-                        contentBlockMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        if (!tabs.empty()) {
+                            contentBlockMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        } else {
+                            activeElement = prevActiveElement;
+                        }
                         break;
                     case UIElementType::ScrollArea:
                         scrollAreaMouseDownCallback(elem, mouseX, mouseY, resolution);
@@ -250,7 +256,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UIElementType::TextInput:
                         textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
                     case UIElementType::TabBar:
-                        tabBarMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        if (!tabs.empty()) {
+                            tabBarMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        } else {
+                            activeElement = prevActiveElement;
+                        }
                         break;
                 }
 
@@ -290,7 +300,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
-            if (elem != nullptr) {
+            if (elem != nullptr && activeElement != nullptr) {
                 switch (activeElement->type) {
                     case UIElementType::TextArea:
                     case UIElementType::TextInput:
@@ -325,6 +335,7 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
     #endif
 
     if (activeElement == nullptr) {
+        defaultKeyCallback(nullptr, key, action, mods);
         return;
     }
 
@@ -345,13 +356,16 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
         }
     }
 
-    switch (activeElement->type) {
-        case UIElementType::ContentContainer: cbKeyCallback(key, action, mods); break;
-        case UIElementType::TextInput:
-        case UIElementType::TextArea: textInputKeyCallback(activeElement, key, action, mods); break;
+    if (activeElement != nullptr) {
+        switch (activeElement->type) {
+            case UIElementType::ContentContainer: cbKeyCallback(key, action, mods); break;
+            case UIElementType::TextInput:
+            case UIElementType::TextArea: textInputKeyCallback(activeElement, key, action, mods); break;
+            defalt: defaultKeyCallback(activeElement, key, action, mods);
+        }
     }
 
-    if (!activeElement->active) {
+    if (activeElement != nullptr && !activeElement->active) {
         activeElement = nullptr;
     }
 }
@@ -885,6 +899,7 @@ void setupUI(bool isDarkTheme) {
     welcomeLine5->preferences->horizontalAlign = UIAlignment::Center;
     welcomeLine5->preferences->widthPreference = UISizePreference::Grow;
 
+    #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
 
     updateWindowTitle();
@@ -896,6 +911,8 @@ void setupUI(bool isDarkTheme) {
     appendContentBlock(0, ContentBlockType::Paragraph, "Etiam auctor est sed sagittis ullamcorper. Cras suscipit eu ligula eu feugiat. Nulla vitae nibh justo. Curabitur pretium urna quis nisi ornare imperdiet. Donec diam diam, rutrum sed massa eu, tristique volutpat felis. Morbi pulvinar ante leo, eu tristique velit imperdiet sit amet. Praesent venenatis bibendum erat quis lacinia. Interdum et malesuada fames ac ante ipsum primis in faucibus. Pellentesque porta convallis rutrum.");
     appendContentBlock(0, ContentBlockType::Heading3, "Aenean porta tortor in tellus blandit consectetur.");
     appendContentBlock(0, ContentBlockType::Paragraph, "Pellentesque ac tellus maximus, scelerisque risus sit amet, consequat justo. Phasellus lobortis massa quis ipsum eleifend imperdiet. Aliquam in convallis tellus, sit amet pharetra diam. Praesent eu sagittis nunc, scelerisque maximus enim. Vivamus varius, elit sed rutrum dapibus, ante purus sodales lorem, vitae malesuada risus dolor quis leo. Proin porta ex orci, ac vulputate purus pulvinar sed. Curabitur non porta sapien. Mauris tortor magna, congue ac volutpat vel, aliquam eget elit. Nulla ullamcorper tempus felis, et fermentum dolor condimentum a. Nullam rhoncus cursus consequat.");
+    activeElement = &CONTENT_CONTAINER;
+    #endif
 
     // addChild(welcomeMainContainer, title);
     // addChild(&WELCOME_SCREEN, welcomeMainContainer);
@@ -906,7 +923,6 @@ void setupUI(bool isDarkTheme) {
     addChild(&WELCOME_SCREEN, welcomeLine3);
     addChild(&WELCOME_SCREEN, welcomeLine4);
     addChild(&WELCOME_SCREEN, welcomeLine5);
-
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     // addChild(menuBar, newButton);
@@ -916,8 +932,6 @@ void setupUI(bool isDarkTheme) {
     addChild(&ROOT_CONTAINER, &CONTENT_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
-
-    activeElement = &CONTENT_CONTAINER;
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);
@@ -989,7 +1003,18 @@ void defaultCallback(UIElement* _elem) {
 }
 
 void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
-    cout << "\nDefault callback executed!";
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        switch (key) {
+            case GLFW_KEY_N:
+                if (mod & GLFW_MOD_CONTROL) {
+                    if (tabs.size() < 100) {
+                        newNote();
+                    } else {
+                        // TODO: display a warning here...
+                    }
+                }
+        }
+    }
 }
 
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
@@ -4018,6 +4043,7 @@ void newTab(filesystem::path path = "Untitled Note") {
 
     TAB_BAR.reDraw = true;
     WELCOME_SCREEN.show = false;
+    activeElement = &CONTENT_CONTAINER;
 }
 
 void closeCurrentTab() {
@@ -4088,6 +4114,7 @@ void closeCurrentTab() {
 
     if (tabs.empty()) {
         WELCOME_SCREEN.show = true;
+        activeElement = nullptr;
     }
 
     updateWindowTitle();

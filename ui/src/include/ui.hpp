@@ -87,6 +87,7 @@
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
 
+// #define DEBUG_TEST_NOTE_TAB
 #define DEBUG_TEXT_SELECTION
 #define DEBUG_TEXT_INPUT
 // #define DEBUG_KEYBOARD_EVENTS
