@@ -798,13 +798,34 @@ void setupUI(bool isDarkTheme) {
     initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
     initElement(*title, UIElementType::Label, 80.0f, 0.0f, 100.0f, 100.0f);
     initElement(*version, UIElementType::Label, 140.0f, 0.0f, 100.0f, 100.0f);
+
     initElement(*line1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*line2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*line3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*line4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*line5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*createVaultButton, UIElementType::Button, 380.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*switchVaultButton, UIElementType::Button, 430.0f, 0.0f, 100.0f, 100.0f);
+
+    if (vaultSelected) {
+        initElement(*line2, UIElementType::Button, 270.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line3, UIElementType::Button, 320.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line4, UIElementType::Button, 370.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line5, UIElementType::Button, 420.0f, 0.0f, 100.0f, 100.0f);
+
+        SETUP_BUFFERS(line2->vao, line2->vbo, vertices);
+        SETUP_BUFFERS(line3->vao, line3->vbo, vertices);
+        SETUP_BUFFERS(line4->vao, line4->vbo, vertices);
+        SETUP_BUFFERS(line5->vao, line5->vbo, vertices);
+    } else {
+        initElement(*line2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
+    }
+
+    float createVaultButtonTop = 380.0f;
+
+    if (vaultSelected) {
+        createVaultButtonTop = 500.0f;
+    }
+
+    initElement(*createVaultButton, UIElementType::Button, createVaultButtonTop, 0.0f, 100.0f, 100.0f);
+    initElement(*switchVaultButton, UIElementType::Button, createVaultButtonTop + 50.0f, 0.0f, 100.0f, 100.0f);
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
@@ -884,15 +905,17 @@ void setupUI(bool isDarkTheme) {
     if (vaultSelected) {
         line1->text = "Default Vault";
         line1->fontSize = 24;
+        line1->preferences->heightPreference = UISizePreference::Grow;
     } else {
-        line1->text = "Welcome to patram - the lightweight notes manager!";
+        line1->text = "Welcome to patram - your lightweight notes manager!";
         line1->fontSize = 16;
     }
     line1->preferences->horizontalAlign = UIAlignment::Center;
     line1->preferences->widthPreference = UISizePreference::Grow;
 
     if (vaultSelected) {
-        line2->text = "Ctrl + N:    New note";
+        line2->text = "New note (Ctrl + N)";
+        line2->preferences->heightPreference = UISizePreference::Grow;
     } else {
         line2->text = "You begin by creating a note vault.";
     }
@@ -902,7 +925,8 @@ void setupUI(bool isDarkTheme) {
     line2->preferences->widthPreference = UISizePreference::Grow;
 
     if (vaultSelected) {
-        line3->text = "Ctrl + Shift + N:    New Folder";
+        line3->text = "New Folder (Ctrl + Shift + N)";
+        line3->preferences->heightPreference = UISizePreference::Grow;
     } else {
         line3->text = "Note vaults contain notes and folders.";
     }
@@ -911,7 +935,8 @@ void setupUI(bool isDarkTheme) {
     line3->preferences->widthPreference = UISizePreference::Grow;
 
     if (vaultSelected) {
-        line4->text = "Ctrl + S:    Save Note";
+        line4->text = "Save Note (Ctrl + S)";
+        line4->preferences->heightPreference = UISizePreference::Grow;
     } else {
         line4->text = "Folders can have other notes and folders.";
     }
@@ -920,7 +945,8 @@ void setupUI(bool isDarkTheme) {
     line4->preferences->widthPreference = UISizePreference::Grow;
 
     if (vaultSelected) {
-        line5->text = "Ctrl + E:    Toggle Explorer";
+        line5->text = "Toggle Explorer (Ctrl + E)";
+        line5->preferences->heightPreference = UISizePreference::Grow;
     } else {
         line5->text = "You can password-protect a note vault - this encrypts all the notes in it.";
     }
