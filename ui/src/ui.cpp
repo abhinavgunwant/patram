@@ -84,6 +84,7 @@ bool focused = true;
 bool mouse1Down = false;
 bool cursorShouldUpdate = false;
 bool showFps = false;
+bool vaultSelected = true;
 bool cbTextDragging = false;
 
 GLFWcursor* textCursor;
@@ -779,12 +780,13 @@ void setupUI(bool isDarkTheme) {
     UIElement* welcomeMainContainer = &elements[4];
     UIElement* title = &elements[5];
     UIElement* version = &elements[6];
-    UIElement* welcomeLine1 = &elements[7];
-    UIElement* welcomeLine2 = &elements[8];
-    UIElement* welcomeLine3 = &elements[9];
-    UIElement* welcomeLine4 = &elements[10];
-    UIElement* welcomeLine5 = &elements[11];
+    UIElement* line1 = &elements[7];
+    UIElement* line2 = &elements[8];
+    UIElement* line3 = &elements[9];
+    UIElement* line4 = &elements[10];
+    UIElement* line5 = &elements[11];
     UIElement* createVaultButton = &elements[12];
+    UIElement* switchVaultButton = &elements[13];
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
@@ -796,17 +798,19 @@ void setupUI(bool isDarkTheme) {
     initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
     initElement(*title, UIElementType::Label, 80.0f, 0.0f, 100.0f, 100.0f);
     initElement(*version, UIElementType::Label, 140.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*welcomeLine1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*welcomeLine2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*welcomeLine3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*welcomeLine4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*welcomeLine5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*line1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*line2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*line3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*line4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*line5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
     initElement(*createVaultButton, UIElementType::Button, 380.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*switchVaultButton, UIElementType::Button, 430.0f, 0.0f, 100.0f, 100.0f);
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
+    SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
 
     for (int i=0; i<100; ++i) {
         tabsDisplay[i].vao = 0;
@@ -877,36 +881,64 @@ void setupUI(bool isDarkTheme) {
     version->preferences->horizontalAlign = UIAlignment::Center;
     version->preferences->widthPreference = UISizePreference::Grow;
 
-    welcomeLine1->text = "Welcome to patram - the lightweight notes manager!";
-    welcomeLine1->fontSize = 16;
-    welcomeLine1->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeLine1->preferences->widthPreference = UISizePreference::Grow;
+    if (vaultSelected) {
+        line1->text = "Default Vault";
+        line1->fontSize = 24;
+    } else {
+        line1->text = "Welcome to patram - the lightweight notes manager!";
+        line1->fontSize = 16;
+    }
+    line1->preferences->horizontalAlign = UIAlignment::Center;
+    line1->preferences->widthPreference = UISizePreference::Grow;
 
-    welcomeLine2->text = "You begin by creating a note vault.";
-    welcomeLine2->fontSize = 16;
-    welcomeLine2->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeLine2->preferences->widthPreference = UISizePreference::Grow;
+    if (vaultSelected) {
+        line2->text = "Ctrl + N:    New note";
+    } else {
+        line2->text = "You begin by creating a note vault.";
+    }
 
-    welcomeLine3->text = "Note vaults contain notes and folders.";
-    welcomeLine3->fontSize = 16;
-    welcomeLine3->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeLine3->preferences->widthPreference = UISizePreference::Grow;
+    line2->fontSize = 16;
+    line2->preferences->horizontalAlign = UIAlignment::Center;
+    line2->preferences->widthPreference = UISizePreference::Grow;
 
-    welcomeLine4->text = "Folders can have other notes and folders.";
-    welcomeLine4->fontSize = 16;
-    welcomeLine4->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeLine4->preferences->widthPreference = UISizePreference::Grow;
+    if (vaultSelected) {
+        line3->text = "Ctrl + Shift + N:    New Folder";
+    } else {
+        line3->text = "Note vaults contain notes and folders.";
+    }
+    line3->fontSize = 16;
+    line3->preferences->horizontalAlign = UIAlignment::Center;
+    line3->preferences->widthPreference = UISizePreference::Grow;
 
-    welcomeLine5->text = "You can password-protect a note vault - this encrypts all the notes in it.";
-    welcomeLine5->fontSize = 16;
-    welcomeLine5->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeLine5->preferences->widthPreference = UISizePreference::Grow;
+    if (vaultSelected) {
+        line4->text = "Ctrl + S:    Save Note";
+    } else {
+        line4->text = "Folders can have other notes and folders.";
+    }
+    line4->fontSize = 16;
+    line4->preferences->horizontalAlign = UIAlignment::Center;
+    line4->preferences->widthPreference = UISizePreference::Grow;
+
+    if (vaultSelected) {
+        line5->text = "Ctrl + E:    Toggle Explorer";
+    } else {
+        line5->text = "You can password-protect a note vault - this encrypts all the notes in it.";
+    }
+    line5->fontSize = 16;
+    line5->preferences->horizontalAlign = UIAlignment::Center;
+    line5->preferences->widthPreference = UISizePreference::Grow;
 
     createVaultButton->text = "Create a note vault";
     createVaultButton->fontSize = 16;
     createVaultButton->preferences->horizontalAlign = UIAlignment::Center;
     createVaultButton->preferences->widthPreference = UISizePreference::Grow;
     createVaultButton->preferences->heightPreference = UISizePreference::Grow;
+
+    switchVaultButton->text = "Switch note vault";
+    switchVaultButton->fontSize = 16;
+    switchVaultButton->preferences->horizontalAlign = UIAlignment::Center;
+    switchVaultButton->preferences->widthPreference = UISizePreference::Grow;
+    switchVaultButton->preferences->heightPreference = UISizePreference::Grow;
 
     #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
@@ -927,12 +959,15 @@ void setupUI(bool isDarkTheme) {
     // addChild(&WELCOME_SCREEN, welcomeMainContainer);
     addChild(&WELCOME_SCREEN, title);
     addChild(&WELCOME_SCREEN, version);
-    addChild(&WELCOME_SCREEN, welcomeLine1);
-    addChild(&WELCOME_SCREEN, welcomeLine2);
-    addChild(&WELCOME_SCREEN, welcomeLine3);
-    addChild(&WELCOME_SCREEN, welcomeLine4);
-    addChild(&WELCOME_SCREEN, welcomeLine5);
+    addChild(&WELCOME_SCREEN, line1);
+    addChild(&WELCOME_SCREEN, line2);
+    addChild(&WELCOME_SCREEN, line3);
+    addChild(&WELCOME_SCREEN, line4);
+    addChild(&WELCOME_SCREEN, line5);
     addChild(&WELCOME_SCREEN, createVaultButton);
+    if (vaultSelected) {
+        addChild(&WELCOME_SCREEN, switchVaultButton);
+    }
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     // addChild(menuBar, newButton);
