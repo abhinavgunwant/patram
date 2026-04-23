@@ -801,7 +801,11 @@ void setupUI(bool isDarkTheme) {
 
     initElement(*line1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
 
+    float createVaultButtonTop = 380.0f;
+
     if (vaultSelected) {
+        createVaultButtonTop = 500.0f;
+
         initElement(*line2, UIElementType::Button, 270.0f, 0.0f, 100.0f, 100.0f);
         initElement(*line3, UIElementType::Button, 320.0f, 0.0f, 100.0f, 100.0f);
         initElement(*line4, UIElementType::Button, 370.0f, 0.0f, 100.0f, 100.0f);
@@ -816,12 +820,6 @@ void setupUI(bool isDarkTheme) {
         initElement(*line3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
         initElement(*line4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
         initElement(*line5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
-    }
-
-    float createVaultButtonTop = 380.0f;
-
-    if (vaultSelected) {
-        createVaultButtonTop = 500.0f;
     }
 
     initElement(*createVaultButton, UIElementType::Button, createVaultButtonTop, 0.0f, 100.0f, 100.0f);
