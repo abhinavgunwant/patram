@@ -101,7 +101,8 @@ inline void drawTextBuffers(
     uint32_t& numVertices,
     glm::vec2& res,
     vector<float>& vertices,
-    bool redraw
+    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+    bool redraw = false
 );
 
 RopeRenderResult renderContentRope(
@@ -126,7 +127,7 @@ RopeRenderResult renderTextCached(
     uint32_t& bufferSize,
     uint32_t& numVertices,
     float parentWidth,
-    glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
+    glm::fvec4 color = glm::fvec4(1.0f, 1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
     bool redraw = true,
     bool lineBreak = true

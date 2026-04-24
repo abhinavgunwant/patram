@@ -68,10 +68,10 @@ string fragmentShaders[] = {
     "in vec2 TexCoords;\n"
     "out vec4 color;\n"
     "uniform sampler2D text;\n"
-    "uniform vec3 textColor;\n"
+    "uniform vec4 textColor;\n"
     "void main() {\n"
         "vec4 sampled = vec4(1, 1, 1, texture(text, TexCoords).r);\n"
-        "color = vec4(textColor, 1) * sampled;\n"
+        "color = vec4(textColor.rgb, 1) * sampled;\n"
     "}\0",
 
     // Icon Button Shader
@@ -210,6 +210,7 @@ string fragmentShaders[] = {
         "vec2 br_minus_br = br - borderRadius;\n"
 
         // border colors
+        /*
         "if (\n"
             "uv.x >= topLeft.x && uv.x <= topLeft.x + 1\n"
             "|| uv.x <= br.x && uv.x >= br.x - 1\n"
@@ -219,6 +220,7 @@ string fragmentShaders[] = {
             "FragColor = color;\n"
             "return;\n"
         "}\n"
+        */
 
         "if ("
             "(uv.x >= tl_plus_br.x && uv.x <= br_minus_br.x)\n"
@@ -388,7 +390,7 @@ void initShaders() {
     uniforms[U_TEXT_INPUT_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
     uniforms[U_TEXT_INPUT_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
     uniforms[U_TEXT_INPUT_RESOLUTION] = glGetUniformLocation(id, "resolution");
-    uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
+    uniforms[U_TEXT_INPUT_DIMENSIONS] = glGetUniformLocation(id, "dimensions");
     uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
 
     id = shaders[SHADER_TEXT_CURSOR].programId;

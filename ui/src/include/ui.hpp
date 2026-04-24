@@ -31,10 +31,6 @@
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
 #define CONTENT_HORIZONTAL_MARGIN   20.0f
-#define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
-#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.15f, 0.15f, 0.15f, 1.0)
-#define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
-#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
 
 #define CONTENT_BLOCK_VISIBLE       0b00000001
 #define CONTENT_BLOCK_REDRAW        0b00000010
@@ -50,6 +46,12 @@
 
 // Theme colors
 //// Light theme colors
+#define ROOT_BG                     glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define TOOL_BAR_BG                 glm::vec4(0.93, 0.84, 0.85, 1.0)
+
+#define TEXT_INPUT_BG               glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define TEXT_INPUT_HOVER_BG         glm::vec4(0.8, 0.7, 0.71, 1.0)
+
 #define ICON_BUTTON_BG              glm::vec4(0.93, 0.84, 0.85, 1.0)
 #define ICON_BUTTON_HOVER_BG        glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define ICON_BUTTON_COLOR           glm::vec4(0.5, 0.45, 0.4, 1.0)
@@ -58,11 +60,20 @@
 #define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
 
-#define OPEN_BUTTON_ID                   1
+#define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
 
 #define CURSOR_COLOR                glm::vec4(0.0, 0.38, 0.65, 1.0)
 
+#define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
+#define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
+
 //// Dark theme colors
+#define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
+#define TOOL_BAR_BG_DARK            glm::vec4(0.24, 0.22, 0.22, 1.0) // #3D3838
+
+#define TEXT_INPUT_BG_DARK          glm::vec4(0.24, 0.20, 0.20, 1.0) // #3C3434
+#define TEXT_INPUT_HOVER_BG_DARK    glm::vec4(0.31, 0.27, 0.28, 1.0)
+
 #define ICON_BUTTON_BG_DARK         glm::vec4(0.19, 0.17, 0.17, 1.0)
 // #define ICON_BUTTON_BG_DARK         glm::vec4(0.22, 0.19, 0.20, 1.0)
 #define ICON_BUTTON_HOVER_BG_DARK   glm::vec4(0.31, 0.27, 0.28, 1.0)
@@ -72,16 +83,31 @@
 #define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
 #define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
 
+#define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
+
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
 
+#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.15f, 0.15f, 0.15f, 1.0)
+#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
+
+// Button IDs
+#define CREATE_VAULT_BUTTON_ID              1
+#define SWITCH_VAULT_BUTTON_ID              2
+#define VAULT_SETUP_CREATE_VAULT_BUTTON_ID  3
+#define VAULT_SETUP_BACK_BUTTON_ID          4
+#define NEW_NOTE_BUTTON_ID                  5
+#define NEW_FOLDER_BUTTON_ID                6
+#define SAVE_NOTE_BUTTON_ID                 7
+#define TOGGLE_EXPLORER_BUTTON_ID           8
+#define OPEN_BUTTON_ID                      1000
+
 #define BUTTON_PADDING              8
+#define TEXT_INPUT_PADDING          4
 #define LINE_GAP                    3
 
 #define SCROLL_BAR_THICKNESS        10.0f
 #define SCROLL_DEBOUNCE_DELAY       0.00833f
 
-#define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
-#define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
@@ -101,11 +127,6 @@
 
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
-
-#define ROOT_BG             glm::vec4(1.0, 1.0, 1.0, 1.0)
-#define TOOL_BAR_BG         glm::vec4(0.93, 0.84, 0.85, 1.0)
-#define ROOT_BG_DARK        glm::vec4(0.16, 0.15, 0.15, 1.0)
-#define TOOL_BAR_BG_DARK    glm::vec4(0.24, 0.22, 0.22, 1.0)
 
 #define ROOT_CONTAINER      elements[0]
 #define WELCOME_SCREEN      elements[1]

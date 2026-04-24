@@ -68,8 +68,7 @@ void initFontTexture(string path) {
 }
 
 void initTextRendering(uint16_t width, uint16_t height) {
-    int32_t pid = shaders[SHADER_TEXT].programId;
-    glUseProgram(pid);
+    glUseProgram(shaders[SHADER_TEXT].programId);
 
     glUniform2f(
         uniforms[U_TEXT_RESOLUTION],
@@ -195,9 +194,12 @@ inline void drawTextBuffers(
     uint32_t& numVertices,
     glm::vec2& res,
     vector<float>& vertices,
+    glm::vec4 color,
     bool redraw
 ) {
     glUseProgram(shaders[SHADER_TEXT].programId);
+
+    glUniform4f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b, color.a);
 
     glActiveTexture(GL_TEXTURE0);
 
@@ -350,7 +352,7 @@ RopeRenderResult renderContentRope(
         }
     }
 
-    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, res, vertices, redraw);
+    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, res, vertices, WHITE, redraw);
 
     result.width = pos.x;
 
@@ -370,7 +372,7 @@ RopeRenderResult renderTextCached(
     uint32_t& bufferSize,
     uint32_t& numVertices,
     float parentWidth,
-    glm::fvec3,
+    glm::vec4 color,
     uint8_t fontSize,
     bool redraw,
     bool lineBreak
@@ -440,7 +442,7 @@ RopeRenderResult renderTextCached(
         xpos += advance;
     }
 
-    drawTextBuffers(vao, vbo, bufferSize, _numVertices, res, vertices, redraw);
+    drawTextBuffers(vao, vbo, bufferSize, _numVertices, res, vertices, color, redraw);
 
     numVertices = _numVertices;
 
@@ -513,9 +515,7 @@ glm::vec4 renderText(
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
 
-    int32_t pid = shaders[SHADER_TEXT].programId;
-
-    glUseProgram(pid);
+    glUseProgram(shaders[SHADER_TEXT].programId);
 
     glUniform3f(
         uniforms[U_TEXT_COLOR],
@@ -641,9 +641,7 @@ glm::vec4 renderText(
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
 
-    int32_t pid = shaders[SHADER_TEXT].programId;
-
-    glUseProgram(pid);
+    glUseProgram(shaders[SHADER_TEXT].programId);
 
     glUniform3f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b);
     glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);

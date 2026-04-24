@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -198,6 +199,86 @@ void inputClickCallback(UIElement* elem) {
     }
 }
 
+void setupWelcomeScreen();
+void destroyWelcomeScreen();
+
+void onVaultSetupBackClicked() {
+    for (int i=0; i<WELCOME_SCREEN.totalChildren; ++i) {
+        delete WELCOME_SCREEN.children[i];
+    }
+
+    delete [] WELCOME_SCREEN.children;
+
+    WELCOME_SCREEN.children = nullptr;
+    WELCOME_SCREEN.totalChildren = 0;
+    WELCOME_SCREEN.capacity = 0;
+
+    setupWelcomeScreen();
+}
+
+void onCreateANewVaultClicked() {
+    #define ELEM_COUNT  8
+
+    UIElement** elems = new UIElement*[ELEM_COUNT];
+
+    for (int i=0; i<ELEM_COUNT; ++i) {
+        elems[i] = new UIElement;
+    }
+
+    initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[1], UIElementType::Label, 60.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[2], UIElementType::Label, 120.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[3], UIElementType::Label, 200.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[4], UIElementType::TextInput, 150.0f, 0.0f, 240.0f, 30.0f);
+    initElement(*elems[5], UIElementType::TextInput, 230.0f, 0.0f, 240.0f, 30.0f);
+    initElement(*elems[6], UIElementType::Button, 290.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[7], UIElementType::Button, 340.0f, 0.0f, 0.0f, 0.0f);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    SETUP_BUFFERS((*elems[4]).vao, (*elems[4]).vbo, vertices);
+    SETUP_BUFFERS((*elems[5]).vao, (*elems[5]).vbo, vertices);
+    SETUP_BUFFERS((*elems[6]).vao, (*elems[6]).vbo, vertices);
+    SETUP_BUFFERS((*elems[7]).vao, (*elems[7]).vbo, vertices);
+
+    for (int i=0; i<ELEM_COUNT; ++i) {
+        (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
+        (*elems[i]).preferences->widthPreference = UISizePreference::Grow;
+        (*elems[i]).parent = &WELCOME_SCREEN;
+
+        if (i != 0) {
+            (*elems[i]).fontSize = 16;
+        }
+    }
+
+    (*elems[2]).text = "Vault Name:";
+    (*elems[3]).text = "Vault Password:";
+    (*elems[4]).text = "Untitled Vault";
+    (*elems[5]).text = "password";
+
+    (*elems[6]).text = "Create Vault";
+    (*elems[6]).preferences->heightPreference = UISizePreference::Grow;
+    (*elems[6]).id = VAULT_SETUP_CREATE_VAULT_BUTTON_ID;
+
+    (*elems[7]).text = "Back";
+    (*elems[7]).preferences->heightPreference = UISizePreference::Grow;
+    (*elems[7]).id = VAULT_SETUP_BACK_BUTTON_ID;
+
+    (*elems[0]).text = "patram";
+    (*elems[0]).fontSize = 48;
+
+    (*elems[1]).text = "Vault Setup";
+    (*elems[1]).fontSize = 16;
+
+    WELCOME_SCREEN.children = elems;
+    WELCOME_SCREEN.totalChildren = ELEM_COUNT;
+    WELCOME_SCREEN.capacity = ELEM_COUNT;
+
+    destroyWelcomeScreen();
+
+    #undef ELEM_COUNT
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     if (button == GLFW_MOUSE_BUTTON_1) {
         if (action == GLFW_PRESS) {
@@ -232,6 +313,15 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 #ifdef DEBUG_MOUSE_BUTTON
                     cout << " for " << elementType(elem);
                 #endif
+
+                if (elem->id > 0) {
+                    switch(elem->id) {
+                        case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); return;
+                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: return;
+                        case VAULT_SETUP_BACK_BUTTON_ID: onVaultSetupBackClicked(); return;
+                        case NEW_NOTE_BUTTON_ID: newNote(); return;
+                    }
+                }
 
                 UIElement* prevActiveElement = activeElement;
 
@@ -301,7 +391,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
-            if (elem != nullptr && activeElement != nullptr) {
+            if (elem != nullptr && activeElement != nullptr && elem->id == 0) {
                 switch (activeElement->type) {
                     case UIElementType::TextArea:
                     case UIElementType::TextInput:
@@ -752,32 +842,10 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
     focused = isFocused != 0;
 }
 
-void setupUI(bool isDarkTheme) {
-    windowHeight = WINDOW_HEIGHT;
-    windowWidth = WINDOW_WIDTH;
-    resolution = glm::vec2(windowWidth, windowHeight);
-
-    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
-    pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
-
-    initShaders();
-    initTextRendering(windowWidth, windowHeight);
-
-    glEnable(GL_BLEND);
-    glEnable(GL_SAMPLE_SHADING);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+void setupWelcomeScreen() {
+    float createVaultButtonTop = 380.0f;
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
-    SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
-
-    // UIElement* menuBar = &elements[0];
-    // UIElement* newButton = &elements[1];
-    // UIElement* openButton = &elements[2];
-    // contentContainer = &elements[1];
-    // UIElement* tabBar = &elements[2];
-    UIElement* welcomeMainContainer = &elements[4];
     UIElement* title = &elements[5];
     UIElement* version = &elements[6];
     UIElement* line1 = &elements[7];
@@ -788,20 +856,15 @@ void setupUI(bool isDarkTheme) {
     UIElement* createVaultButton = &elements[12];
     UIElement* switchVaultButton = &elements[13];
 
-    initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
-    // initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
-    // initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
-    initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
-    initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
-    initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
     initElement(*title, UIElementType::Label, 80.0f, 0.0f, 100.0f, 100.0f);
     initElement(*version, UIElementType::Label, 140.0f, 0.0f, 100.0f, 100.0f);
-
     initElement(*line1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
 
-    float createVaultButtonTop = 380.0f;
+    if (darkTheme) {
+        title->color = WHITE;
+    } else {
+        title->color = BLACK;
+    }
 
     if (vaultSelected) {
         createVaultButtonTop = 500.0f;
@@ -825,70 +888,8 @@ void setupUI(bool isDarkTheme) {
     initElement(*createVaultButton, UIElementType::Button, createVaultButtonTop, 0.0f, 100.0f, 100.0f);
     initElement(*switchVaultButton, UIElementType::Button, createVaultButtonTop + 50.0f, 0.0f, 100.0f, 100.0f);
 
-    SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
-    SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
-    SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
     SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
-
-    for (int i=0; i<100; ++i) {
-        tabsDisplay[i].vao = 0;
-        tabsDisplay[i].vbo = 0;
-        tabsDisplay[i].activeBgVao = 0;
-        tabsDisplay[i].activeBgVbo = 0;
-        tabsDisplay[i].vbo = 0;
-        tabsDisplay[i].bytes = 0;
-        tabsDisplay[i].numVertices = 0;
-        tabsDisplay[i].width = 0.0f;
-    }
-
-    if (darkTheme) {
-        ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
-        TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
-        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG_DARK;
-        title->color = WHITE;
-        // menuBar->backgroundColor = TOOL_BAR_BG_DARK;
-        // menuBar->color = WHITE;
-    } else {
-        ROOT_CONTAINER.backgroundColor = ROOT_BG;
-        TAB_BAR.backgroundColor = TOOL_BAR_BG;
-        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG;
-        title->color = BLACK;
-        // menuBar->backgroundColor = TOOL_BAR_BG;
-        // menuBar->color = BLACK;
-    }
-
-    TAB_BAR.preferences->widthPreference = UISizePreference::Full;
-    TAB_BAR.preferences->heightPreference = UISizePreference::Fixed;
-    TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
-    TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
-
-    // menuBar->text = "test";
-
-    // menuBar->preferences->widthPreference = UI_FULL;
-    // menuBar->preferences->heightPreference = UI_FIXED;
-    // menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
-    // menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
-
-    // newButton->text = "New";
-    // newButton->icon = Icon::Plus;
-
-    // openButton->icon = Icon::File;
-    // openButton->text = "Open";
-    // openButton->id = OPEN_BUTTON_ID;
-
-    CONTENT_CONTAINER.text = "Main Scroll Area";
-    CONTENT_CONTAINER.extraData->scrollData.width = WINDOW_WIDTH;
-    CONTENT_CONTAINER.extraData->scrollData.height = WINDOW_HEIGHT - 64;
-    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
-    CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
-    CONTENT_CONTAINER.active = true;
-
-    WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Full;
-
-    welcomeMainContainer->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeMainContainer->preferences->widthPreference = UISizePreference::Fixed;
-    welcomeMainContainer->text = "Welcome Main Container";
 
     title->text = "patram";
     title->fontSize = 48;
@@ -914,6 +915,7 @@ void setupUI(bool isDarkTheme) {
     if (vaultSelected) {
         line2->text = "New note (Ctrl + N)";
         line2->preferences->heightPreference = UISizePreference::Grow;
+        line2->id = NEW_NOTE_BUTTON_ID;
     } else {
         line2->text = "You begin by creating a note vault.";
     }
@@ -957,12 +959,187 @@ void setupUI(bool isDarkTheme) {
     createVaultButton->preferences->horizontalAlign = UIAlignment::Center;
     createVaultButton->preferences->widthPreference = UISizePreference::Grow;
     createVaultButton->preferences->heightPreference = UISizePreference::Grow;
+    createVaultButton->id = CREATE_VAULT_BUTTON_ID;
 
     switchVaultButton->text = "Switch note vault";
     switchVaultButton->fontSize = 16;
     switchVaultButton->preferences->horizontalAlign = UIAlignment::Center;
     switchVaultButton->preferences->widthPreference = UISizePreference::Grow;
     switchVaultButton->preferences->heightPreference = UISizePreference::Grow;
+    switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
+
+    addChild(&WELCOME_SCREEN, title);
+    addChild(&WELCOME_SCREEN, version);
+    addChild(&WELCOME_SCREEN, line1);
+    addChild(&WELCOME_SCREEN, line2);
+    addChild(&WELCOME_SCREEN, line3);
+    addChild(&WELCOME_SCREEN, line4);
+    addChild(&WELCOME_SCREEN, line5);
+    addChild(&WELCOME_SCREEN, createVaultButton);
+
+    if (vaultSelected) {
+        addChild(&WELCOME_SCREEN, switchVaultButton);
+    }
+}
+
+void destroyWelcomeScreen() {
+    UIElement* title = &elements[5];
+    UIElement* version = &elements[6];
+    UIElement* line1 = &elements[7];
+    UIElement* line2 = &elements[8];
+    UIElement* line3 = &elements[9];
+    UIElement* line4 = &elements[10];
+    UIElement* line5 = &elements[11];
+    UIElement* createVaultButton = &elements[12];
+    UIElement* switchVaultButton = &elements[13];
+
+    for (int i=5; i<14; ++i) {
+        if (elements[i].vao != 0) {
+            glDeleteVertexArrays(1, &elements[i].vao);
+            elements[i].vao = 0;
+        }
+
+        if (elements[i].vbo != 0) {
+            glDeleteBuffers(1, &elements[i].vbo);
+            elements[i].vbo = 0;
+        }
+
+        if (elements[i].textVAO != 0) {
+            glDeleteVertexArrays(1, &elements[i].textVAO);
+            elements[i].textVAO = 0;
+        }
+
+        if (elements[i].textVBO != 0) {
+            glDeleteBuffers(1, &elements[i].textVBO);
+            elements[i].textVBO = 0;
+        }
+
+        if (elements[i].preferences != nullptr) {
+            delete elements[i].preferences;
+            elements[i].preferences = nullptr;
+        }
+
+        if (elements[i].extraData != nullptr) {
+            if (elements[i].type == UIElementType::TextInput) {
+                TextInputData* tid = &elements[i].extraData->textInputData;
+
+                glDeleteVertexArrays(1, &tid->cursorVAO);
+                glDeleteBuffers(1, &tid->cursorVBO);
+                glDeleteVertexArrays(1, &tid->textSelectVAO);
+                glDeleteBuffers(1, &tid->textSelectVBO);
+            }
+
+            delete elements[i].extraData;
+            elements[i].extraData = nullptr;
+        }
+
+        elements[i].parent = nullptr;
+    }
+}
+
+void setupUI(bool isDarkTheme) {
+    windowHeight = WINDOW_HEIGHT;
+    windowWidth = WINDOW_WIDTH;
+    resolution = glm::vec2(windowWidth, windowHeight);
+
+    textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+
+    initShaders();
+    initTextRendering(windowWidth, windowHeight);
+
+    glEnable(GL_BLEND);
+    glEnable(GL_SAMPLE_SHADING);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
+    SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
+
+    // UIElement* menuBar = &elements[0];
+    // UIElement* newButton = &elements[1];
+    // UIElement* openButton = &elements[2];
+    // contentContainer = &elements[1];
+    // UIElement* tabBar = &elements[2];
+    UIElement* welcomeMainContainer = &elements[4];
+
+    initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
+    // initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
+    // initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
+    initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
+    initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
+    initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
+
+    TAB_BAR.show = false;
+    CONTENT_CONTAINER.show = false;
+
+    SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
+    SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
+    SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
+
+    for (int i=0; i<100; ++i) {
+        tabsDisplay[i].vao = 0;
+        tabsDisplay[i].vbo = 0;
+        tabsDisplay[i].activeBgVao = 0;
+        tabsDisplay[i].activeBgVbo = 0;
+        tabsDisplay[i].vbo = 0;
+        tabsDisplay[i].bytes = 0;
+        tabsDisplay[i].numVertices = 0;
+        tabsDisplay[i].width = 0.0f;
+    }
+
+    if (darkTheme) {
+        ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
+        TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
+        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG_DARK;
+        // menuBar->backgroundColor = TOOL_BAR_BG_DARK;
+        // menuBar->color = WHITE;
+    } else {
+        ROOT_CONTAINER.backgroundColor = ROOT_BG;
+        TAB_BAR.backgroundColor = TOOL_BAR_BG;
+        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG;
+        // menuBar->backgroundColor = TOOL_BAR_BG;
+        // menuBar->color = BLACK;
+    }
+
+    ROOT_CONTAINER.text = "Root Container";
+
+    TAB_BAR.text = "Tab Bar";
+    TAB_BAR.preferences->widthPreference = UISizePreference::Full;
+    TAB_BAR.preferences->heightPreference = UISizePreference::Fixed;
+    TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
+    TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
+
+    // menuBar->text = "test";
+
+    // menuBar->preferences->widthPreference = UI_FULL;
+    // menuBar->preferences->heightPreference = UI_FIXED;
+    // menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
+    // menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
+
+    // newButton->text = "New";
+    // newButton->icon = Icon::Plus;
+
+    // openButton->icon = Icon::File;
+    // openButton->text = "Open";
+    // openButton->id = OPEN_BUTTON_ID;
+
+    CONTENT_CONTAINER.text = "Main Scroll Area";
+    CONTENT_CONTAINER.extraData->scrollData.width = WINDOW_WIDTH;
+    CONTENT_CONTAINER.extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
+    CONTENT_CONTAINER.active = true;
+
+    WELCOME_SCREEN.text = "Welcome Screen";
+    WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Full;
+
+    welcomeMainContainer->preferences->horizontalAlign = UIAlignment::Center;
+    welcomeMainContainer->preferences->widthPreference = UISizePreference::Fixed;
+    welcomeMainContainer->text = "Welcome Main Container";
 
     #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
@@ -979,19 +1156,9 @@ void setupUI(bool isDarkTheme) {
     activeElement = &CONTENT_CONTAINER;
     #endif
 
+    setupWelcomeScreen();
     // addChild(welcomeMainContainer, title);
     // addChild(&WELCOME_SCREEN, welcomeMainContainer);
-    addChild(&WELCOME_SCREEN, title);
-    addChild(&WELCOME_SCREEN, version);
-    addChild(&WELCOME_SCREEN, line1);
-    addChild(&WELCOME_SCREEN, line2);
-    addChild(&WELCOME_SCREEN, line3);
-    addChild(&WELCOME_SCREEN, line4);
-    addChild(&WELCOME_SCREEN, line5);
-    addChild(&WELCOME_SCREEN, createVaultButton);
-    if (vaultSelected) {
-        addChild(&WELCOME_SCREEN, switchVaultButton);
-    }
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     // addChild(menuBar, newButton);
@@ -3398,6 +3565,9 @@ void newNote() {
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
     });
+
+    TAB_BAR.show = true;
+    CONTENT_CONTAINER.show = true;
 }
 
 void updateWindowTitle() {
@@ -3900,8 +4070,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             pref = initPreferences();
 
             // backgroundColor = TRANSPARENT_COLOR;
-            backgroundColor = glm::vec4(0.9, 0.9, 0.9, 1.0);
-            hoverColor = TRANSPARENT_COLOR;
+            backgroundColor = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
+            hoverColor = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_HOVER_BG;
 
             if (darkTheme) {
                 color = WHITE;
@@ -4191,6 +4361,8 @@ void closeCurrentTab() {
     if (tabs.empty()) {
         WELCOME_SCREEN.show = true;
         activeElement = nullptr;
+        TAB_BAR.show = false;
+        CONTENT_CONTAINER.show = false;
     }
 
     updateWindowTitle();
@@ -5415,6 +5587,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cout << "\nRe-drawing Text Input";
                 #endif
 
+                updateElementDimensionsAccordingToPreferences(&elem);
+
                 float right = elem.left + elem.width;
                 float bottom = elem.top + elem.height;
 
@@ -5428,34 +5602,33 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glBindVertexArray(elem.vao);
                 glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-                elem.reDraw = false;
             }
 
             glBindVertexArray(elem.vao);
+
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
             glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
             glUniform4f(
                 uniforms[U_TEXT_INPUT_COLOR],
-                elem.color.x,
-                elem.color.y,
-                elem.color.z,
-                elem.color.w
+                elem.color.r,
+                elem.color.g,
+                elem.color.b,
+                elem.color.a
             );
             glUniform4f(
                 uniforms[U_TEXT_INPUT_BG_COLOR],
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
+                elem.backgroundColor.r,
+                elem.backgroundColor.g,
+                elem.backgroundColor.b,
+                elem.backgroundColor.a
             );
             glUniform4f(
                 uniforms[U_TEXT_INPUT_HOV_COLOR],
-                elem.hoverColor.x,
-                elem.hoverColor.y,
-                elem.hoverColor.z,
-                elem.hoverColor.w
+                elem.hoverColor.r,
+                elem.hoverColor.g,
+                elem.hoverColor.b,
+                elem.hoverColor.a
             );
 
             glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
@@ -5465,24 +5638,26 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            int32_t pid = shaders[SHADER_TEXT].programId;
+            glm::vec2 pos = glm::vec2(elem.left + TEXT_INPUT_PADDING, elem.top + TEXT_INPUT_PADDING);
 
-            glUseProgram(pid);
-
-            glUniform3f(
-                uniforms[U_TEXT_COLOR],
-                elem.color.r,
-                elem.color.g,
-                elem.color.b
+            renderTextCached(
+                elem.text,
+                pos,
+                resolution,
+                elem.textVAO,
+                elem.textVBO,
+                elem.textBufferSize,
+                elem.textVerticesCount,
+                elem.parent->width,
+                elem.color,
+                elem.fontSize,
+                elem.reDraw,
+                false
             );
-            glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
-            glActiveTexture(GL_TEXTURE0);
-            glBindVertexArray(textVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
 
             uint32_t currentIndex = 0;
-            float x = elem.left + BUTTON_PADDING;
-            float y = elem.top + BUTTON_PADDING;
+            float x = elem.left + TEXT_INPUT_PADDING;
+            float y = elem.top + TEXT_INPUT_PADDING;
 
             float cursorX = -1;
             float cursorY = -1;
@@ -5490,27 +5665,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             float selectEndX = -1;
 
             TextInputData* tid = &elem.extraData->textInputData;
-
-            for (const char c: elem.text) {
-                if (currentIndex == tid->cursorPosition) {
-                    cursorX = x;
-                    cursorY = y;
-                }
-
-                if (tid->textSelected) {
-                    if (currentIndex == tid->textSelectStartCol) {
-                        selectStartX = x;
-                    }
-
-                    if (currentIndex == tid->textSelectEndCol) {
-                        selectEndX = x;
-                    }
-                }
-
-                x += renderGlyph(c, x, y, resolution, elem.fontSize);
-
-                ++currentIndex;
-            }
 
             if (tid->cursorPosition == elem.text.length()) {
                 cursorX = x;
@@ -5523,22 +5677,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 selectEndX = x;
             }
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindVertexArray(0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
             // When text input is active, draw the cursor.
             if (elem.active) {
-                if (tid->cursorVAO != 0) {
-                    glDeleteVertexArrays(1, &tid->cursorVAO);
-                }
-
-                if (tid->cursorVBO != 0) {
-                    glDeleteBuffers(1, &tid->cursorVBO);
-                }
-
-                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
-
                 float vertices[] = {
                     cursorX - 1, cursorY + elem.fontSize,
                     cursorX + 1, cursorY + elem.fontSize,
@@ -5546,15 +5686,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     cursorX + 1, cursorY,
                 };
 
-                SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
+                if (tid->cursorVAO == 0) {
+                    SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
+                } else {
+                    glBindVertexArray(tid->cursorVAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
+
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                }
+
+                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                glm::vec4 color = CURSOR_COLOR;
-
-                if (darkTheme) {
-                    color = CURSOR_COLOR_DARK;
-                }
+                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
                 glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
@@ -5564,14 +5709,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
                     if (tid->textSelectUpdated) {
-                        if (tid->textSelectVAO != 0) {
-                            glDeleteVertexArrays(1, &tid->textSelectVAO);
-                        }
-
-                        if (tid->textSelectVBO != 0) {
-                            glDeleteBuffers(1, &tid->textSelectVBO);
-                        }
-
                         float vertices[] = {
                             selectStartX, cursorY + elem.fontSize,
                             selectEndX, cursorY + elem.fontSize,
@@ -5579,7 +5716,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                             selectEndX, cursorY,
                         };
 
-                        SETUP_BUFFERS(tid->textSelectVAO, tid->textSelectVBO, vertices);
+                        if (tid->textSelectVAO == 0) {
+                            SETUP_BUFFERS(tid->textSelectVAO, tid->textSelectVBO, vertices);
+                        } else {
+                            glBindVertexArray(tid->textSelectVAO);
+                            glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
+                            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                        }
 
                         tid->textSelectUpdated = false;
                         #ifdef DEBUG_TEXT_SELECTION
@@ -5591,17 +5734,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    glm::vec4 color = CURSOR_COLOR;
-
-                    if (darkTheme) {
-                        color = CURSOR_COLOR_DARK;
-                    }
+                    glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                     glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 }
             }
+
+            elem.reDraw = false;
 
             break;
         }
@@ -5664,15 +5805,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            int32_t pid = shaders[SHADER_TEXT].programId;
+            glUseProgram(shaders[SHADER_TEXT].programId);
 
-            glUseProgram(pid);
-
-            glUniform3f(
+            glUniform4f(
                 uniforms[U_TEXT_COLOR],
                 elem.color.r,
                 elem.color.g,
-                elem.color.b
+                elem.color.b,
+                elem.color.a
             );
             glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
             glActiveTexture(GL_TEXTURE0);
@@ -5682,9 +5822,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             uint32_t currentIndex = 0;
             uint32_t row = 0;
             uint32_t col = 0;
-            const float xStart = elem.left + BUTTON_PADDING; 
+            const float xStart = elem.left + TEXT_INPUT_PADDING; 
             float x = xStart;
-            float y = elem.top + BUTTON_PADDING;
+            float y = elem.top + TEXT_INPUT_PADDING;
 
             float cursorX = -1;
             float cursorY = -1;
@@ -6022,6 +6162,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         verts,
                         resolution,
                         v,
+                        WHITE,
                         false
                     );
                 }
@@ -6804,7 +6945,8 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     stack<UIElement*> elemStack;
 
     for (uint8_t i=0; i<root->totalChildren; ++i) {
-        elemStack.push(root->children[(int)i]);
+        UIElement* e = root->children[(int)i];
+        elemStack.push(e);
     }
 
     UIElement* elem = nullptr;
@@ -6813,7 +6955,8 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         elem = elemStack.top();
 
         if (
-            (
+            elem->show
+            && (
                 elem->type == UIElementType::Button || elem->type == UIElementType::TextInput
                 || elem->type == UIElementType::TextArea || elem->type == UIElementType::ScrollArea
                 || elem->type == UIElementType::ContentContainer
@@ -6832,7 +6975,8 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
 
         if (elem->totalChildren > 0) {
             for (uint8_t i=0; i<elem->totalChildren; ++i) {
-                elemStack.push(elem->children[i]);
+                UIElement* e = elem->children[(int)i];
+                elemStack.push(e);
             }
         }
     }
