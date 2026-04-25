@@ -238,6 +238,12 @@ enum class UIPositioning: uint8_t {
     Relative_sibling,
 };
 
+enum class TextInputAlignment: uint8_t {
+    Left,
+    Center,
+    Right,
+};
+
 struct UIPreferences {
     float maxHeight;
     float maxWidth;
@@ -284,6 +290,10 @@ struct TextInputData {
      * Used for draw calls for rendering text selection.
      */
     bool textSelectUpdated;
+
+    bool password;
+
+    TextInputAlignment alignment;
 
     float mouseDownX;
     float mouseDownY;

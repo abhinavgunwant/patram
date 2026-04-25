@@ -202,6 +202,10 @@ void inputClickCallback(UIElement* elem) {
 void setupWelcomeScreen();
 void destroyWelcomeScreen();
 
+void onVaultSetupCreateVaultClicked() {
+    cout << "\nCreating vault...";
+}
+
 void onVaultSetupBackClicked() {
     for (int i=0; i<WELCOME_SCREEN.totalChildren; ++i) {
         delete WELCOME_SCREEN.children[i];
@@ -254,7 +258,10 @@ void onCreateANewVaultClicked() {
     (*elems[2]).text = "Vault Name:";
     (*elems[3]).text = "Vault Password:";
     (*elems[4]).text = "Untitled Vault";
+    (*elems[4]).extraData->textInputData.alignment = TextInputAlignment::Center;
     (*elems[5]).text = "password";
+    (*elems[5]).extraData->textInputData.alignment = TextInputAlignment::Center;
+    (*elems[5]).extraData->textInputData.password = true;
 
     (*elems[6]).text = "Create Vault";
     (*elems[6]).preferences->heightPreference = UISizePreference::Grow;
@@ -317,7 +324,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 if (elem->id > 0) {
                     switch(elem->id) {
                         case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); return;
-                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: return;
+                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;
                         case VAULT_SETUP_BACK_BUTTON_ID: onVaultSetupBackClicked(); return;
                         case NEW_NOTE_BUTTON_ID: newNote(); return;
                     }
@@ -346,6 +353,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UIElementType::TextArea:
                     case UIElementType::TextInput:
                         textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
+                        break;
                     case UIElementType::TabBar:
                         if (!tabs.empty()) {
                             tabBarMouseDownCallback(elem, mouseX, mouseY, resolution);
@@ -4095,6 +4103,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                     .textSelected = false,
                     .mouseDown = false,
                     .textSelectUpdated = false,
+                    .password = false,
+                    .alignment = TextInputAlignment::Left,
                     .mouseDownX = 0.0f,
                     .mouseDownY = 0.0f,
                     .lastActiveTime = 0.0f,
@@ -5638,10 +5648,43 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+            TextInputData* tid = &elem.extraData->textInputData;
+
             glm::vec2 pos = glm::vec2(elem.left + TEXT_INPUT_PADDING, elem.top + TEXT_INPUT_PADDING);
 
+            string text;
+            text.reserve(elem.text.length());
+
+            if (tid->password) {
+                for (int i=0; i < elem.text.length(); ++i) {
+                    text += "*";
+                }
+            } else {
+                text = elem.text;
+            }
+
+            RopeRenderResult rRes = getTextDimensions(
+                text,
+                pos,
+                resolution,
+                elem.fontSize,
+                elem.parent->width
+            );
+
+            switch (tid->alignment) {
+                case TextInputAlignment::Center:
+                    pos.x = elem.left + (elem.width - rRes.width)/2;
+                    pos.y = elem.top + TEXT_INPUT_PADDING;
+                    break;
+
+                case TextInputAlignment::Right:
+                    pos.x = elem.left + elem.width - rRes.width;
+                    pos.y = elem.top + TEXT_INPUT_PADDING;
+                    break;
+            }
+
             renderTextCached(
-                elem.text,
+                text,
                 pos,
                 resolution,
                 elem.textVAO,
@@ -5664,24 +5707,19 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             float selectStartX = -1;
             float selectEndX = -1;
 
-            TextInputData* tid = &elem.extraData->textInputData;
-
             if (tid->cursorPosition == elem.text.length()) {
-                cursorX = x;
+                cursorX = pos.x + rRes.width;
                 cursorY = y;
-            }
-
-            if (tid->textSelected && tid->textSelectEndCol == elem.text.length()) {
-                cursorX = x;
+            } else if (tid->cursorPosition == 0) {
+                cursorX = pos.x;
                 cursorY = y;
-                selectEndX = x;
             }
 
             // When text input is active, draw the cursor.
             if (elem.active) {
                 float vertices[] = {
-                    cursorX - 1, cursorY + elem.fontSize,
-                    cursorX + 1, cursorY + elem.fontSize,
+                    cursorX - 1, cursorY + static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                    cursorX + 1, cursorY + static_cast<float>(elem.fontSize) * (1 - glyphDescender),
                     cursorX - 1, cursorY,
                     cursorX + 1, cursorY,
                 };
@@ -8138,22 +8176,28 @@ void processCommand(UIElement* elem, Command* cmd) {
                     if (CUR_POS == elem->text.length()) {
                         elem->text += cmd->str;
                         append = true;
-                        uint32_t newLines = 0;
 
-                        for (char c: cmd->str) {
-                            if (c == '\n') { ++newLines; }
+                        if (elem->type == UIElementType::TextArea) {
+                            uint32_t newLines = 0;
+
+                            for (char c: cmd->str) {
+                                if (c == '\n') { ++newLines; }
+                            }
+
+                            if (newLines > 0) {
+                                elem->height += static_cast<float>(elem->fontSize + LINE_GAP);
+                            }
                         }
 
-                        if (newLines > 0) {
-                            elem->height += static_cast<float>(elem->fontSize + LINE_GAP);
-                            elem->reDraw = true;
-                        }
+                        elem->reDraw = true;
 
                         break;
                     }
 
                     elem->text.insert(CUR_POS, cmd->str);
                 }
+
+                elem->reDraw = true;
                 append = true;
                 break;
             }
@@ -8192,7 +8236,12 @@ void processCommand(UIElement* elem, Command* cmd) {
                 }
 
                 if (tid->textSelected) {
-                    cmd = replaceSelectedText(elem, cmd);
+                    if (tid->textSelectStartCol == 0 && tid->textSelectEndCol == elem->text.length()) {
+                        elem->text = "";
+                        CUR_POS = 0;
+                    } else {
+                        cmd = replaceSelectedText(elem, cmd);
+                    }
                 } else {
                     elem->text.erase(CUR_POS-1, 1);
                 }
@@ -8201,8 +8250,9 @@ void processCommand(UIElement* elem, Command* cmd) {
 
                 if (newLines > 0 && elem->height > 32.0) {
                     elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
-                    elem->reDraw = true;
                 }
+
+                elem->reDraw = true;
                 break;
             }
 
