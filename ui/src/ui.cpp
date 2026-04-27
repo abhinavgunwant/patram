@@ -201,6 +201,7 @@ void inputClickCallback(UIElement* elem) {
 
 void setupWelcomeScreen();
 void destroyWelcomeScreen();
+void onVaultSetupBackClicked();
 
 void onVaultSetupCreateVaultClicked() {
     cout << "\nCreating vault...";
@@ -223,6 +224,10 @@ void onVaultSetupCreateVaultClicked() {
     if (nameInit) {
         createVaultInfoFile(vaultName, vaultPassword);
         createVaultIndexFile(vaultName, vaultPassword);
+
+        vaultSelected = true;
+
+        onVaultSetupBackClicked();
         return;
     }
 
