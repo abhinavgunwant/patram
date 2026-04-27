@@ -204,6 +204,29 @@ void destroyWelcomeScreen();
 
 void onVaultSetupCreateVaultClicked() {
     cout << "\nCreating vault...";
+    string vaultName;
+    string vaultPassword;
+
+    bool nameInit = false;
+    bool passwordInit = false;
+
+    for (int i=0; i<WELCOME_SCREEN.totalChildren && (!nameInit || !passwordInit); ++i) {
+        if (WELCOME_SCREEN.children[i]->id == VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID) {
+            vaultName = WELCOME_SCREEN.children[i]->text;
+            nameInit = true;
+        } else if (WELCOME_SCREEN.children[i]->id == VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID) {
+            vaultPassword = WELCOME_SCREEN.children[i]->text;
+            passwordInit = true;
+        }
+    }
+
+    if (nameInit) {
+        createVaultInfoFile(vaultName, vaultPassword);
+        createVaultIndexFile(vaultName, vaultPassword);
+        return;
+    }
+
+    // TODO: display some error like "Vault name cannot be empty!"
 }
 
 void onVaultSetupBackClicked() {
@@ -259,9 +282,11 @@ void onCreateANewVaultClicked() {
     (*elems[3]).text = "Vault Password:";
     (*elems[4]).text = "Untitled Vault";
     (*elems[4]).extraData->textInputData.alignment = TextInputAlignment::Center;
+    (*elems[4]).id = VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID;
     (*elems[5]).text = "password";
     (*elems[5]).extraData->textInputData.alignment = TextInputAlignment::Center;
     (*elems[5]).extraData->textInputData.password = true;
+    (*elems[5]).id = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
 
     (*elems[6]).text = "Create Vault";
     (*elems[6]).preferences->heightPreference = UISizePreference::Grow;
@@ -321,7 +346,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     cout << " for " << elementType(elem);
                 #endif
 
-                if (elem->id > 0) {
+                if (elem->id > 0 && elem->type == UIElementType::Button) {
                     switch(elem->id) {
                         case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); return;
                         case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;

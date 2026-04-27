@@ -91,15 +91,17 @@
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
 
 // Button IDs
-#define CREATE_VAULT_BUTTON_ID              1
-#define SWITCH_VAULT_BUTTON_ID              2
-#define VAULT_SETUP_CREATE_VAULT_BUTTON_ID  3
-#define VAULT_SETUP_BACK_BUTTON_ID          4
-#define NEW_NOTE_BUTTON_ID                  5
-#define NEW_FOLDER_BUTTON_ID                6
-#define SAVE_NOTE_BUTTON_ID                 7
-#define TOGGLE_EXPLORER_BUTTON_ID           8
-#define OPEN_BUTTON_ID                      1000
+#define CREATE_VAULT_BUTTON_ID                      1
+#define SWITCH_VAULT_BUTTON_ID                      2
+#define VAULT_SETUP_CREATE_VAULT_BUTTON_ID          3
+#define VAULT_SETUP_BACK_BUTTON_ID                  4
+#define NEW_NOTE_BUTTON_ID                          5
+#define NEW_FOLDER_BUTTON_ID                        6
+#define SAVE_NOTE_BUTTON_ID                         7
+#define TOGGLE_EXPLORER_BUTTON_ID                   8
+#define VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID        9
+#define VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID    10
+#define OPEN_BUTTON_ID                              1000
 
 #define BUTTON_PADDING              8
 #define TEXT_INPUT_PADDING          4

@@ -57,6 +57,27 @@ inline filesystem::path getHomeDirectoryPath() {
     return filesystem::path(getHomeDirectory());
 }
 
+string getPatramDirectory() {
+    string homeDir = getHomeDirectory();
+    string separator = string(1, filesystem::path::preferred_separator);
+
+    if (!homeDir.empty()) {
+        #ifdef _WIN32
+            return homeDir + separator + "AppData" + separator + "Roaming" + separator + "patram";
+        #endif
+
+        #ifdef __linux__
+            return homeDir + "/.local/share/patram";
+        #endif
+    }
+
+    return "patram";
+}
+
+inline filesystem::path getPatramDirectoryPath() {
+    return filesystem::path(getPatramDirectory());
+}
+
 string getCacheDirectory() {
     string home = getHomeDirectory();
 
@@ -87,6 +108,10 @@ inline filesystem::path getFontAtlasPath(uint8_t index) {
 
 inline filesystem::path getFontInfoPath(uint8_t index) {
     return getCacheDirectoryPath() / (FONT_INFO_FILE_NAME_PREFIX + to_string(static_cast<int>(index)));
+}
+
+inline string getVaultsDirectory() {
+    return getPatramDirectory() + string(1, filesystem::path::preferred_separator) + "vaults";
 }
 
 inline bool fileExists(filesystem::path p) {
@@ -287,6 +312,92 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
     #ifdef DEBUG_FILES
         cout << "\nSTARTUP CHECK: Character atlas written in " << fontAtlasPath;
     #endif
+}
+
+void createVaultInfoFile(string vaultName, string password) {
+    string separator = string(1, filesystem::path::preferred_separator);
+    string vaultDir = getVaultsDirectory() + separator + vaultName;
+
+    if (filesystem::create_directories(vaultDir)) {
+        cout << "\nVault directory created!";
+    } else {
+        cout << "\nVault directory already exists or some error encountered!";
+    }
+
+    ofstream f;
+    f.open(vaultDir + separator + ".info", ios::out | ios::binary);
+
+    uint8_t m1 = MAGIC_1;
+    uint8_t m2 = MAGIC_2;
+    uint8_t m3 = MAGIC_3;
+    uint8_t m4 = MAGIC_4_VINFO;
+
+    uint16_t ver = VAULT_INFORMATION_FILE_VERSION;
+
+    // magic bytes
+    f.write((const char*)&m1, sizeof(uint8_t));
+    f.write((const char*)&m2, sizeof(uint8_t));
+    f.write((const char*)&m3, sizeof(uint8_t));
+    f.write((const char*)&m4, sizeof(uint8_t));
+
+    // write version
+    f.write((const char*)&ver, sizeof(uint16_t));
+
+    uint16_t algo = 0;
+    uint16_t hashLen = 0;
+    uint8_t* hash = nullptr;
+
+    if (!password.empty()) {
+        algo = 1;
+        hashLen = 1; // TODO: update it with the actual length of hashLen
+        hash = new uint8_t[16]; // TODO: update it with the actual hash
+
+        memset(hash, 0, sizeof(hash));
+    }
+
+    // write algorithm
+    f.write((const char*)&algo, sizeof(uint16_t));
+
+    // write hashLen
+    f.write((const char*)&hashLen, sizeof(uint16_t));
+
+    if (!password.empty()) {
+        // write hash
+        f.write((const char*)hash, sizeof(hash));
+    }
+
+    f.close();
+}
+
+void createVaultIndexFile(string vaultName, string password) {
+    string separator = string(1, filesystem::path::preferred_separator);
+    string vaultDir = getVaultsDirectory() + separator + vaultName;
+
+    ofstream f;
+    f.open(vaultDir + separator + ".index", ios::out | ios::binary);
+
+    uint8_t m1 = MAGIC_1;
+    uint8_t m2 = MAGIC_2;
+    uint8_t m3 = MAGIC_3;
+    uint8_t m4 = MAGIC_4_VI;
+
+    uint16_t ver = VAULT_INDEX_FILE_VERSION;
+
+    // magic bytes
+    f.write((const char*)&m1, sizeof(uint8_t));
+    f.write((const char*)&m2, sizeof(uint8_t));
+    f.write((const char*)&m3, sizeof(uint8_t));
+    f.write((const char*)&m4, sizeof(uint8_t));
+
+    // write version
+    f.write((const char*)&ver, sizeof(uint16_t));
+
+    uint32_t num = 0;
+
+    f.write((const char*)&num, sizeof(uint32_t));
+    f.write((const char*)&num, sizeof(uint32_t));
+
+    f.close();
 }
 
 bool processFontInfoFile(Character* characters, float& ascender, float& descender) {

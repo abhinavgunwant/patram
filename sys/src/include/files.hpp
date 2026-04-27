@@ -20,11 +20,15 @@ using namespace std;
 #define MAGIC_3                     0x00
 #define MAGIC_4                     0x00 // last word for cache index
 #define MAGIC_4_FI                  0x01 // last word for font information
+#define MAGIC_4_VINFO               0x02 // last word for vault information
+#define MAGIC_4_VI                  0x03 // last word for vault index
 
 #define ATLAS_DIMENSION             1024
 
 #define CACHE_INDEX_FILE_VERSION        0
 #define FONT_INFORMATION_FILE_VERSION   0
+#define VAULT_INFORMATION_FILE_VERSION  0
+#define VAULT_INDEX_FILE_VERSION        0
 
 #define FONT_ATLAS_FILE_NAME_PREFIX     "fa"
 #define FONT_ATLAS_FILE_NAME_EXT        ".png"
@@ -52,8 +56,22 @@ enum class FileDialogMode : uint8_t {
     Save,
 };
 
+struct VaultIndexEntry {
+    string title;
+    uint32_t customOrder;
+    uint32_t parentId;
+};
+
+struct VaultIndex {
+    vector<VaultIndexEntry> notes;
+    vector<VaultIndexEntry> folders;
+};
+
 filesystem::path getHomeDirectoryPath();
 string getHomeDirectory();
+
+filesystem::path getPatramDirectoryPath();
+string getPatramDirectory();
 
 filesystem::path getCacheDirectoryPath();
 string getCacheDirectory();
@@ -63,6 +81,8 @@ filesystem::path getCacheIndexPath();
 // Should precede `getFontInfoPath`
 filesystem::path getFontAtlasPath(uint8_t index);
 filesystem::path getFontInfoPath(uint8_t index);
+
+string getVaultsDirectory();
 
 bool fileExists(filesystem::path p);
 bool dirExists(filesystem::path p);
@@ -74,6 +94,8 @@ void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);
 void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len);
 void createFontAtlasFile(uint8_t index, Character* characters);
+void createVaultInfoFile(string vaultName, string password);
+void createVaultIndexFile(string vaultName, string password);
 
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
