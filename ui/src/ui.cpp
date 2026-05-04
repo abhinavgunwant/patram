@@ -201,7 +201,7 @@ void inputClickCallback(UIElement* elem) {
 
 void setupWelcomeScreen();
 void destroyWelcomeScreen();
-void onVaultSetupBackClicked();
+void onVaultBackClicked();
 
 void onVaultSetupCreateVaultClicked() {
     cout << "\nCreating vault...";
@@ -227,24 +227,15 @@ void onVaultSetupCreateVaultClicked() {
 
         vaultSelected = true;
 
-        onVaultSetupBackClicked();
+        onVaultBackClicked();
         return;
     }
 
     // TODO: display some error like "Vault name cannot be empty!"
 }
 
-void onVaultSetupBackClicked() {
-    for (int i=0; i<WELCOME_SCREEN.totalChildren; ++i) {
-        delete WELCOME_SCREEN.children[i];
-    }
-
-    delete [] WELCOME_SCREEN.children;
-
-    WELCOME_SCREEN.children = nullptr;
-    WELCOME_SCREEN.totalChildren = 0;
-    WELCOME_SCREEN.capacity = 0;
-
+void onVaultBackClicked() {
+    destroyElementChildren(WELCOME_SCREEN);
     setupWelcomeScreen();
 }
 
@@ -299,13 +290,94 @@ void onCreateANewVaultClicked() {
 
     (*elems[7]).text = "Back";
     (*elems[7]).preferences->heightPreference = UISizePreference::Grow;
-    (*elems[7]).id = VAULT_SETUP_BACK_BUTTON_ID;
+    (*elems[7]).id = VAULT_BACK_BUTTON_ID;
 
     (*elems[0]).text = "patram";
     (*elems[0]).fontSize = 48;
 
     (*elems[1]).text = "Vault Setup";
     (*elems[1]).fontSize = 16;
+
+    WELCOME_SCREEN.children = elems;
+    WELCOME_SCREEN.totalChildren = ELEM_COUNT;
+    WELCOME_SCREEN.capacity = ELEM_COUNT;
+
+    destroyWelcomeScreen();
+
+    #undef ELEM_COUNT
+}
+
+void onSwitchVaultClicked() {
+    #define ELEM_COUNT  4
+
+    // TODO: get the number of vaults here.
+    uint32_t numberOfVaults = 4;
+
+    UIElement** elems = new UIElement*[ELEM_COUNT];
+    UIElement** vaultElems = new UIElement*[numberOfVaults];
+
+    for (int i=0; i<ELEM_COUNT; ++i) {
+        elems[i] = new UIElement;
+    }
+
+    for (int i=0; i<numberOfVaults; ++i) {
+        vaultElems[i] = new UIElement;
+        (*vaultElems[i]).positioning = UIPositioning::Relative;
+    }
+
+    initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[1], UIElementType::Label, 60.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[2], UIElementType::ScrollArea, 120.0f, 0.0f, 200.0f, 200.0f);
+    initElement(*elems[3], UIElementType::Button, 200.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultElems[0], UIElementType::Button, 0.0f, 0.0f, 0.0f, 30.0f);
+    initElement(*vaultElems[1], UIElementType::Button, 50.0f, 0.0f, 0.0f, 30.0f);
+    initElement(*vaultElems[2], UIElementType::Button, 100.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultElems[3], UIElementType::Button, 150.0f, 0.0f, 0.0f, 0.0f);
+
+    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    SETUP_BUFFERS((*elems[3]).vao, (*elems[3]).vbo, vertices);
+    SETUP_BUFFERS((*vaultElems[0]).vao, (*vaultElems[0]).vbo, vertices);
+    SETUP_BUFFERS((*vaultElems[1]).vao, (*vaultElems[1]).vbo, vertices);
+    SETUP_BUFFERS((*vaultElems[2]).vao, (*vaultElems[2]).vbo, vertices);
+    SETUP_BUFFERS((*vaultElems[3]).vao, (*vaultElems[3]).vbo, vertices);
+
+    for (int i=0; i<ELEM_COUNT; ++i) {
+        (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
+        (*elems[i]).preferences->widthPreference = UISizePreference::Grow;
+        (*elems[i]).parent = &WELCOME_SCREEN;
+
+        if (i != 0) {
+            (*elems[i]).fontSize = 16;
+        }
+    }
+
+    (*elems[2]).text = "SWITCH_VLT_SCR";
+    (*elems[2]).scrollData->showVerticalScrollbar = true;
+
+    (*elems[3]).text = "Back";
+    (*elems[3]).preferences->heightPreference = UISizePreference::Grow;
+    (*elems[3]).id = VAULT_BACK_BUTTON_ID;
+
+    (*vaultElems[0]).text = "Untitled Vault";
+    (*vaultElems[1]).text = "Untitled Vault 1";
+    (*vaultElems[2]).text = "Untitled Vault 2";
+    (*vaultElems[3]).text = "Untitled Vault 3";
+
+    (*vaultElems[0]).parent = elems[2];
+    (*vaultElems[1]).parent = elems[2];
+    (*vaultElems[2]).parent = elems[2];
+    (*vaultElems[3]).parent = elems[2];
+
+    (*elems[0]).text = "patram";
+    (*elems[0]).fontSize = 48;
+
+    (*elems[1]).text = "Switch Vault";
+    (*elems[1]).fontSize = 16;
+
+    (*elems[2]).capacity = 4;
+    (*elems[2]).totalChildren = 4;
+    (*elems[2]).children = vaultElems;
 
     WELCOME_SCREEN.children = elems;
     WELCOME_SCREEN.totalChildren = ELEM_COUNT;
@@ -354,8 +426,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 if (elem->id > 0 && elem->type == UIElementType::Button) {
                     switch(elem->id) {
                         case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); return;
+                        case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); return;
                         case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;
-                        case VAULT_SETUP_BACK_BUTTON_ID: onVaultSetupBackClicked(); return;
+                        case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); return;
                         case NEW_NOTE_BUTTON_ID: newNote(); return;
                     }
                 }
@@ -6233,6 +6306,69 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         default: break;
+    }
+}
+
+void destroyElement(UIElement& elem) {
+    if (elem.vao != 0) {
+        glDeleteVertexArrays(1, &elem.vao);
+        elem.vao = 0;
+    }
+
+    if (elem.vbo != 0) {
+        glDeleteBuffers(1, &elem.vbo);
+        elem.vbo = 0;
+    }
+
+    if (elem.textVAO != 0) {
+        glDeleteVertexArrays(1, &elem.textVAO);
+        elem.textVAO = 0;
+    }
+
+    if (elem.textVBO != 0) {
+        glDeleteBuffers(1, &elem.textVBO);
+        elem.textVBO = 0;
+    }
+
+    if (elem.preferences != nullptr) {
+        delete elem.preferences;
+        elem.preferences = nullptr;
+    }
+
+    if (elem.textInputData != nullptr) {
+        glDeleteVertexArrays(1, &elem.textInputData->cursorVAO);
+        glDeleteBuffers(1, &elem.textInputData->cursorVBO);
+        glDeleteVertexArrays(1, &elem.textInputData->textSelectVAO);
+        glDeleteBuffers(1, &elem.textInputData->textSelectVBO);
+
+        delete elem.textInputData;
+    }
+
+    if (elem.scrollData != nullptr) {
+        delete elem.scrollData;
+    }
+
+    // elem.parent = nullptr;
+
+    destroyElementChildren(elem);
+}
+
+void destroyElementChildren(UIElement& elem) {
+    if (elem.totalChildren) {
+        UIElement** toDelete = new UIElement*[elem.totalChildren];
+
+        for (int i=0; i<elem.totalChildren; ++i) {
+            destroyElementChildren((*elem.children[i]));
+            destroyElement((*elem.children[i]));
+
+            delete elem.children[i];
+        }
+
+        delete [] elem.children;
+
+        elem.children = nullptr;
+        elem.totalChildren = 0;
+        elem.capacity = 0;
     }
 }
 

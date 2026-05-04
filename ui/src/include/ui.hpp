@@ -94,7 +94,7 @@
 #define CREATE_VAULT_BUTTON_ID                      1
 #define SWITCH_VAULT_BUTTON_ID                      2
 #define VAULT_SETUP_CREATE_VAULT_BUTTON_ID          3
-#define VAULT_SETUP_BACK_BUTTON_ID                  4
+#define VAULT_BACK_BUTTON_ID                        4
 #define NEW_NOTE_BUTTON_ID                          5
 #define NEW_FOLDER_BUTTON_ID                        6
 #define SAVE_NOTE_BUTTON_ID                         7
@@ -548,6 +548,8 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
 void recalculateLayout(UIElement * elem);
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+void destroyElement(UIElement& elem);
+void destroyElementChildren(UIElement& elem);
 glm::vec2 getActiveContentDimensions();
 bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();

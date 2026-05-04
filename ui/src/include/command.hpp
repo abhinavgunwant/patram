@@ -127,6 +127,9 @@ struct CommandList {
     CommandList(): length(1), currentCommand(new Command()) {}
 
     ~CommandList() {
+        if (currentCommand == nullptr) {
+            return;
+        }
         cout << "\nDeleting comand list!";
         Command * cmd = currentCommand;
         while (cmd->next != nullptr) {
@@ -134,9 +137,12 @@ struct CommandList {
         }
 
         while (cmd != nullptr) {
+            Command* prev = cmd->prev;
             deleteCommand(cmd);
-            cmd = cmd->prev;
+            cmd = prev;
         }
+
+        currentCommand = nullptr;
     }
 };
 
