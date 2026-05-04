@@ -193,8 +193,8 @@ void inputClickCallback(UIElement* elem) {
     elem->active = true;
     activeElement = elem;
 
-    if (elem->extraData != nullptr) {
-        elem->extraData->textInputData.lastActiveTime = glfwGetTime();
+    if (elem->textInputData != nullptr) {
+        elem->textInputData->lastActiveTime = glfwGetTime();
         // selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
     }
 }
@@ -286,11 +286,11 @@ void onCreateANewVaultClicked() {
     (*elems[2]).text = "Vault Name:";
     (*elems[3]).text = "Vault Password:";
     (*elems[4]).text = "Untitled Vault";
-    (*elems[4]).extraData->textInputData.alignment = TextInputAlignment::Center;
+    (*elems[4]).textInputData->alignment = TextInputAlignment::Center;
     (*elems[4]).id = VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID;
     (*elems[5]).text = "password";
-    (*elems[5]).extraData->textInputData.alignment = TextInputAlignment::Center;
-    (*elems[5]).extraData->textInputData.password = true;
+    (*elems[5]).textInputData->alignment = TextInputAlignment::Center;
+    (*elems[5]).textInputData->password = true;
     (*elems[5]).id = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
 
     (*elems[6]).text = "Create Vault";
@@ -697,7 +697,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     }
 
     if (highlightedContentBlock.show && highlightedContentBlock.mouseDown && !tabs.empty()) {
-        #define SCROLL_DATA CONTENT_CONTAINER.extraData->scrollData
+        #define SCROLL_DATA CONTENT_CONTAINER.scrollData
         ContentTab* tab = CURRENT_TAB;
 
         for (
@@ -705,7 +705,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             itr != tab->contentBlocks.end();
             ++itr
         ) {
-            float top = (*itr).top - SCROLL_DATA.yOffset;
+            float top = (*itr).top - SCROLL_DATA->yOffset;
 
             uint32_t index = std::distance(tab->contentBlocks.begin(), itr);
 
@@ -732,20 +732,20 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
 
         if (mouseY > resolution.y - 50.0f) {
-            float newScrollOffset = (50.0f - resolution.y + mouseY)/10 + SCROLL_DATA.yOffset;
+            float newScrollOffset = (50.0f - resolution.y + mouseY)/10 + SCROLL_DATA->yOffset;
 
-            if (newScrollOffset > SCROLL_DATA.height - resolution.y) {
-                SCROLL_DATA.yOffset = SCROLL_DATA.height - resolution.y + 50.0f;
+            if (newScrollOffset > SCROLL_DATA->height - resolution.y) {
+                SCROLL_DATA->yOffset = SCROLL_DATA->height - resolution.y + 50.0f;
             } else {
-                SCROLL_DATA.yOffset = newScrollOffset;
+                SCROLL_DATA->yOffset = newScrollOffset;
             }
         } else if (mouseY < 114.0f) {
-            float newScrollOffset = SCROLL_DATA.yOffset - (114.0f - mouseY)/10;
+            float newScrollOffset = SCROLL_DATA->yOffset - (114.0f - mouseY)/10;
 
             if (newScrollOffset < 0) {
-                SCROLL_DATA.yOffset = 0;
+                SCROLL_DATA->yOffset = 0;
             } else {
-                SCROLL_DATA.yOffset = newScrollOffset;
+                SCROLL_DATA->yOffset = newScrollOffset;
             }
         }
 
@@ -773,8 +773,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
 }
 
 void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
-    #define Y_OFFSET elem->extraData->scrollData.yOffset
-    #define X_OFFSET elem->extraData->scrollData.xOffset
+    #define Y_OFFSET elem->scrollData->yOffset
+    #define X_OFFSET elem->scrollData->xOffset
 
     #ifdef DEBUG_SCROLL
         cout << "\nScroll callback: xOffset: " << xOffset << ", yOffset: " << yOffset;
@@ -794,7 +794,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
                 bool verticalScroll = !shiftPressed && yOffset != 0;
 
                 if (verticalScroll) {
-                    if (elem->height + Y_OFFSET < elem->extraData->scrollData.height && yOffset < 0) {
+                    if (elem->height + Y_OFFSET < elem->scrollData->height && yOffset < 0) {
                         Y_OFFSET += SCROLL_AMOUNT;
                     } else if (yOffset > 0) {
                         Y_OFFSET -= SCROLL_AMOUNT;
@@ -802,8 +802,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
                     if (Y_OFFSET < 0) {
                         Y_OFFSET = 0;
-                    } else if (Y_OFFSET > elem->extraData->scrollData.height) {
-                        Y_OFFSET = elem->extraData->scrollData.height - elem->height;
+                    } else if (Y_OFFSET > elem->scrollData->height) {
+                        Y_OFFSET = elem->scrollData->height - elem->height;
                     }
 
                     scrolled = true;
@@ -811,7 +811,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
                 if (horizontalScroll) {
                     if (
-                        elem->width + X_OFFSET < elem->extraData->scrollData.width
+                        elem->width + X_OFFSET < elem->scrollData->width
                         && (!shiftPressed && xOffset < 0 || yOffset < 0)
                     ) {
                         X_OFFSET += SCROLL_AMOUNT;
@@ -829,8 +829,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
                 }
 
                 if (scrolled) {
-                    elem->extraData->scrollData.lastScrolled = glfwGetTime();
-                    elem->extraData->scrollData.renderedUpdate = false;
+                    elem->scrollData->lastScrolled = glfwGetTime();
+                    elem->scrollData->renderedUpdate = false;
                 }
             }
             break;
@@ -1057,18 +1057,13 @@ void destroyWelcomeScreen() {
             elements[i].preferences = nullptr;
         }
 
-        if (elements[i].extraData != nullptr) {
-            if (elements[i].type == UIElementType::TextInput) {
-                TextInputData* tid = &elements[i].extraData->textInputData;
+        if (elements[i].type == UIElementType::TextInput) {
+            TextInputData* tid = elements[i].textInputData;
 
-                glDeleteVertexArrays(1, &tid->cursorVAO);
-                glDeleteBuffers(1, &tid->cursorVBO);
-                glDeleteVertexArrays(1, &tid->textSelectVAO);
-                glDeleteBuffers(1, &tid->textSelectVBO);
-            }
-
-            delete elements[i].extraData;
-            elements[i].extraData = nullptr;
+            glDeleteVertexArrays(1, &tid->cursorVAO);
+            glDeleteBuffers(1, &tid->cursorVBO);
+            glDeleteVertexArrays(1, &tid->textSelectVAO);
+            glDeleteBuffers(1, &tid->textSelectVBO);
         }
 
         elements[i].parent = nullptr;
@@ -1166,8 +1161,8 @@ void setupUI(bool isDarkTheme) {
     // openButton->id = OPEN_BUTTON_ID;
 
     CONTENT_CONTAINER.text = "Main Scroll Area";
-    CONTENT_CONTAINER.extraData->scrollData.width = WINDOW_WIDTH;
-    CONTENT_CONTAINER.extraData->scrollData.height = WINDOW_HEIGHT - 64;
+    CONTENT_CONTAINER.scrollData->width = WINDOW_WIDTH;
+    CONTENT_CONTAINER.scrollData->height = WINDOW_HEIGHT - 64;
     CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
     CONTENT_CONTAINER.active = true;
@@ -2344,15 +2339,15 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
     #endif
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        #define TYPE(c) processCommand(elem, new Command(CommandType::Type, c, elem->extraData->textInputData.cursorPosition)); elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
-        #define INCR_CURSOR() elem->extraData->textInputData.cursorPosition++
-        #define DECR_CURSOR() elem->extraData->textInputData.cursorPosition--
-        #define CUR_POS elem->extraData->textInputData.cursorPosition
-        #define UPDATE_CURSOR_TIME() elem->extraData->textInputData.lastActiveTime = static_cast<float>(glfwGetTime())
+        #define TYPE(c) processCommand(elem, new Command(CommandType::Type, c, elem->textInputData->cursorPosition)); elem->textInputData->lastActiveTime = static_cast<float>(glfwGetTime())
+        #define INCR_CURSOR() elem->textInputData->cursorPosition++
+        #define DECR_CURSOR() elem->textInputData->cursorPosition--
+        #define CUR_POS elem->textInputData->cursorPosition
+        #define UPDATE_CURSOR_TIME() elem->textInputData->lastActiveTime = static_cast<float>(glfwGetTime())
 
         switch (key) {
             case GLFW_KEY_ESCAPE: {
-                TextInputData* tid = &elem->extraData->textInputData;
+                TextInputData* tid = elem->textInputData;
 
                 if (tid->textSelected) {
                     textInputUnselect(tid);
@@ -2363,8 +2358,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             }
 
             case GLFW_KEY_LEFT:
-                if (elem->extraData != nullptr && CUR_POS != 0) {
-                    TextInputData* tid = &elem->extraData->textInputData;
+                if (elem->textInputData != nullptr && CUR_POS != 0) {
+                    TextInputData* tid = elem->textInputData;
 
                     if (shift) {
                         if (tid->textSelected) {
@@ -2393,8 +2388,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_RIGHT:
-                if (elem->extraData != nullptr && CUR_POS != elem->text.length()) {
-                    TextInputData* tid = &elem->extraData->textInputData;
+                if (elem->textInputData != nullptr && CUR_POS != elem->text.length()) {
+                    TextInputData* tid = elem->textInputData;
 
                     if (shift) {
                         if (tid->textSelected) {
@@ -2452,7 +2447,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_BACKSPACE: {
-                TextInputData * tid = &elem->extraData->textInputData;
+                TextInputData * tid = elem->textInputData;
 
                 if (
                     CUR_POS <= elem->text.length() && CUR_POS > 0
@@ -2481,7 +2476,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             }
 
             case GLFW_KEY_DELETE: {
-                TextInputData * tid = &elem->extraData->textInputData;
+                TextInputData * tid = elem->textInputData;
 
                 if (
                     CUR_POS < elem->text.length() && CUR_POS >= 0
@@ -2504,7 +2499,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
             case GLFW_KEY_A:
                 if (ctrl) {
-                    TextInputData* tid = &elem->extraData->textInputData;
+                    TextInputData* tid = elem->textInputData;
                     const uint32_t len = static_cast<uint32_t>(elem->text.length());
                     tid->textSelected = true;
                     tid->initialCursorPosition = tid->cursorPosition;
@@ -2842,7 +2837,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 }
 
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
-    TextInputData* tid = &elem->extraData->textInputData;
+    TextInputData* tid = elem->textInputData;
 
     uint32_t len = tid->textSelectEndCol - tid->textSelectStartCol;
 
@@ -3681,9 +3676,9 @@ void textInputMouseDownCallback(
     float mouseY,
     glm::vec2 res
 ) {
-    if (elem->extraData == nullptr) { return; }
+    if (elem->textInputData == nullptr) { return; }
 
-    TextInputData * tid = &elem->extraData->textInputData;
+    TextInputData * tid = elem->textInputData;
 
     SelectionData sd = getTextIndexForScreenCoords(
         elem,
@@ -3731,13 +3726,13 @@ void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::v
 }
 
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
-    if (elem->extraData == nullptr) { return; }
+    if (elem->textInputData == nullptr) { return; }
 
     #ifdef DEBUG_TEXT_SELECTION
         cout << "\nDrag Callback: ";
     #endif
 
-    TextInputData* tid = &elem->extraData->textInputData;
+    TextInputData* tid = elem->textInputData;
 
     if (!tid->mouseDown) {
         #ifdef DEBUG_TEXT_SELECTION
@@ -3846,11 +3841,9 @@ void textInputMouseUpCallback(
     float mouseY,
     glm::vec2 res
 ) {
-    if (elem->extraData == nullptr) {
-        return;
-    }
+    if (elem->textInputData == nullptr) { return; }
 
-    TextInputData * tid = &elem->extraData->textInputData;
+    TextInputData * tid = elem->textInputData;
 
     tid->mouseDown = false;
 
@@ -3886,7 +3879,7 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
     if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
         float top, left, bottom, right, thumbStart, thumbEnd;
 
-        if (elem->extraData->scrollData.showVerticalScrollbar) {
+        if (elem->scrollData->showVerticalScrollbar) {
             getScrollbarDimensions(
                 elem, top, right, bottom, left,
                 thumbStart, thumbEnd,
@@ -3905,7 +3898,7 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
                     newThumbStart = 0;
                 }
 
-                if (elem->extraData->scrollData.showHorizontalScrollbar) {
+                if (elem->scrollData->showHorizontalScrollbar) {
                     height -= SCROLL_BAR_THICKNESS;
                 }
 
@@ -3913,14 +3906,14 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
                     newThumbStart = elem->top + height - barHeight;
                 }
 
-                elem->extraData->scrollData.yOffset = newThumbStart * elem->extraData->scrollData.height / height;
-                elem->extraData->scrollData.renderedUpdate = false;
-                elem->extraData->scrollData.lastScrolled = glfwGetTime();
+                elem->scrollData->yOffset = newThumbStart * elem->scrollData->height / height;
+                elem->scrollData->renderedUpdate = false;
+                elem->scrollData->lastScrolled = glfwGetTime();
                 return;
             }
         }
 
-        if (elem->extraData->scrollData.showHorizontalScrollbar) {
+        if (elem->scrollData->showHorizontalScrollbar) {
             getScrollbarDimensions(
                 elem, top, right, bottom, left,
                 thumbStart, thumbEnd,
@@ -3939,7 +3932,7 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
                     newThumbStart = 0;
                 }
 
-                if (elem->extraData->scrollData.showVerticalScrollbar) {
+                if (elem->scrollData->showVerticalScrollbar) {
                     width -= SCROLL_BAR_THICKNESS;
                 }
 
@@ -3947,16 +3940,16 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
                     newThumbStart = elem->left + width - barWidth;
                 }
 
-                elem->extraData->scrollData.xOffset = newThumbStart * elem->extraData->scrollData.width / width;
-                elem->extraData->scrollData.renderedUpdate = false;
-                elem->extraData->scrollData.lastScrolled = glfwGetTime();
+                elem->scrollData->xOffset = newThumbStart * elem->scrollData->width / width;
+                elem->scrollData->renderedUpdate = false;
+                elem->scrollData->lastScrolled = glfwGetTime();
             }
         }
     }
 }
 
 void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
-    if (glfwGetTime() - elem->extraData->scrollData.lastScrolled < SCROLL_DEBOUNCE_DELAY) {
+    if (glfwGetTime() - elem->scrollData->lastScrolled < SCROLL_DEBOUNCE_DELAY) {
         return;
     }
 
@@ -3973,11 +3966,9 @@ void selectTextWithMouse(
     bool mouseUp,
     glm::vec2& res
 ) {
-    if (elem->extraData == nullptr) {
-        return;
-    }
+    if (elem->textInputData == nullptr) { return; }
 
-    TextInputData * tid = &elem->extraData->textInputData;
+    TextInputData * tid = elem->textInputData;
 
     if (!tid->textSelected && mouseUp) {
         uint32_t currentIndex = 0;
@@ -4009,9 +4000,6 @@ void selectTextWithMouse(
 }
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
-    UIExtraData * extraData = nullptr;
-    // Rope* rope = nullptr;
-
     glm::vec4 backgroundColor = TRANSPARENT_COLOR;
     glm::vec4 hoverColor = TRANSPARENT_COLOR;
     glm::vec4 color = darkTheme ? WHITE : BLACK;
@@ -4021,6 +4009,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     uint8_t fontSize = 16;
 
     UIPreferences* pref = nullptr;
+    TextInputData* tid = nullptr;
+    ScrollData* sd = nullptr;
 
     switch (type) {
         case UIElementType::Button: {
@@ -4085,10 +4075,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             pref = initPreferences();
             pref->widthPreference = UISizePreference::Grow;
 
-            extraData = new UIExtraData {
-                .scrollData = ScrollData {
-                    0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0, 0, 0, 0
-                }
+            sd = new ScrollData {
+                0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0, 0, 0, 0
             };
 
             backgroundColor = TRANSPARENT_COLOR;
@@ -4117,29 +4105,27 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 color = BLACK;
             }
 
-            extraData = new UIExtraData {
-                .textInputData = TextInputData {
-                    .cursorPosition = 0,
-                    .cursorVAO = 0,
-                    .cursorVBO = 0,
-                    .textSelectStartRow = 0,
-                    .textSelectStartCol = 0,
-                    .textSelectEndRow = 0,
-                    .textSelectEndCol = 0,
-                    .initialCursorPosition = 0,
-                    .initialRow = 0,
-                    .initialCol = 0,
-                    .prevRow = 0,
-                    .textSelected = false,
-                    .mouseDown = false,
-                    .textSelectUpdated = false,
-                    .password = false,
-                    .alignment = TextInputAlignment::Left,
-                    .mouseDownX = 0.0f,
-                    .mouseDownY = 0.0f,
-                    .lastActiveTime = 0.0f,
-                    .cmdList = CommandList(),
-                }
+            tid = new TextInputData {
+                .cursorPosition = 0,
+                .cursorVAO = 0,
+                .cursorVBO = 0,
+                .textSelectStartRow = 0,
+                .textSelectStartCol = 0,
+                .textSelectEndRow = 0,
+                .textSelectEndCol = 0,
+                .initialCursorPosition = 0,
+                .initialRow = 0,
+                .initialCol = 0,
+                .prevRow = 0,
+                .textSelected = false,
+                .mouseDown = false,
+                .textSelectUpdated = false,
+                .password = false,
+                .alignment = TextInputAlignment::Left,
+                .mouseDownX = 0.0f,
+                .mouseDownY = 0.0f,
+                .lastActiveTime = 0.0f,
+                .cmdList = CommandList(),
             };
 
             break;
@@ -4191,7 +4177,8 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         borderRadius,
         positioning,
         pref,
-        extraData,
+        tid,
+        sd,
     };
 }
 
@@ -4578,10 +4565,10 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
 
                     elem->width = width;
 
-                    if (elem->type == UIElementType::ScrollArea && elem->extraData->scrollData.width < width) {
+                    if (elem->type == UIElementType::ScrollArea && elem->scrollData->width < width) {
                         cout << "\n!!!!!";
-                        elem->extraData->scrollData.width = width;
-                        elem->extraData->scrollData.xOffset = 0;
+                        elem->scrollData->width = width;
+                        elem->scrollData->xOffset = 0;
                     }
 
                     updated = true;
@@ -4701,17 +4688,17 @@ void recalculateLayout(UIElement * elem) {
         #endif
 
         if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
-            elem->extraData->scrollData.renderedUpdate = false;
+            elem->scrollData->renderedUpdate = false;
             elem->reDraw = true;
 
             if (!tabs.empty() && !tabs[activeTabIndex].contentBlocks.empty()) {
                 reDrawAllContentBlocks();
 
-                elem->extraData->scrollData.height = 0;
+                elem->scrollData->height = 0;
             }
 
-            if (elem->extraData->scrollData.width < elem->width) {
-                elem->extraData->scrollData.xOffset = 0;
+            if (elem->scrollData->width < elem->width) {
+                elem->scrollData->xOffset = 0;
             }
         }
     }
@@ -4723,25 +4710,25 @@ void recalculateLayout(UIElement * elem) {
 
 // NOTE: only for UIElementType::ContentContainer and UIElementType::ScrollArea.
 inline void renderScrollbars(UIElement* elem) {
-    #define SCROLL_DATA elem->extraData->scrollData
+    #define SCROLL_DATA elem->scrollData
 
-    bool update = !SCROLL_DATA.renderedUpdate;
+    bool update = !SCROLL_DATA->renderedUpdate;
 
-    if (SCROLL_DATA.showVerticalScrollbar) {
+    if (SCROLL_DATA->showVerticalScrollbar) {
         // WARNING: side effects!
         float top, left, bottom, right, thumbStart, thumbEnd;
         bool dimensionsInitialized = false;
 
-        if (SCROLL_DATA.verticalScrollBarVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
-            SCROLL_DATA.verticalScrollBarVAO = 0;
+        if (SCROLL_DATA->verticalScrollBarVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollBarVAO);
+            SCROLL_DATA->verticalScrollBarVAO = 0;
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared vertical scrollbar vertex array";
             #endif
 
-            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVAO);
-                SCROLL_DATA.verticalScrollBarVBO = 0;
+            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVAO);
+                SCROLL_DATA->verticalScrollBarVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared vertical scrollbar vertex buffers";
@@ -4749,7 +4736,7 @@ inline void renderScrollbars(UIElement* elem) {
             }
         }
 
-        if (SCROLL_DATA.verticalScrollBarVAO == 0) {
+        if (SCROLL_DATA->verticalScrollBarVAO == 0) {
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nShowing vertical scrollbar. Element width: " << elem->width;
             #endif
@@ -4776,14 +4763,14 @@ inline void renderScrollbars(UIElement* elem) {
                 left, elem->top,
             };
 
-            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
+            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVBO);
             }
 
-            SETUP_BUFFERS(SCROLL_DATA.verticalScrollBarVAO, SCROLL_DATA.verticalScrollBarVBO, vertices);
+            SETUP_BUFFERS(SCROLL_DATA->verticalScrollBarVAO, SCROLL_DATA->verticalScrollBarVBO, vertices);
         }
 
-        glBindVertexArray(SCROLL_DATA.verticalScrollBarVAO);
+        glBindVertexArray(SCROLL_DATA->verticalScrollBarVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
         glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
@@ -4796,14 +4783,14 @@ inline void renderScrollbars(UIElement* elem) {
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        if (SCROLL_DATA.verticalScrollThumbVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
-            glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
-            SCROLL_DATA.verticalScrollThumbVAO = 0;
-            SCROLL_DATA.verticalScrollThumbVBO = 0;
+        if (SCROLL_DATA->verticalScrollThumbVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollThumbVAO);
+            glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
+            SCROLL_DATA->verticalScrollThumbVAO = 0;
+            SCROLL_DATA->verticalScrollThumbVBO = 0;
         }
 
-        if (SCROLL_DATA.verticalScrollThumbVAO == 0) {
+        if (SCROLL_DATA->verticalScrollThumbVAO == 0) {
             if (!dimensionsInitialized) {
                 // WARNING: side effects!
                 getScrollbarDimensions(
@@ -4820,32 +4807,32 @@ inline void renderScrollbars(UIElement* elem) {
                 left, thumbStart,
             };
 
-            if (SCROLL_DATA.verticalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
+            if (SCROLL_DATA->verticalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
             }
 
-            SETUP_BUFFERS(SCROLL_DATA.verticalScrollThumbVAO, SCROLL_DATA.verticalScrollThumbVBO, vertices);
-            SCROLL_DATA.renderedUpdate = true;
+            SETUP_BUFFERS(SCROLL_DATA->verticalScrollThumbVAO, SCROLL_DATA->verticalScrollThumbVBO, vertices);
+            SCROLL_DATA->renderedUpdate = true;
         }
 
-        glBindVertexArray(SCROLL_DATA.verticalScrollThumbVAO);
+        glBindVertexArray(SCROLL_DATA->verticalScrollThumbVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
         glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     } else {
-        if (SCROLL_DATA.verticalScrollBarVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollBarVAO);
-            SCROLL_DATA.verticalScrollBarVAO = 0;
+        if (SCROLL_DATA->verticalScrollBarVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollBarVAO);
+            SCROLL_DATA->verticalScrollBarVAO = 0;
 
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared vertical scrollbar vertex array";
             #endif
 
-            if (SCROLL_DATA.verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollBarVBO);
-                SCROLL_DATA.verticalScrollBarVBO = 0;
+            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVBO);
+                SCROLL_DATA->verticalScrollBarVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared vertical scroll bar vertex buffers";
@@ -4853,17 +4840,17 @@ inline void renderScrollbars(UIElement* elem) {
             }
         }
 
-        if (SCROLL_DATA.verticalScrollThumbVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.verticalScrollThumbVAO);
-            SCROLL_DATA.verticalScrollThumbVAO = 0;
+        if (SCROLL_DATA->verticalScrollThumbVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollThumbVAO);
+            SCROLL_DATA->verticalScrollThumbVAO = 0;
 
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared vertical scrollbar thumb vertex array";
             #endif
 
-            if (SCROLL_DATA.verticalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.verticalScrollThumbVBO);
-                SCROLL_DATA.verticalScrollThumbVBO = 0;
+            if (SCROLL_DATA->verticalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
+                SCROLL_DATA->verticalScrollThumbVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared vertical scroll bar thumb vertex buffers";
@@ -4872,22 +4859,22 @@ inline void renderScrollbars(UIElement* elem) {
         }
     }
 
-    if (SCROLL_DATA.showHorizontalScrollbar) {
+    if (SCROLL_DATA->showHorizontalScrollbar) {
         // WARNING: side effects!
         float top, left, bottom, right, thumbStart, thumbEnd;
         bool dimensionsInitialized = false;
 
-        if (SCROLL_DATA.horizontalScrollBarVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollBarVAO);
-            SCROLL_DATA.horizontalScrollBarVAO = 0;
+        if (SCROLL_DATA->horizontalScrollBarVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollBarVAO);
+            SCROLL_DATA->horizontalScrollBarVAO = 0;
 
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared horizontal scrollbar vertex array";
             #endif
 
-            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollBarVAO);
-                SCROLL_DATA.horizontalScrollBarVBO = 0;
+            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollBarVAO);
+                SCROLL_DATA->horizontalScrollBarVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared horizontal scrollbar vertex buffers";
@@ -4895,7 +4882,7 @@ inline void renderScrollbars(UIElement* elem) {
             }
         }
 
-        if (SCROLL_DATA.horizontalScrollBarVAO == 0) {
+        if (SCROLL_DATA->horizontalScrollBarVAO == 0) {
             getScrollbarDimensions(
                 elem, top, right, bottom, left,
                 thumbStart, thumbEnd,
@@ -4911,28 +4898,28 @@ inline void renderScrollbars(UIElement* elem) {
                 left, top,
             };
 
-            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollBarVBO);
+            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollBarVBO);
             }
 
-            SETUP_BUFFERS(SCROLL_DATA.horizontalScrollBarVAO, SCROLL_DATA.horizontalScrollBarVBO, vertices);
+            SETUP_BUFFERS(SCROLL_DATA->horizontalScrollBarVAO, SCROLL_DATA->horizontalScrollBarVBO, vertices);
         }
 
-        glBindVertexArray(SCROLL_DATA.horizontalScrollBarVAO);
+        glBindVertexArray(SCROLL_DATA->horizontalScrollBarVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
         glUniform4f(uniforms[U_DEFAULT_COLOR], 0.9f, 0.9f, 0.9f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        if (SCROLL_DATA.horizontalScrollThumbVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
-            glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
-            SCROLL_DATA.horizontalScrollThumbVAO = 0;
-            SCROLL_DATA.horizontalScrollThumbVBO = 0;
+        if (SCROLL_DATA->horizontalScrollThumbVAO != 0 && update) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
+            glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
+            SCROLL_DATA->horizontalScrollThumbVAO = 0;
+            SCROLL_DATA->horizontalScrollThumbVBO = 0;
         }
 
-        if (SCROLL_DATA.horizontalScrollThumbVAO == 0) {
+        if (SCROLL_DATA->horizontalScrollThumbVAO == 0) {
             if (!dimensionsInitialized) {
                 // WARNING: side effects!
                 getScrollbarDimensions(
@@ -4949,32 +4936,32 @@ inline void renderScrollbars(UIElement* elem) {
                 thumbEnd, top,
             };
 
-            if (SCROLL_DATA.horizontalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
+            if (SCROLL_DATA->horizontalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
             }
 
-            SETUP_BUFFERS(SCROLL_DATA.horizontalScrollThumbVAO, SCROLL_DATA.horizontalScrollThumbVBO, vertices);
-            SCROLL_DATA.renderedUpdate = true;
+            SETUP_BUFFERS(SCROLL_DATA->horizontalScrollThumbVAO, SCROLL_DATA->horizontalScrollThumbVBO, vertices);
+            SCROLL_DATA->renderedUpdate = true;
         }
 
-        glBindVertexArray(SCROLL_DATA.horizontalScrollThumbVAO);
+        glBindVertexArray(SCROLL_DATA->horizontalScrollThumbVAO);
         glUseProgram(shaders[SHADER_DEFAULT].programId);
 
         glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     } else {
-        if (SCROLL_DATA.horizontalScrollBarVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
-            SCROLL_DATA.horizontalScrollBarVAO = 0;
+        if (SCROLL_DATA->horizontalScrollBarVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
+            SCROLL_DATA->horizontalScrollBarVAO = 0;
 
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared horizontal scrollbar vertex array";
             #endif
 
-            if (SCROLL_DATA.horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
-                SCROLL_DATA.horizontalScrollBarVBO = 0;
+            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
+                SCROLL_DATA->horizontalScrollBarVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared horizontal scroll bar vertex buffers";
@@ -4982,17 +4969,17 @@ inline void renderScrollbars(UIElement* elem) {
             }
         }
 
-        if (SCROLL_DATA.horizontalScrollThumbVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA.horizontalScrollThumbVAO);
-            SCROLL_DATA.horizontalScrollThumbVAO = 0;
+        if (SCROLL_DATA->horizontalScrollThumbVAO != 0) {
+            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
+            SCROLL_DATA->horizontalScrollThumbVAO = 0;
 
             #ifdef DEBUG_SCROLL_AREA
                 cout << "\nCleared horizontal scrollbar thumb vertex array";
             #endif
 
-            if (SCROLL_DATA.horizontalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA.horizontalScrollThumbVBO);
-                SCROLL_DATA.horizontalScrollThumbVBO = 0;
+            if (SCROLL_DATA->horizontalScrollThumbVBO != 0) {
+                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
+                SCROLL_DATA->horizontalScrollThumbVBO = 0;
 
                 #ifdef DEBUG_SCROLL_AREA
                     cout << "\nCleared horizontal scroll bar thumb vertex buffers";
@@ -5305,8 +5292,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 pos.y = elem.parent->top + elem.top;
 
                 if (elem.parent->type == UIElementType::ScrollArea) {
-                    pos.x -= elem.parent->extraData->scrollData.xOffset;
-                    pos.y -= elem.parent->extraData->scrollData.yOffset;
+                    pos.x -= elem.parent->scrollData->xOffset;
+                    pos.y -= elem.parent->scrollData->yOffset;
                 }
 
                 dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
@@ -5315,20 +5302,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.reDraw
                     && elem.preferences->widthPreference == UISizePreference::Grow
                     && elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->extraData->scrollData.width < dim.w
+                    && elem.parent->scrollData->width < dim.w
                 ) {
-                    elem.parent->extraData->scrollData.width = dim.w;
+                    elem.parent->scrollData->width = dim.w;
                     elem.reDraw = false;
                 }
 
                 if (elem.parent->type == UIElementType::ScrollArea) {
-                    if (elem.parent->extraData->scrollData.height < dim.z) {
+                    if (elem.parent->scrollData->height < dim.z) {
                         #ifdef DEBUG_SCROLL_AREA
                             cout << "\nScroll height less than dim.z " << dim.z;
                         #endif
 
-                        elem.parent->extraData->scrollData.height = dim.z;
-                        elem.parent->extraData->scrollData.renderedUpdate = false;
+                        elem.parent->scrollData->height = dim.z;
+                        elem.parent->scrollData->renderedUpdate = false;
                         elem.parent->reDraw = true;
                     }
                 }
@@ -5350,9 +5337,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 if (
                     elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->extraData->scrollData.width < elem.width
+                    && elem.parent->scrollData->width < elem.width
                 ) {
-                    elem.parent->extraData->scrollData.width = elem.width;
+                    elem.parent->scrollData->width = elem.width;
                 }
             }
 
@@ -5469,12 +5456,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             if (elem.totalChildren) {
                 if (elem.reDraw) {
-                    elem.extraData->scrollData.showVerticalScrollbar = elem.extraData->scrollData.height > elem.height;
-                    elem.extraData->scrollData.showHorizontalScrollbar = elem.extraData->scrollData.width > elem.width;
+                    elem.scrollData->showVerticalScrollbar = elem.scrollData->height > elem.height;
+                    elem.scrollData->showHorizontalScrollbar = elem.scrollData->width > elem.width;
 
                     #ifdef DEBUG_SCROLL_AREA
-                        cout << "\nShow vertical scrollbar: " << elem.extraData->scrollData.showVerticalScrollbar;
-                        cout << "\nShow horizontal scrollbar: " << elem.extraData->scrollData.showHorizontalScrollbar;
+                        cout << "\nShow vertical scrollbar: " << elem.scrollData->showVerticalScrollbar;
+                        cout << "\nShow horizontal scrollbar: " << elem.scrollData->showHorizontalScrollbar;
                     #endif
                 }
 
@@ -5483,11 +5470,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 float width = elem.width;
                 float height = elem.height;
 
-                if (elem.extraData->scrollData.showVerticalScrollbar) {
+                if (elem.scrollData->showVerticalScrollbar) {
                     width -= SCROLL_BAR_THICKNESS;
                 }
 
-                if (elem.extraData->scrollData.showHorizontalScrollbar) {
+                if (elem.scrollData->showHorizontalScrollbar) {
                     height -= SCROLL_BAR_THICKNESS;
                 }
 
@@ -5678,7 +5665,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            TextInputData* tid = &elem.extraData->textInputData;
+            TextInputData* tid = elem.textInputData;
 
             glm::vec2 pos = glm::vec2(elem.left + TEXT_INPUT_PADDING, elem.top + TEXT_INPUT_PADDING);
 
@@ -5904,7 +5891,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             bool selectStarted = false;
             bool selectEnded = false;
 
-            TextInputData* tid = &elem.extraData->textInputData;
+            TextInputData* tid = elem.textInputData;
 
             vector<float> selectionVertices;
             selectionVertices.reserve(18);
@@ -6267,7 +6254,7 @@ bool renderContentBlock(
         return false;
     }
 
-    if (CONTENT_CONTAINER.extraData == nullptr) {
+    if (CONTENT_CONTAINER.parent == nullptr) {
         cout << "\nRender Error: UIElement's parent is NULL!";
         return false;
     }
@@ -6740,7 +6727,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
 }
 
 void renderCBMoveMarker() {
-    #define GET_TOP(block) block->top - 1.5f - CONTENT_CONTAINER.extraData->scrollData.yOffset
+    #define GET_TOP(block) block->top - 1.5f - CONTENT_CONTAINER.scrollData->yOffset
 
     if (
         highlightedContentBlock.mouseDown
@@ -6885,8 +6872,8 @@ void deleteCBsToDeletedBlocks(
 }
 
 void processRedo(UIElement* element) {
-    #define CUR_CMD element->extraData->textInputData.cmdList.currentCommand
-    #define CUR_POS element->extraData->textInputData.cursorPosition
+    #define CUR_CMD element->textInputData->cmdList.currentCommand
+    #define CUR_POS element->textInputData->cursorPosition
 
     Command* cmd = CUR_CMD;
 
@@ -6894,17 +6881,17 @@ void processRedo(UIElement* element) {
         return;
     }
 
-    moveToNextCommand(element->extraData->textInputData.cmdList);
+    moveToNextCommand(element->textInputData->cmdList);
 
     cmd = CUR_CMD;
 
     switch (cmd->type) {
         case CommandType::Type: {
-            // cout << "\nCursor Position: " << elem->extraData->textInputData.cursorPosition;
+            // cout << "\nCursor Position: " << elem->textInputData->cursorPosition;
             if (cmd->cursorPos == element->text.length()) {
                 // cout << "\nAppending at the end! " << cmd->str.length();
                 element->text += cmd->str;
-                // elem->extraData->textInputData.cursorPosition += cmd->str.length();
+                // elem->textInputData->cursorPosition += cmd->str.length();
                 break;
             }
 
@@ -6926,7 +6913,7 @@ void processRedo(UIElement* element) {
         }
 
         case CommandType::Replace: {
-            TextInputData* tid = &element->extraData->textInputData;
+            TextInputData* tid = element->textInputData;
             element->text.erase(tid->textSelectStartCol, cmd->replace.prevString.length());
 
             if (!cmd->replace.newString.empty()) {
@@ -6947,9 +6934,9 @@ void processRedo(UIElement* element) {
 }
 
 void processUndo(UIElement* element) {
-    #define CUR_POS element->extraData->textInputData.cursorPosition
+    #define CUR_POS element->textInputData->cursorPosition
 
-    TextInputData* tid = &element->extraData->textInputData;
+    TextInputData* tid = element->textInputData;
 
     if (tid == nullptr) { return; }
 
@@ -8188,14 +8175,11 @@ void processCBRedo(ContentTab* tab) {
 }
 
 void processCommand(UIElement* elem, Command* cmd) {
-    #define CUR_POS elem->extraData->textInputData.cursorPosition
-    if (
-        (elem->type == UIElementType::TextInput || elem->type == UIElementType::TextArea)
-        && elem->extraData != nullptr
-    ) {
+    #define CUR_POS elem->textInputData->cursorPosition
+    if (elem->type == UIElementType::TextInput || elem->type == UIElementType::TextArea) {
         bool append = false;
 
-        TextInputData * tid = &elem->extraData->textInputData;
+        TextInputData * tid = elem->textInputData;
 
         switch(cmd->type) {
             case CommandType::None: break;
@@ -8300,11 +8284,11 @@ void processCommand(UIElement* elem, Command* cmd) {
         }
 
         if (append) {
-            appendCommand(elem->extraData->textInputData.cmdList, cmd);
+            appendCommand(elem->textInputData->cmdList, cmd);
         }
 
         #ifdef DEBUG_COMMANDS
-            printCommands(elem->extraData->textInputData.cmdList);
+            printCommands(elem->textInputData->cmdList);
         #endif
     }
     #undef CUR_POS
@@ -8335,7 +8319,7 @@ void getScrollbarDimensions(
     if (vertical) {
         float height = elem->height;
 
-        if (elem->extraData->scrollData.showHorizontalScrollbar) {
+        if (elem->scrollData->showHorizontalScrollbar) {
             height -= SCROLL_BAR_THICKNESS;
         }
 
@@ -8344,8 +8328,8 @@ void getScrollbarDimensions(
         left = right - SCROLL_BAR_THICKNESS;
         bottom = top + height;
 
-        thumbStart = top + elem->extraData->scrollData.yOffset / elem->extraData->scrollData.height * height;
-        thumbEnd = thumbStart + elem->height / elem->extraData->scrollData.height * height;
+        thumbStart = top + elem->scrollData->yOffset / elem->scrollData->height * height;
+        thumbEnd = thumbStart + elem->height / elem->scrollData->height * height;
 
         if (thumbEnd > top + height) {
             float barWidth = thumbEnd - thumbStart;
@@ -8359,7 +8343,7 @@ void getScrollbarDimensions(
 
     float width = elem->width;
 
-    if (elem->extraData->scrollData.showVerticalScrollbar) {
+    if (elem->scrollData->showVerticalScrollbar) {
         width -= SCROLL_BAR_THICKNESS;
     }
 
@@ -8368,8 +8352,8 @@ void getScrollbarDimensions(
     right = elem->left + width;
     left = elem->left;
 
-    thumbStart = left + elem->extraData->scrollData.xOffset / elem->extraData->scrollData.width * width;
-    thumbEnd = thumbStart + elem->width / elem->extraData->scrollData.width * width;
+    thumbStart = left + elem->scrollData->xOffset / elem->scrollData->width * width;
+    thumbEnd = thumbStart + elem->width / elem->scrollData->width * width;
 
     if (thumbEnd > elem->left + width) {
         float barWidth = thumbEnd - thumbStart;

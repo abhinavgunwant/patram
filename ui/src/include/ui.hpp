@@ -350,15 +350,6 @@ struct ScrollData {
     uint32_t horizontalScrollThumbVBO;
 };
 
-union UIExtraData {
-    TextInputData textInputData;
-    ScrollData scrollData;
-
-    ~UIExtraData() {
-        textInputData.~TextInputData();
-    }
-};
-
 struct ContentBlock;
 
 struct UIElement {
@@ -414,7 +405,8 @@ struct UIElement {
     UIPositioning positioning;
 
     UIPreferences * preferences;
-    UIExtraData * extraData;
+    TextInputData* textInputData;
+    ScrollData* scrollData;
 };
 
 struct ContentBlock {
