@@ -90,6 +90,8 @@ bool dirExists(filesystem::path p);
 OpenedFileType checkFile(filesystem::path p);
 vector<string> readFileText(filesystem::path p);
 
+vector<string> getVaults();
+
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);
 void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len);

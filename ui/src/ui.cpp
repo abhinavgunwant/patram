@@ -310,17 +310,18 @@ void onCreateANewVaultClicked() {
 void onSwitchVaultClicked() {
     #define ELEM_COUNT  4
 
-    // TODO: get the number of vaults here.
-    uint32_t numberOfVaults = 7;
+    vector<string> vaults = getVaults();
+
+    // TODO: if there are no vaults, show an appropriate message.
 
     UIElement** elems = new UIElement*[ELEM_COUNT];
-    UIElement** vaultElems = new UIElement*[numberOfVaults];
+    UIElement** vaultElems = new UIElement*[vaults.size()];
 
     for (int i=0; i<ELEM_COUNT; ++i) {
         elems[i] = new UIElement;
     }
 
-    for (int i=0; i<numberOfVaults; ++i) {
+    for (int i=0; i<vaults.size(); ++i) {
         vaultElems[i] = new UIElement;
         (*vaultElems[i]).positioning = UIPositioning::Relative;
     }
@@ -357,7 +358,7 @@ void onSwitchVaultClicked() {
 
     float top = 120.0f;
 
-    for (int i=0; i<numberOfVaults; ++i, top += 40.0f) {
+    for (int i=0; i<vaults.size(); ++i, top += 40.0f) {
         initElement(*vaultElems[i], UIElementType::Button, top, 0.0f, 0.0f, 35.0f);
 
         SETUP_BUFFERS((*vaultElems[i]).vao, (*vaultElems[i]).vbo, vertices);
@@ -365,7 +366,7 @@ void onSwitchVaultClicked() {
         (*vaultElems[i]).parent = elems[2];
         (*vaultElems[i]).borderRadius = 0;
         (*vaultElems[i]).backgroundColor = TRANSPARENT_COLOR;
-        (*vaultElems[i]).text = "Untitled Vault " + to_string(i);
+        (*vaultElems[i]).text = vaults[i];
     }
 
     (*elems[2]).text = "SWITCH_VLT_SCR";
@@ -381,8 +382,8 @@ void onSwitchVaultClicked() {
     (*elems[1]).text = "Switch Vault";
     (*elems[1]).fontSize = 16;
 
-    (*elems[2]).capacity = numberOfVaults;
-    (*elems[2]).totalChildren = numberOfVaults;
+    (*elems[2]).capacity = vaults.size();
+    (*elems[2]).totalChildren = vaults.size();
     (*elems[2]).children = vaultElems;
 
     WELCOME_SCREEN.children = elems;

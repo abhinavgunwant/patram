@@ -149,6 +149,22 @@ vector<string> readFileText(filesystem::path p) {
     return lines;
 }
 
+vector<string> getVaults() {
+    vector<string> vaults;
+
+    try {
+        for (const auto& entry: filesystem::directory_iterator(getVaultsDirectory())) {
+            if (entry.is_directory()) {
+                vaults.push_back(entry.path().filename().string());
+            }
+        }
+    } catch (const filesystem::filesystem_error& e) {
+        cerr << "\nError: " << e.what();
+    }
+
+    return vaults;
+}
+
 void createCacheDirectory() {
     filesystem::create_directories(getCacheDirectory());
 }
