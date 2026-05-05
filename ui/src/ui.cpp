@@ -311,7 +311,7 @@ void onSwitchVaultClicked() {
     #define ELEM_COUNT  4
 
     // TODO: get the number of vaults here.
-    uint32_t numberOfVaults = 4;
+    uint32_t numberOfVaults = 7;
 
     UIElement** elems = new UIElement*[ELEM_COUNT];
     UIElement** vaultElems = new UIElement*[numberOfVaults];
@@ -327,20 +327,23 @@ void onSwitchVaultClicked() {
 
     initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*elems[1], UIElementType::Label, 60.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[2], UIElementType::ScrollArea, 120.0f, 0.0f, 200.0f, 200.0f);
-    initElement(*elems[3], UIElementType::Button, 200.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultElems[0], UIElementType::Button, 0.0f, 0.0f, 0.0f, 30.0f);
-    initElement(*vaultElems[1], UIElementType::Button, 50.0f, 0.0f, 0.0f, 30.0f);
-    initElement(*vaultElems[2], UIElementType::Button, 100.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultElems[3], UIElementType::Button, 150.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[2], UIElementType::ScrollArea, 120.0f, 0.0f, 300.0f, 200.0f);
+    initElement(*elems[3], UIElementType::Button, 330.0f, 0.0f, 0.0f, 0.0f);
 
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
+    SETUP_BUFFERS((*elems[2]).vao, (*elems[2]).vbo, vertices);
+    SETUP_BUFFERS(
+        (*elems[2]).scrollData->verticalScrollBarVAO,
+        (*elems[2]).scrollData->verticalScrollBarVBO,
+        vertices
+    );
+    SETUP_BUFFERS(
+        (*elems[2]).scrollData->verticalScrollThumbVAO,
+        (*elems[2]).scrollData->verticalScrollThumbVBO,
+        vertices
+    );
     SETUP_BUFFERS((*elems[3]).vao, (*elems[3]).vbo, vertices);
-    SETUP_BUFFERS((*vaultElems[0]).vao, (*vaultElems[0]).vbo, vertices);
-    SETUP_BUFFERS((*vaultElems[1]).vao, (*vaultElems[1]).vbo, vertices);
-    SETUP_BUFFERS((*vaultElems[2]).vao, (*vaultElems[2]).vbo, vertices);
-    SETUP_BUFFERS((*vaultElems[3]).vao, (*vaultElems[3]).vbo, vertices);
 
     for (int i=0; i<ELEM_COUNT; ++i) {
         (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
@@ -352,6 +355,19 @@ void onSwitchVaultClicked() {
         }
     }
 
+    float top = 120.0f;
+
+    for (int i=0; i<numberOfVaults; ++i, top += 40.0f) {
+        initElement(*vaultElems[i], UIElementType::Button, top, 0.0f, 0.0f, 35.0f);
+
+        SETUP_BUFFERS((*vaultElems[i]).vao, (*vaultElems[i]).vbo, vertices);
+        (*vaultElems[i]).preferences->widthPreference = UISizePreference::Full;
+        (*vaultElems[i]).parent = elems[2];
+        (*vaultElems[i]).borderRadius = 0;
+        (*vaultElems[i]).backgroundColor = TRANSPARENT_COLOR;
+        (*vaultElems[i]).text = "Untitled Vault " + to_string(i);
+    }
+
     (*elems[2]).text = "SWITCH_VLT_SCR";
     (*elems[2]).scrollData->showVerticalScrollbar = true;
 
@@ -359,24 +375,14 @@ void onSwitchVaultClicked() {
     (*elems[3]).preferences->heightPreference = UISizePreference::Grow;
     (*elems[3]).id = VAULT_BACK_BUTTON_ID;
 
-    (*vaultElems[0]).text = "Untitled Vault";
-    (*vaultElems[1]).text = "Untitled Vault 1";
-    (*vaultElems[2]).text = "Untitled Vault 2";
-    (*vaultElems[3]).text = "Untitled Vault 3";
-
-    (*vaultElems[0]).parent = elems[2];
-    (*vaultElems[1]).parent = elems[2];
-    (*vaultElems[2]).parent = elems[2];
-    (*vaultElems[3]).parent = elems[2];
-
     (*elems[0]).text = "patram";
     (*elems[0]).fontSize = 48;
 
     (*elems[1]).text = "Switch Vault";
     (*elems[1]).fontSize = 16;
 
-    (*elems[2]).capacity = 4;
-    (*elems[2]).totalChildren = 4;
+    (*elems[2]).capacity = numberOfVaults;
+    (*elems[2]).totalChildren = numberOfVaults;
     (*elems[2]).children = vaultElems;
 
     WELCOME_SCREEN.children = elems;
@@ -5400,7 +5406,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 && elem.preferences->widthPreference == UISizePreference::Grow
             ) {
                 RopeRenderResult rRes = getTextDimensions(
-                    elem.text, pos, resolution, elem.fontSize, elem.parent->width, false
+                    elem.text, pos, resolution, elem.fontSize,
+                    elem.parent->left, elem.parent->width, false
                 );
 
                 pos.x = rRes.x;
@@ -5424,6 +5431,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
+                elem.parent->left,
                 elem.parent->width,
                 elem.color,
                 elem.fontSize,
@@ -5438,12 +5446,27 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         case UIElementType::Button: {
             if (elem.reDraw) {
                 if (
+                    elem.parent->type == UIElementType::ScrollArea
+                    && (
+                        elem.top < elem.parent->top
+                        || elem.top > elem.parent->top + elem.parent->height
+                    )
+                ) {
+                    elem.show = false;
+                    elem.reDraw = false;
+                    return;
+                }
+
+                if (
                     elem.preferences->widthPreference == UISizePreference::Grow
                     || elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
                     glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING);
 
-                    RopeRenderResult rRes = getTextDimensions(elem.text, pos, resolution, elem.fontSize, elem.parent->width, false);
+                    RopeRenderResult rRes = getTextDimensions(
+                        elem.text, pos, resolution, elem.fontSize,
+                        elem.parent->height, elem.parent->width, false
+                    );
 
                     if (elem.preferences->widthPreference == UISizePreference::Grow) {
                         elem.width = BUTTON_PADDING + rRes.width + BUTTON_PADDING;
@@ -5452,8 +5475,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     if (elem.preferences->heightPreference == UISizePreference::Grow) {
                         elem.height = BUTTON_PADDING + rRes.height + BUTTON_PADDING;
                     }
+                }
 
+                if (elem.preferences->widthPreference == UISizePreference::Full) {
                     updateElementDimensionsAccordingToPreferences(&elem);
+                }
+
+                if (elem.preferences->horizontalAlign == UIAlignment::Center) {
+                    elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
                 }
 
                 #ifdef DEBUG_RENDER
@@ -5474,6 +5503,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
             }
+
+            if (!elem.show) { return; }
 
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_BUTTON].programId);
@@ -5511,6 +5542,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
+                elem.parent->left,
                 elem.parent->width,
                 elem.color,
                 elem.fontSize,
@@ -5528,6 +5560,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
             // are set, then render borders.
 
             if (elem.totalChildren) {
+                float width = elem.width;
+                float height = elem.height;
+
                 if (elem.reDraw) {
                     elem.scrollData->showVerticalScrollbar = elem.scrollData->height > elem.height;
                     elem.scrollData->showHorizontalScrollbar = elem.scrollData->width > elem.width;
@@ -5536,12 +5571,25 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         cout << "\nShow vertical scrollbar: " << elem.scrollData->showVerticalScrollbar;
                         cout << "\nShow horizontal scrollbar: " << elem.scrollData->showHorizontalScrollbar;
                     #endif
+
+                    if (elem.preferences->horizontalAlign == UIAlignment::Center) {
+                        elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
+                    }
+
+                    glBindVertexArray(elem.vao);
+                    glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+
+                    float vertices[8] = {
+                        elem.left,              elem.top,
+                        elem.left + elem.width, elem.top,
+                        elem.left + elem.width, elem.top + elem.height,
+                        elem.left,              elem.top + elem.height,
+                    };
+
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+                    elem.reDraw = false;
                 }
-
-                elem.reDraw = false;
-
-                float width = elem.width;
-                float height = elem.height;
 
                 if (elem.scrollData->showVerticalScrollbar) {
                     width -= SCROLL_BAR_THICKNESS;
@@ -5559,7 +5607,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 }
 
                 glDisable(GL_SCISSOR_TEST);
+
                 renderScrollbars(&elem);
+
+                glBindVertexArray(elem.vao);
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUniform4f(uniforms[U_DEFAULT_COLOR], 0.4f, 0.4f, 0.4f, 1.0f);
+                glDrawArrays(GL_LINE_LOOP, 0, 4);
             }
             break;
         }
@@ -5758,6 +5812,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 pos,
                 resolution,
                 elem.fontSize,
+                elem.parent->left,
                 elem.parent->width
             );
 
@@ -5781,6 +5836,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
+                elem.parent->left,
                 elem.parent->width,
                 elem.color,
                 elem.fontSize,
@@ -6238,6 +6294,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                         tabsDisplay[i].vbo,
                         verts,
                         bytes,
+                        elem.left,
                         elem.width,
                         WHITE,
                         16,
@@ -6341,14 +6398,39 @@ void destroyElement(UIElement& elem) {
         glDeleteVertexArrays(1, &elem.textInputData->textSelectVAO);
         glDeleteBuffers(1, &elem.textInputData->textSelectVBO);
 
+        elem.textInputData->cursorVAO = 0;
+        elem.textInputData->cursorVBO = 0;
+        elem.textInputData->textSelectVAO = 0;
+        elem.textInputData->textSelectVBO = 0;
+
         delete elem.textInputData;
+        elem.textInputData = nullptr;
     }
 
     if (elem.scrollData != nullptr) {
+        glDeleteVertexArrays(1, &elem.scrollData->verticalScrollBarVAO);
+        glDeleteBuffers(1, &elem.scrollData->verticalScrollBarVBO);
+        glDeleteVertexArrays(1, &elem.scrollData->verticalScrollThumbVAO);
+        glDeleteBuffers(1, &elem.scrollData->verticalScrollThumbVBO);
+        glDeleteVertexArrays(1, &elem.scrollData->horizontalScrollBarVAO);
+        glDeleteBuffers(1, &elem.scrollData->horizontalScrollBarVBO);
+        glDeleteVertexArrays(1, &elem.scrollData->horizontalScrollThumbVAO);
+        glDeleteBuffers(1, &elem.scrollData->horizontalScrollThumbVBO);
+
+        elem.scrollData->verticalScrollBarVAO = 0;
+        elem.scrollData->verticalScrollBarVBO = 0;
+        elem.scrollData->verticalScrollThumbVAO = 0;
+        elem.scrollData->verticalScrollThumbVBO = 0;
+        elem.scrollData->horizontalScrollBarVAO = 0;
+        elem.scrollData->horizontalScrollBarVBO = 0;
+        elem.scrollData->horizontalScrollThumbVAO = 0;
+        elem.scrollData->horizontalScrollThumbVBO = 0;
+
         delete elem.scrollData;
+        elem.scrollData = nullptr;
     }
 
-    // elem.parent = nullptr;
+    elem.parent = nullptr;
 
     destroyElementChildren(elem);
 }
@@ -7148,8 +7230,9 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         if (
             elem->show
             && (
-                elem->type == UIElementType::Button || elem->type == UIElementType::TextInput
-                || elem->type == UIElementType::TextArea || elem->type == UIElementType::ScrollArea
+                elem->type == UIElementType::Button
+                || elem->type == UIElementType::TextInput
+                || elem->type == UIElementType::TextArea
                 || elem->type == UIElementType::ContentContainer
                 || elem->type == UIElementType::IconButton
                 || elem->type == UIElementType::TabBar
@@ -7157,6 +7240,16 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
             && (
                 x > elem->left && x < elem->left + elem->width
                 && y > elem->top && y < elem->top + elem->height
+            )
+            && !(
+                elem->type == UIElementType::Button
+                && elem->parent->type == UIElementType::ScrollArea
+                && (
+                    y > elem->parent->top + elem->parent->height
+                    || y < elem->parent->top
+                    || x > elem->parent->left + elem->parent->width
+                    || x < elem->parent->left
+                )
             )
         ) {
             return elem;
@@ -7167,7 +7260,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         if (elem->totalChildren > 0) {
             for (uint8_t i=0; i<elem->totalChildren; ++i) {
                 UIElement* e = elem->children[(int)i];
-                elemStack.push(e);
+
+                if (e->show) {
+                    elemStack.push(e);
+                }
             }
         }
     }

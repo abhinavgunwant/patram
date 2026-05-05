@@ -87,6 +87,7 @@ inline bool getCharParams(
     float& texY1,
     float& texY2,
     float& advance,
+    float parentLeft,
     float parentWidth,
     uint32_t& rows,
     uint8_t fontSize,
@@ -126,6 +127,7 @@ RopeRenderResult renderTextCached(
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
+    float parentLeft,
     float parentWidth,
     glm::fvec4 color = glm::fvec4(1.0f, 1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
@@ -135,7 +137,7 @@ RopeRenderResult renderTextCached(
 
 RopeRenderResult getTextDimensions(
     string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
-    float parentWidth, bool breakLine = true
+    float parentLeft, float parentWidth, bool breakLine = true
 );
 
 /**

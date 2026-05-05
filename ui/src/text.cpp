@@ -114,6 +114,7 @@ inline bool getCharParams(
     float& texY1,
     float& texY2,
     float& advance,
+    float parentLeft,
     float parentWidth,
     uint32_t& rows,
     uint8_t fontSize,
@@ -150,8 +151,8 @@ inline bool getCharParams(
 
     if (
         parentWidth < 800.0f
-        && xpos + glyphWidth > parentWidth - CONTENT_HORIZONTAL_MARGIN
-        || xpos + glyphWidth > contentRight
+        && (xpos + glyphWidth) - parentLeft > parentWidth - CONTENT_HORIZONTAL_MARGIN
+        || (xpos + glyphWidth) - parentLeft > contentRight
     ) {
         if (!breakLine) {
             return false;
@@ -318,6 +319,7 @@ RopeRenderResult renderContentRope(
                 texY1,
                 texY2,
                 advance,
+                0.0f,
                 parentWidth,
                 result.rows,
                 fontSize,
@@ -371,6 +373,7 @@ RopeRenderResult renderTextCached(
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
+    float parentLeft,
     float parentWidth,
     glm::vec4 color,
     uint8_t fontSize,
@@ -419,6 +422,7 @@ RopeRenderResult renderTextCached(
             texY1,
             texY2,
             advance,
+            parentLeft,
             parentWidth,
             result.rows,
             fontSize,
@@ -457,7 +461,7 @@ RopeRenderResult renderTextCached(
 
 RopeRenderResult getTextDimensions(
     string str, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
-    float parentWidth, bool breakLine
+    float parentLeft, float parentWidth, bool breakLine
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
 
@@ -487,6 +491,7 @@ RopeRenderResult getTextDimensions(
             texY1,
             texY2,
             advance,
+            parentLeft,
             parentWidth,
             result.rows,
             fontSize,
