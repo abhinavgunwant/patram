@@ -864,57 +864,67 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
     if (elem != nullptr) {
-        switch (elem->type) {
-            case UIElementType::ScrollArea: {
-                bool scrolled = false;
-                bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
-                    || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
-                bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
-                bool verticalScroll = !shiftPressed && yOffset != 0;
+        if (elem->parent->type == UIElementType::ScrollArea) {
+            elem = elem->parent;
+        }
 
-                if (verticalScroll) {
-                    if (elem->height + Y_OFFSET < elem->scrollData->height && yOffset < 0) {
-                        Y_OFFSET += SCROLL_AMOUNT;
-                    } else if (yOffset > 0) {
-                        Y_OFFSET -= SCROLL_AMOUNT;
-                    }
+        if (elem->type == UIElementType::ScrollArea) {
+            bool scrolled = false;
+            bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+                || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+            bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
+            bool verticalScroll = !shiftPressed && yOffset != 0;
 
-                    if (Y_OFFSET < 0) {
-                        Y_OFFSET = 0;
-                    } else if (Y_OFFSET > elem->scrollData->height) {
-                        Y_OFFSET = elem->scrollData->height - elem->height;
-                    }
-
-                    scrolled = true;
+            if (verticalScroll) {
+                if (elem->height + Y_OFFSET < elem->scrollData->height && yOffset < 0) {
+                    Y_OFFSET += SCROLL_AMOUNT;
+                } else if (yOffset > 0) {
+                    Y_OFFSET -= SCROLL_AMOUNT;
                 }
 
-                if (horizontalScroll) {
-                    if (
-                        elem->width + X_OFFSET < elem->scrollData->width
-                        && (!shiftPressed && xOffset < 0 || yOffset < 0)
-                    ) {
-                        X_OFFSET += SCROLL_AMOUNT;
-                    } else if (
-                        X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
-                    ) {
-                        X_OFFSET -= SCROLL_AMOUNT;
-                    }
-
-                    if (X_OFFSET < 0) {
-                        X_OFFSET = 0;
-                    }
-
-                    scrolled = true;
+                if (Y_OFFSET < 0) {
+                    Y_OFFSET = 0;
+                } else if (Y_OFFSET > elem->scrollData->height) {
+                    Y_OFFSET = elem->scrollData->height - elem->height;
                 }
 
-                if (scrolled) {
-                    elem->scrollData->lastScrolled = glfwGetTime();
-                    elem->scrollData->renderedUpdate = false;
+                scrolled = true;
+            }
+
+            if (horizontalScroll) {
+                if (
+                    elem->width + X_OFFSET < elem->scrollData->width
+                    && (!shiftPressed && xOffset < 0 || yOffset < 0)
+                ) {
+                    X_OFFSET += SCROLL_AMOUNT;
+                } else if (
+                    X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
+                ) {
+                    X_OFFSET -= SCROLL_AMOUNT;
+                }
+
+                if (X_OFFSET < 0) {
+                    X_OFFSET = 0;
+                }
+
+                scrolled = true;
+            }
+
+            if (scrolled) {
+                elem->reDraw = true;
+                elem->scrollData->lastScrolled = glfwGetTime();
+                elem->scrollData->renderedUpdate = false;
+
+                for (int i=0; i<elem->totalChildren; ++i) {
+                    elem->children[i]->reDraw = true;
+                    elem->children[i]->show = true;
                 }
             }
-            break;
 
-        case UIElementType::ContentContainer:
+            return;
+        }
+
+        if (elem->type == UIElementType::ContentContainer) {
             ContentTab* tab = &tabs[activeTabIndex];
 
             if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
@@ -938,8 +948,6 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
 
             cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
-
-            break;
         }
     }
 
@@ -5444,24 +5452,29 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
         }
 
         case UIElementType::Button: {
+            float top = elem.top;
+
+            if (elem.parent->type == UIElementType::ScrollArea) {
+                top -= elem.parent->scrollData->yOffset;
+            }
+
             if (elem.reDraw) {
-                if (
-                    elem.parent->type == UIElementType::ScrollArea
-                    && (
-                        elem.top < elem.parent->top
-                        || elem.top > elem.parent->top + elem.parent->height
-                    )
-                ) {
-                    elem.show = false;
-                    elem.reDraw = false;
-                    return;
+                if (elem.parent->type == UIElementType::ScrollArea) {
+                    if (
+                        top < elem.parent->top
+                        || top > elem.parent->top + elem.parent->height
+                    ) {
+                        elem.show = false;
+                        elem.reDraw = false;
+                        return;
+                    }
                 }
 
                 if (
                     elem.preferences->widthPreference == UISizePreference::Grow
                     || elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
-                    glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING);
+                    glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, top + BUTTON_PADDING);
 
                     RopeRenderResult rRes = getTextDimensions(
                         elem.text, pos, resolution, elem.fontSize,
@@ -5490,13 +5503,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 #endif
 
                 float right = elem.left + elem.width;
-                float bottom = elem.top + elem.height;
+                float bottom = top + elem.height;
 
                 float vertices[] = {
                     right, bottom,
-                    right, elem.top,
+                    right, top,
                     elem.left, bottom,
-                    elem.left, elem.top,
+                    elem.left, top,
                 };
 
                 glBindVertexArray(elem.vao);
@@ -5525,14 +5538,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.hoverColor.w
             );
 
-            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, top);
             glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
             glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
             glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, elem.top + BUTTON_PADDING);
+            glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, top + BUTTON_PADDING);
 
             renderTextCached(
                 elem.text,
@@ -5564,14 +5577,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 float height = elem.height;
 
                 if (elem.reDraw) {
-                    elem.scrollData->showVerticalScrollbar = elem.scrollData->height > elem.height;
-                    elem.scrollData->showHorizontalScrollbar = elem.scrollData->width > elem.width;
-
-                    #ifdef DEBUG_SCROLL_AREA
-                        cout << "\nShow vertical scrollbar: " << elem.scrollData->showVerticalScrollbar;
-                        cout << "\nShow horizontal scrollbar: " << elem.scrollData->showHorizontalScrollbar;
-                    #endif
-
                     if (elem.preferences->horizontalAlign == UIAlignment::Center) {
                         elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
                     }
@@ -5588,7 +5593,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 
-                    elem.reDraw = false;
+                    elem.scrollData->height = 0.0f;
                 }
 
                 if (elem.scrollData->showVerticalScrollbar) {
@@ -5603,10 +5608,28 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glEnable(GL_SCISSOR_TEST);
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    renderElement(*elem.children[i], resolution, cursor);
+                    if (elem.children[i]->show || elem.reDraw) {
+                        renderElement(*elem.children[i], resolution, cursor);
+                    }
+
+                    if (elem.reDraw) {
+                        elem.scrollData->height += elem.children[i]->height;
+                    }
                 }
 
                 glDisable(GL_SCISSOR_TEST);
+
+                if (elem.reDraw) {
+                    elem.scrollData->showVerticalScrollbar = elem.scrollData->height > elem.height;
+                    elem.scrollData->showHorizontalScrollbar = elem.scrollData->width > elem.width;
+
+                    #ifdef DEBUG_SCROLL_AREA
+                        cout << "\nShow vertical scrollbar: " << elem.scrollData->showVerticalScrollbar;
+                        cout << "\nShow horizontal scrollbar: " << elem.scrollData->showHorizontalScrollbar;
+                    #endif
+
+                    elem.reDraw = false;
+                }
 
                 renderScrollbars(&elem);
 
@@ -7211,6 +7234,11 @@ void processUndo(UIElement* element) {
 }
 
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
+    #define IS_CURSOR_WITHIN_BOUNDS() (\
+        x > elem->left && x < elem->left + elem->width\
+        && y > elem->top && y < elem->top + elem->height\
+    )
+
     // Check if the cursor is above the exact same position as it was when
     // mouse was down.
     // TODO: check instead if the mouse down element and mouse release
@@ -7223,6 +7251,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     }
 
     UIElement* elem = nullptr;
+    UIElement* scrollElem = nullptr;
 
     while (!elemStack.empty()) {
         elem = elemStack.top();
@@ -7237,10 +7266,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
                 || elem->type == UIElementType::IconButton
                 || elem->type == UIElementType::TabBar
             )
-            && (
-                x > elem->left && x < elem->left + elem->width
-                && y > elem->top && y < elem->top + elem->height
-            )
+            && IS_CURSOR_WITHIN_BOUNDS()
             && !(
                 elem->type == UIElementType::Button
                 && elem->parent->type == UIElementType::ScrollArea
@@ -7253,6 +7279,13 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
             )
         ) {
             return elem;
+        }
+
+        if (
+            elem->show && elem->type == UIElementType::ScrollArea
+            && IS_CURSOR_WITHIN_BOUNDS()
+        ) {
+            scrollElem = elem;
         }
 
         elemStack.pop();
@@ -7268,7 +7301,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         }
     }
 
+    if (scrollElem != nullptr) { return scrollElem; }
+
     return nullptr;
+    #undef IS_CURSOR_WITHIN_BOUNDS
 }
 
 void cbKeypressType(ContentTab* tab, string text) {
