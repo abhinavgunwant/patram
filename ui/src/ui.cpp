@@ -88,6 +88,8 @@ bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
 
+string selectedVault = "";
+
 GLFWcursor* textCursor;
 GLFWcursor* pointerCursor;
 
@@ -226,6 +228,7 @@ void onVaultSetupCreateVaultClicked() {
         createVaultIndexFile(vaultName, vaultPassword);
 
         vaultSelected = true;
+        selectedVault = vaultName;
 
         onVaultBackClicked();
         return;
@@ -439,6 +442,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case SWITCH_VAULT_OPTION_ID: {
                             setDefaultVault(elem->text);
                             vaultSelected = true;
+                            selectedVault = elem->text;
                             onVaultBackClicked();
                             return;
                         };
@@ -1285,6 +1289,7 @@ void setupUI(bool isDarkTheme) {
 
     if (defaultVaultExists()) {
         vaultSelected = true;
+        selectedVault = getDefaultVault();
         setupWelcomeScreen();
     } else {
         if (!getVaults().empty()) {
@@ -3691,7 +3696,15 @@ void newNote() {
 
     ++untitledNotes;
 
-    newTab(title);
+    string separator = string(1, filesystem::path::preferred_separator);
+
+    newTab(
+        getVaultsDirectory()
+        + separator
+        + selectedVault
+        + separator
+        + title
+    );
 
     updateWindowTitle();
 
