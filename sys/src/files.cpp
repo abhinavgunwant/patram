@@ -98,6 +98,11 @@ inline filesystem::path getCacheIndexPath() {
     return getCacheDirectoryPath() / "index";
 }
 
+string getDefaultVaultFile() {
+    string separator = string(1, filesystem::path::preferred_separator);
+    return getPatramDirectory() + separator + ".default";
+}
+
 inline filesystem::path getCacheDirectoryPath() {
     return filesystem::path(getCacheDirectory());
 }
@@ -114,12 +119,55 @@ inline string getVaultsDirectory() {
     return getPatramDirectory() + string(1, filesystem::path::preferred_separator) + "vaults";
 }
 
+string getDefaultVault() {
+    vector<string> dvf = readFileText(getDefaultVaultFile());
+
+    if (!dvf.empty()) { return dvf[0]; }
+
+    return "";
+}
+
+void setDefaultVault(string vaultName) {
+    string p = getDefaultVaultFile();
+
+    if (filesystem::exists(p) && filesystem::is_regular_file(p)) {
+        ofstream file(p, ios::out | ios::trunc);
+        file << vaultName;
+        file.close();
+
+        return;
+    }
+
+    ofstream file(p, ios::out);
+    file << vaultName;
+    file.close();
+}
+
 inline bool fileExists(filesystem::path p) {
     return filesystem::exists(p) && filesystem::is_regular_file(p);
 }
 
 inline bool dirExists(filesystem::path p) {
     return filesystem::exists(p) && filesystem::is_directory(p);
+}
+
+bool defaultVaultExists() {
+    string separator = string(1, filesystem::path::preferred_separator);
+    filesystem::path defaultVaultFilePath = getDefaultVaultFile();
+
+    if (filesystem::exists(defaultVaultFilePath) && filesystem::is_regular_file(defaultVaultFilePath)) {
+        vector<string> fileLines = readFileText(defaultVaultFilePath);
+
+        if (fileLines.size() == 1) {
+            string vaultName = fileLines[0];
+
+            filesystem::path defaultVaultPath = getVaultsDirectory() + separator + vaultName;
+
+            return filesystem::exists(defaultVaultPath) && filesystem::is_directory(defaultVaultPath);
+        }
+    }
+
+    return false;
 }
 
 OpenedFileType checkFile(filesystem::path p) {

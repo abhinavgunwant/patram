@@ -85,7 +85,7 @@ bool focused = true;
 bool mouse1Down = false;
 bool cursorShouldUpdate = false;
 bool showFps = false;
-bool vaultSelected = true;
+bool vaultSelected = false;
 bool cbTextDragging = false;
 
 GLFWcursor* textCursor;
@@ -312,8 +312,6 @@ void onSwitchVaultClicked() {
 
     vector<string> vaults = getVaults();
 
-    // TODO: if there are no vaults, show an appropriate message.
-
     UIElement** elems = new UIElement*[ELEM_COUNT];
     UIElement** vaultElems = new UIElement*[vaults.size()];
 
@@ -367,6 +365,7 @@ void onSwitchVaultClicked() {
         (*vaultElems[i]).borderRadius = 0;
         (*vaultElems[i]).backgroundColor = TRANSPARENT_COLOR;
         (*vaultElems[i]).text = vaults[i];
+        (*vaultElems[i]).id = SWITCH_VAULT_OPTION_ID;
     }
 
     (*elems[2]).text = "SWITCH_VLT_SCR";
@@ -437,6 +436,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;
                         case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); return;
                         case NEW_NOTE_BUTTON_ID: newNote(); return;
+                        case SWITCH_VAULT_OPTION_ID: {
+                            setDefaultVault(elem->text);
+                            vaultSelected = true;
+                            onVaultBackClicked();
+                            return;
+                        };
                     }
                 }
 
@@ -1028,13 +1033,14 @@ void setupWelcomeScreen() {
     version->preferences->widthPreference = UISizePreference::Grow;
 
     if (vaultSelected) {
-        line1->text = "Default Vault";
+        line1->text = getDefaultVault();
         line1->fontSize = 24;
         line1->preferences->heightPreference = UISizePreference::Grow;
     } else {
         line1->text = "Welcome to patram - your lightweight notes manager!";
         line1->fontSize = 16;
     }
+
     line1->preferences->horizontalAlign = UIAlignment::Center;
     line1->preferences->widthPreference = UISizePreference::Grow;
 
@@ -1277,7 +1283,17 @@ void setupUI(bool isDarkTheme) {
     activeElement = &CONTENT_CONTAINER;
     #endif
 
-    setupWelcomeScreen();
+    if (defaultVaultExists()) {
+        vaultSelected = true;
+        setupWelcomeScreen();
+    } else {
+        if (!getVaults().empty()) {
+            onSwitchVaultClicked();
+        } else {
+            setupWelcomeScreen();
+        }
+    }
+
     // addChild(welcomeMainContainer, title);
     // addChild(&WELCOME_SCREEN, welcomeMainContainer);
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);

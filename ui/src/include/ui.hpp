@@ -101,6 +101,7 @@
 #define TOGGLE_EXPLORER_BUTTON_ID                   8
 #define VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID        9
 #define VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID    10
+#define SWITCH_VAULT_OPTION_ID                      11
 #define OPEN_BUTTON_ID                              1000
 
 #define BUTTON_PADDING              8

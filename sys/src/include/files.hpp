@@ -78,14 +78,20 @@ string getCacheDirectory();
 
 filesystem::path getCacheIndexPath();
 
+string getDefaultVaultFile();
+
 // Should precede `getFontInfoPath`
 filesystem::path getFontAtlasPath(uint8_t index);
 filesystem::path getFontInfoPath(uint8_t index);
 
 string getVaultsDirectory();
+string getDefaultVault();
+
+void setDefaultVault(string vaultName);
 
 bool fileExists(filesystem::path p);
 bool dirExists(filesystem::path p);
+bool defaultVaultExists();
 
 OpenedFileType checkFile(filesystem::path p);
 vector<string> readFileText(filesystem::path p);
