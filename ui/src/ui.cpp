@@ -226,6 +226,7 @@ void onVaultSetupCreateVaultClicked() {
     if (nameInit) {
         createVaultInfoFile(vaultName, vaultPassword);
         createVaultIndexFile(vaultName, vaultPassword);
+        setDefaultVault(vaultName);
 
         vaultSelected = true;
         selectedVault = vaultName;
