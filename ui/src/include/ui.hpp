@@ -131,10 +131,11 @@
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
 
-#define ROOT_CONTAINER      elements[0]
-#define WELCOME_SCREEN      elements[1]
-#define CONTENT_CONTAINER   elements[2]
-#define TAB_BAR             elements[3]
+#define ROOT_CONTAINER          elements[0]
+#define WELCOME_SCREEN          elements[1]
+#define CONTENT_CONTAINER       elements[2]
+#define TAB_BAR                 elements[3]
+#define WELCOME_MAIN_CONTAINER  elements[4]
 
 using namespace std;
 
@@ -548,7 +549,7 @@ void addChild(UIElement* parent, UIElement* child);
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
 void recalculateLayout(UIElement * elem);
 void updateCBCursor(ContentTab* tab, SelectionData sd);
-void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor);
+void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 void destroyElement(UIElement& elem);
 void destroyElementChildren(UIElement& elem);
 glm::vec2 getActiveContentDimensions();

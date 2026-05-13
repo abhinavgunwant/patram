@@ -1,4 +1,3 @@
-#include "glm/ext/vector_float3.hpp"
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -640,7 +639,9 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         }
     }
 
-    renderElement(ROOT_CONTAINER, resolution, cursor);
+    float _ = 0.0f;
+
+    renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
 
     glfwSwapBuffers(window);
 }
@@ -979,7 +980,6 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
 }
 
 void setupWelcomeScreen() {
-    float createVaultButtonTop = 380.0f;
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     UIElement* title = &elements[5];
@@ -992,9 +992,9 @@ void setupWelcomeScreen() {
     UIElement* createVaultButton = &elements[12];
     UIElement* switchVaultButton = &elements[13];
 
-    initElement(*title, UIElementType::Label, 80.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*version, UIElementType::Label, 140.0f, 0.0f, 100.0f, 100.0f);
-    initElement(*line1, UIElementType::Label, 200.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*line1, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
 
     if (darkTheme) {
         title->color = WHITE;
@@ -1003,26 +1003,24 @@ void setupWelcomeScreen() {
     }
 
     if (vaultSelected) {
-        createVaultButtonTop = 500.0f;
-
-        initElement(*line2, UIElementType::Button, 270.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line3, UIElementType::Button, 320.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line4, UIElementType::Button, 370.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line5, UIElementType::Button, 420.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line2, UIElementType::Button, 32.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line3, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line4, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line5, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
 
         SETUP_BUFFERS(line2->vao, line2->vbo, vertices);
         SETUP_BUFFERS(line3->vao, line3->vbo, vertices);
         SETUP_BUFFERS(line4->vao, line4->vbo, vertices);
         SETUP_BUFFERS(line5->vao, line5->vbo, vertices);
     } else {
-        initElement(*line2, UIElementType::Label, 260.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line3, UIElementType::Label, 280.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line4, UIElementType::Label, 300.0f, 0.0f, 100.0f, 100.0f);
-        initElement(*line5, UIElementType::Label, 320.0f, 0.0f, 100.0f, 100.0f);
+        initElement(*line2, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line3, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line4, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line5, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     }
 
-    initElement(*createVaultButton, UIElementType::Button, createVaultButtonTop, 0.0f, 100.0f, 100.0f);
-    initElement(*switchVaultButton, UIElementType::Button, createVaultButtonTop + 50.0f, 0.0f, 100.0f, 100.0f);
+    initElement(*createVaultButton, UIElementType::Button, 24.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*switchVaultButton, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
 
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
     SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
@@ -1031,11 +1029,13 @@ void setupWelcomeScreen() {
     title->fontSize = 48;
     title->preferences->horizontalAlign = UIAlignment::Center;
     title->preferences->widthPreference = UISizePreference::Grow;
+    title->positioning = UIPositioning::Relative_sibling;
 
     version->text = "v0.1.0";
     version->fontSize = 16;
     version->preferences->horizontalAlign = UIAlignment::Center;
     version->preferences->widthPreference = UISizePreference::Grow;
+    version->positioning = UIPositioning::Relative_sibling;
 
     if (vaultSelected) {
         line1->text = getDefaultVault();
@@ -1048,6 +1048,7 @@ void setupWelcomeScreen() {
 
     line1->preferences->horizontalAlign = UIAlignment::Center;
     line1->preferences->widthPreference = UISizePreference::Grow;
+    line1->positioning = UIPositioning::Relative_sibling;
 
     if (vaultSelected) {
         line2->text = "New note (Ctrl + N)";
@@ -1060,6 +1061,7 @@ void setupWelcomeScreen() {
     line2->fontSize = 16;
     line2->preferences->horizontalAlign = UIAlignment::Center;
     line2->preferences->widthPreference = UISizePreference::Grow;
+    line2->positioning = UIPositioning::Relative_sibling;
 
     if (vaultSelected) {
         line3->text = "New Folder (Ctrl + Shift + N)";
@@ -1070,6 +1072,7 @@ void setupWelcomeScreen() {
     line3->fontSize = 16;
     line3->preferences->horizontalAlign = UIAlignment::Center;
     line3->preferences->widthPreference = UISizePreference::Grow;
+    line3->positioning = UIPositioning::Relative_sibling;
 
     if (vaultSelected) {
         line4->text = "Save Note (Ctrl + S)";
@@ -1080,6 +1083,7 @@ void setupWelcomeScreen() {
     line4->fontSize = 16;
     line4->preferences->horizontalAlign = UIAlignment::Center;
     line4->preferences->widthPreference = UISizePreference::Grow;
+    line4->positioning = UIPositioning::Relative_sibling;
 
     if (vaultSelected) {
         line5->text = "Toggle Explorer (Ctrl + E)";
@@ -1090,6 +1094,7 @@ void setupWelcomeScreen() {
     line5->fontSize = 16;
     line5->preferences->horizontalAlign = UIAlignment::Center;
     line5->preferences->widthPreference = UISizePreference::Grow;
+    line5->positioning = UIPositioning::Relative_sibling;
 
     createVaultButton->text = "Create a note vault";
     createVaultButton->fontSize = 16;
@@ -1097,6 +1102,7 @@ void setupWelcomeScreen() {
     createVaultButton->preferences->widthPreference = UISizePreference::Grow;
     createVaultButton->preferences->heightPreference = UISizePreference::Grow;
     createVaultButton->id = CREATE_VAULT_BUTTON_ID;
+    createVaultButton->positioning = UIPositioning::Relative_sibling;
 
     switchVaultButton->text = "Switch note vault";
     switchVaultButton->fontSize = 16;
@@ -1104,18 +1110,19 @@ void setupWelcomeScreen() {
     switchVaultButton->preferences->widthPreference = UISizePreference::Grow;
     switchVaultButton->preferences->heightPreference = UISizePreference::Grow;
     switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
+    switchVaultButton->positioning = UIPositioning::Relative_sibling;
 
-    addChild(&WELCOME_SCREEN, title);
-    addChild(&WELCOME_SCREEN, version);
-    addChild(&WELCOME_SCREEN, line1);
-    addChild(&WELCOME_SCREEN, line2);
-    addChild(&WELCOME_SCREEN, line3);
-    addChild(&WELCOME_SCREEN, line4);
-    addChild(&WELCOME_SCREEN, line5);
-    addChild(&WELCOME_SCREEN, createVaultButton);
+    addChild(&WELCOME_MAIN_CONTAINER, title);
+    addChild(&WELCOME_MAIN_CONTAINER, version);
+    addChild(&WELCOME_MAIN_CONTAINER, line1);
+    addChild(&WELCOME_MAIN_CONTAINER, line2);
+    addChild(&WELCOME_MAIN_CONTAINER, line3);
+    addChild(&WELCOME_MAIN_CONTAINER, line4);
+    addChild(&WELCOME_MAIN_CONTAINER, line5);
+    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton);
 
     if (vaultSelected) {
-        addChild(&WELCOME_SCREEN, switchVaultButton);
+        addChild(&WELCOME_MAIN_CONTAINER, switchVaultButton);
     }
 }
 
@@ -1189,21 +1196,11 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
 
-    // UIElement* menuBar = &elements[0];
-    // UIElement* newButton = &elements[1];
-    // UIElement* openButton = &elements[2];
-    // contentContainer = &elements[1];
-    // UIElement* tabBar = &elements[2];
-    UIElement* welcomeMainContainer = &elements[4];
-
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    // initElement(*menuBar, UI_CONTAINER, 0.0f, 0.0f, WINDOW_WIDTH, 64.0f);
-    // initElement(*newButton, UI_ICON_BUTTON, 8.0f, 8.0f, 48.0f, 48.0f);
-    // initElement(*openButton, UI_ICON_BUTTON, 8.0f, 64.0f, 48.0f, 48.0f);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
     initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
     initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    initElement(*welcomeMainContainer, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
+    initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
 
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
@@ -1227,17 +1224,15 @@ void setupUI(bool isDarkTheme) {
         ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
         TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
         WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG_DARK;
-        // menuBar->backgroundColor = TOOL_BAR_BG_DARK;
-        // menuBar->color = WHITE;
     } else {
         ROOT_CONTAINER.backgroundColor = ROOT_BG;
         TAB_BAR.backgroundColor = TOOL_BAR_BG;
         WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG;
-        // menuBar->backgroundColor = TOOL_BAR_BG;
-        // menuBar->color = BLACK;
     }
 
     ROOT_CONTAINER.text = "Root Container";
+    ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    ROOT_CONTAINER.preferences->heightPreference = UISizePreference::Full;
 
     TAB_BAR.text = "Tab Bar";
     TAB_BAR.preferences->widthPreference = UISizePreference::Full;
@@ -1245,33 +1240,23 @@ void setupUI(bool isDarkTheme) {
     TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
     TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
 
-    // menuBar->text = "test";
-
-    // menuBar->preferences->widthPreference = UI_FULL;
-    // menuBar->preferences->heightPreference = UI_FIXED;
-    // menuBar->preferences->verticalAlign = UI_ALIGN_CENTER;
-    // menuBar->preferences->horizontalAlign = UI_ALIGN_CENTER;
-
-    // newButton->text = "New";
-    // newButton->icon = Icon::Plus;
-
-    // openButton->icon = Icon::File;
-    // openButton->text = "Open";
-    // openButton->id = OPEN_BUTTON_ID;
-
     CONTENT_CONTAINER.text = "Main Scroll Area";
     CONTENT_CONTAINER.scrollData->width = WINDOW_WIDTH;
     CONTENT_CONTAINER.scrollData->height = WINDOW_HEIGHT - 64;
     CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
+    CONTENT_CONTAINER.preferences->verticalAlign = UIAlignment::End;
     CONTENT_CONTAINER.active = true;
 
     WELCOME_SCREEN.text = "Welcome Screen";
     WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Full;
+    WELCOME_SCREEN.preferences->heightPreference = UISizePreference::Full;
 
-    welcomeMainContainer->preferences->horizontalAlign = UIAlignment::Center;
-    welcomeMainContainer->preferences->widthPreference = UISizePreference::Fixed;
-    welcomeMainContainer->text = "Welcome Main Container";
+    WELCOME_MAIN_CONTAINER.preferences->verticalAlign = UIAlignment::Center;
+    WELCOME_MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    WELCOME_MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Grow;
+    WELCOME_MAIN_CONTAINER.preferences->direction = false;
+    WELCOME_MAIN_CONTAINER.text = "WEL_MAIN_CONT";
 
     #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
@@ -1300,14 +1285,9 @@ void setupUI(bool isDarkTheme) {
         }
     }
 
-    // addChild(welcomeMainContainer, title);
-    // addChild(&WELCOME_SCREEN, welcomeMainContainer);
+    addChild(&WELCOME_SCREEN, &WELCOME_MAIN_CONTAINER);
     addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &TAB_BAR);
-    // addChild(menuBar, newButton);
-    // addChild(menuBar, openButton);
-
-    // addChild(&ROOT_CONTAINER, menuBar);
     addChild(&ROOT_CONTAINER, &CONTENT_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
@@ -1333,7 +1313,9 @@ void enterRenderLoop() {
 
         glm::vec2 cursor(mouseX, mouseY);
 
-        renderElement(ROOT_CONTAINER, resolution, cursor);
+        float _ = 0.0f;
+
+        renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
 
         #ifdef DEBUG_TEXT
             if (glfwGetTime() - prevTextTime >= 1.0f) {
@@ -4773,6 +4755,26 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                 break;
         }
 
+        switch (elem->preferences->verticalAlign) {
+            case UIAlignment::Start:
+                if (elem->parent != nullptr && elem->positioning == UIPositioning::Absolute) {
+                    elem->top = elem->parent->top;
+                }
+                break;
+
+            case UIAlignment::End:
+                if (elem->parent != nullptr && elem->positioning == UIPositioning::Absolute) {
+                    elem->top = elem->parent->top + elem->parent->height - elem->height;
+                }
+                break;
+
+            case UIAlignment::Center:
+                if (elem->parent != nullptr && elem->height < elem->parent->height && elem->positioning == UIPositioning::Absolute) {
+                    elem->top = elem->parent->top + (elem->parent->height - elem->height) / 2;
+                }
+                break;
+        }
+
         switch (elem->preferences->horizontalAlign) {
             case UIAlignment::Start:
                 if (elem->parent != nullptr) {
@@ -4822,7 +4824,9 @@ void recalculateLayout(UIElement * elem) {
     }
 
     for (uint32_t i=0; i<elem->totalChildren; ++i) {
-        recalculateLayout(elem->children[i]);
+        if (elem->children[i]->show) {
+            recalculateLayout(elem->children[i]);
+        }
     }
 }
 
@@ -5241,53 +5245,80 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
+void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {
     switch (elem.type) {
         case UIElementType::Container: {
             if (!elem.show) { break; }
 
             if (elem.reDraw) {
-                #ifdef DEBUG_RENDER
-                    cout << "\nRe-drawing Container";
-                #endif
-
-                float right = elem.left + elem.width;
-                float bottom = elem.top + elem.height;
-
-                float vertices[] = {
-                    right, bottom,
-                    right, elem.top,
-                    elem.left, bottom,
-                    elem.left, elem.top,
-                };
-
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                updateElementDimensionsAccordingToPreferences(&elem);
             }
 
-            glBindVertexArray(elem.vao);
-            glUseProgram(shaders[SHADER_DEFAULT].programId);
+            if (elem.backgroundColor.a != 0) {
+                if (elem.reDraw) {
+                    #ifdef DEBUG_RENDER
+                        cout << "\nRe-drawing Container";
+                    #endif
 
-            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_DEFAULT_COLOR],
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
-            );
+                    float right = elem.left + elem.width;
+                    float bottom = elem.top + elem.height;
 
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    float vertices[] = {
+                        right, bottom,
+                        right, elem.top,
+                        elem.left, bottom,
+                        elem.left, elem.top,
+                    };
+
+                    glBindVertexArray(elem.vao);
+                    glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                }
+
+                glBindVertexArray(elem.vao);
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
+                glUniform4f(
+                    uniforms[U_DEFAULT_COLOR],
+                    elem.backgroundColor.x,
+                    elem.backgroundColor.y,
+                    elem.backgroundColor.z,
+                    elem.backgroundColor.w
+                );
+
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
+
+            float oldHeight = elem.height;
 
             if (elem.totalChildren) {
+                float yp = 0.0f;
+
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    renderElement(*elem.children[i], resolution, cursor);
+                    renderElement(*elem.children[i], resolution, cursor, i, yp);
+                }
+
+                if (
+                    elem.reDraw
+                    && !elem.preferences->direction
+                    && elem.preferences->heightPreference == UISizePreference::Grow
+                ) {
+                    elem.height = yp - elem.top - elem.children[0]->top
+                        + elem.children[elem.totalChildren - 1]->height;
                 }
             }
 
-            elem.reDraw = false;
+            if (oldHeight != elem.height) {
+                elem.reDraw = true;
+
+                for (uint32_t i=0; i<elem.totalChildren; ++i) {
+                    elem.children[i]->reDraw = true;
+                }
+            } else {
+                elem.reDraw = false;
+            }
 
             break;
         }
@@ -5414,30 +5445,64 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     pos.y -= elem.parent->scrollData->yOffset;
                 }
 
-                dim = renderText(elem.text, pos, resolution, elem.color, elem.fontSize);
+                RopeRenderResult rrr = renderTextCached(
+                    elem.text,
+                    pos,
+                    resolution,
+                    elem.textVAO,
+                    elem.textVBO,
+                    elem.textBufferSize,
+                    elem.textVerticesCount,
+                    elem.parent->left,
+                    elem.parent->width,
+                    elem.color,
+                    elem.fontSize,
+                    elem.reDraw,
+                    false
+                );
 
                 if (
                     elem.reDraw
                     && elem.preferences->widthPreference == UISizePreference::Grow
                     && elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->scrollData->width < dim.w
+                    && elem.parent->scrollData->width < rrr.width
                 ) {
-                    elem.parent->scrollData->width = dim.w;
+                    elem.parent->scrollData->width = rrr.width;
                     elem.reDraw = false;
                 }
 
                 if (elem.parent->type == UIElementType::ScrollArea) {
-                    if (elem.parent->scrollData->height < dim.z) {
+                    if (elem.parent->scrollData->height < rrr.height) {
                         #ifdef DEBUG_SCROLL_AREA
                             cout << "\nScroll height less than dim.z " << dim.z;
                         #endif
 
-                        elem.parent->scrollData->height = dim.z;
+                        elem.parent->scrollData->height = rrr.height;
                         elem.parent->scrollData->renderedUpdate = false;
                         elem.parent->reDraw = true;
                     }
                 }
                 break;
+            }
+
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                if (childIndex == 0) {
+                    pos.x = elem.parent->left + elem.left;
+                    pos.y = elem.parent->top + elem.top;
+                } else {
+                    if (elem.parent->preferences->direction) {
+                        pos.x = elem.parent->left
+                            + elem.parent->children[childIndex - 1]->left
+                            + elem.parent->children[childIndex - 1]->width;
+                    } else {
+                        pos.y = yPrev
+                            + elem.parent->children[childIndex - 1]->height
+                            + elem.top;
+                    }
+                }
             }
 
             if (
@@ -5449,8 +5514,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                     elem.parent->left, elem.parent->width, false
                 );
 
-                pos.x = rRes.x;
                 elem.width = rRes.width;
+                elem.height = rRes.height;
                 updateElementDimensionsAccordingToPreferences(&elem);
                 pos.x = elem.left;
 
@@ -5478,15 +5543,44 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 false
             );
 
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                yPrev = pos.y;
+            }
+
             elem.reDraw = false;
             break;
         }
 
         case UIElementType::Button: {
             float top = elem.top;
+            float left = elem.left;
 
             if (elem.parent->type == UIElementType::ScrollArea) {
                 top -= elem.parent->scrollData->yOffset;
+            }
+
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                if (childIndex == 0) {
+                    left = elem.parent->left + elem.left;
+                    top = elem.parent->top + elem.top;
+                } else {
+                    if (elem.parent->preferences->direction) {
+                        left = elem.parent->left
+                            + elem.parent->children[childIndex - 1]->left
+                            + elem.parent->children[childIndex - 1]->width
+                            + elem.left;
+                    } else {
+                        top = yPrev
+                            + elem.parent->children[childIndex - 1]->height
+                            + elem.top;
+                    }
+                }
             }
 
             if (elem.reDraw) {
@@ -5527,20 +5621,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
 
                 if (elem.preferences->horizontalAlign == UIAlignment::Center) {
                     elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
+                    left = elem.left;
                 }
 
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing";
                 #endif
 
-                float right = elem.left + elem.width;
+                float right = left + elem.width;
                 float bottom = top + elem.height;
 
                 float vertices[] = {
                     right, bottom,
                     right, top,
-                    elem.left, bottom,
-                    elem.left, top,
+                    left, bottom,
+                    left, top,
                 };
 
                 glBindVertexArray(elem.vao);
@@ -5569,14 +5664,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.hoverColor.w
             );
 
-            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, top);
+            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], left, top);
             glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
             glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
             glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, top + BUTTON_PADDING);
+            glm::vec2 pos = glm::vec2(left + BUTTON_PADDING, top + BUTTON_PADDING);
 
             renderTextCached(
                 elem.text,
@@ -5593,6 +5688,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 elem.reDraw,
                 false
             );
+
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                yPrev = top;
+            }
 
             elem.reDraw = false;
 
@@ -5638,9 +5740,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor) {
                 glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
                 glEnable(GL_SCISSOR_TEST);
 
+                float yp = 0;
+
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     if (elem.children[i]->show || elem.reDraw) {
-                        renderElement(*elem.children[i], resolution, cursor);
+                        renderElement(*elem.children[i], resolution, cursor, i, yp);
                     }
 
                     if (elem.reDraw) {
@@ -7287,36 +7391,61 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
     while (!elemStack.empty()) {
         elem = elemStack.top();
 
-        if (
-            elem->show
-            && (
-                elem->type == UIElementType::Button
-                || elem->type == UIElementType::TextInput
-                || elem->type == UIElementType::TextArea
-                || elem->type == UIElementType::ContentContainer
-                || elem->type == UIElementType::IconButton
-                || elem->type == UIElementType::TabBar
-            )
-            && IS_CURSOR_WITHIN_BOUNDS()
-            && !(
-                elem->type == UIElementType::Button
-                && elem->parent->type == UIElementType::ScrollArea
-                && (
-                    y > elem->parent->top + elem->parent->height
-                    || y < elem->parent->top
-                    || x > elem->parent->left + elem->parent->width
-                    || x < elem->parent->left
+        if (elem->show && IS_CURSOR_WITHIN_BOUNDS()) {
+            if ((
+                    elem->type == UIElementType::Button
+                    || elem->type == UIElementType::TextInput
+                    || elem->type == UIElementType::TextArea
+                    || elem->type == UIElementType::ContentContainer
+                    || elem->type == UIElementType::IconButton
+                    || elem->type == UIElementType::TabBar
                 )
-            )
-        ) {
-            return elem;
-        }
+                && !(
+                    elem->type == UIElementType::Button
+                    && elem->parent->type == UIElementType::ScrollArea
+                    && (
+                        y > elem->parent->top + elem->parent->height
+                        || y < elem->parent->top
+                        || x > elem->parent->left + elem->parent->width
+                        || x < elem->parent->left
+                    )
+                )
+            ) {
+                return elem;
+            }
 
-        if (
-            elem->show && elem->type == UIElementType::ScrollArea
-            && IS_CURSOR_WITHIN_BOUNDS()
-        ) {
-            scrollElem = elem;
+            if (
+                elem->type == UIElementType::Container
+                && elem->totalChildren
+                && elem->children[0]->positioning == UIPositioning::Relative_sibling
+            ) {
+                float yPrev = elem->top;
+
+                for (uint8_t i=0; i<elem->totalChildren; ++i) {
+                    UIElement* e = elem->children[(int)i];
+
+                    float top = yPrev;
+
+                    if (i > 0) {
+                        top += elem->children[i - 1]->height;
+                    }
+
+                    top += e->top;
+
+                    if (
+                        x > e->left && x < e->left + e->width
+                        && y > top && y < top + e->height
+                    ) {
+                        return e;
+                    }
+
+                    yPrev = top;
+                }
+            }
+
+            if (elem->type == UIElementType::ScrollArea) {
+                scrollElem = elem;
+            }
         }
 
         elemStack.pop();
