@@ -56,15 +56,17 @@ enum class FileDialogMode : uint8_t {
     Save,
 };
 
-struct VaultIndexEntry {
-    string title;
-    uint32_t customOrder;
-    uint32_t parentId;
+enum class VaultIndexEntryType: uint8_t {
+    Folder,
+    File,
 };
 
-struct VaultIndex {
-    vector<VaultIndexEntry> notes;
-    vector<VaultIndexEntry> folders;
+struct VaultIndexEntry {
+    VaultIndexEntryType type;
+
+    string title;
+
+    vector<VaultIndexEntry> children;
 };
 
 filesystem::path getHomeDirectoryPath();
@@ -84,7 +86,9 @@ string getDefaultVaultFile();
 filesystem::path getFontAtlasPath(uint8_t index);
 filesystem::path getFontInfoPath(uint8_t index);
 
+filesystem::path getVaultsDirectoryPath();
 string getVaultsDirectory();
+
 string getDefaultVault();
 
 void setDefaultVault(string vaultName);
@@ -97,6 +101,10 @@ OpenedFileType checkFile(filesystem::path p);
 vector<string> readFileText(filesystem::path p);
 
 vector<string> getVaults();
+
+vector<VaultIndexEntry> getVaultIndex(string vaultName);
+void setVaultIndex(string vaultName, vector<VaultIndexEntry>);
+vector<VaultIndexEntry> getVaultContent(string vaultName);
 
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);

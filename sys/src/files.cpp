@@ -115,6 +115,10 @@ inline filesystem::path getFontInfoPath(uint8_t index) {
     return getCacheDirectoryPath() / (FONT_INFO_FILE_NAME_PREFIX + to_string(static_cast<int>(index)));
 }
 
+inline filesystem::path getVaultsDirectoryPath() {
+    return getPatramDirectoryPath() / "vaults";
+}
+
 inline string getVaultsDirectory() {
     return getPatramDirectory() + string(1, filesystem::path::preferred_separator) + "vaults";
 }
@@ -141,6 +145,24 @@ void setDefaultVault(string vaultName) {
     ofstream file(p, ios::out);
     file << vaultName;
     file.close();
+}
+
+bool checkMagic(ifstream& f, uint8_t m1, uint8_t m2, uint8_t m3, uint8_t m4) {
+    uint8_t magic[4];
+
+    f.read((char *)&magic[0], sizeof(uint8_t));
+    f.read((char *)&magic[1], sizeof(uint8_t));
+    f.read((char *)&magic[2], sizeof(uint8_t));
+    f.read((char *)&magic[3], sizeof(uint8_t));
+
+    return magic[0] == m1 && magic[1] == m2 && magic[2] == m3 && magic[3] == m4;
+}
+
+void writeMagic(ofstream& f, uint8_t m1, uint8_t m2, uint8_t m3, uint8_t m4) {
+    f.write((const char*)&m1, sizeof(uint8_t));
+    f.write((const char*)&m2, sizeof(uint8_t));
+    f.write((const char*)&m3, sizeof(uint8_t));
+    f.write((const char*)&m4, sizeof(uint8_t));
 }
 
 inline bool fileExists(filesystem::path p) {
@@ -211,6 +233,175 @@ vector<string> getVaults() {
     }
 
     return vaults;
+}
+
+vector<VaultIndexEntry> readVaultIndexEntry(ifstream& f, uint32_t totalChildren, char* titleBuffer, uint32_t& titleBufferLen) {
+    vector<VaultIndexEntry> entries;
+    entries.reserve(totalChildren);
+
+    for (uint32_t i=0; i<totalChildren; ++i) {
+        uint16_t titleLen;
+        uint8_t type;
+        uint32_t childrenLen;
+
+        f.read((char *)&titleLen, sizeof(uint16_t));
+
+        while (titleLen > titleBufferLen) {
+            titleBufferLen <<= 1;
+            delete [] titleBuffer;
+            titleBuffer = new char[titleBufferLen];
+        }
+
+        f.read(titleBuffer, sizeof(char) * titleLen);
+
+        titleBuffer[titleLen] = '\0';
+
+        f.read((char *)&type, sizeof(uint8_t));
+        f.read((char *)&childrenLen, sizeof(uint32_t));
+
+        vector<VaultIndexEntry> children;
+
+        if (childrenLen > 0) {
+            children = readVaultIndexEntry(f, childrenLen, titleBuffer, titleBufferLen);
+        }
+
+        entries.push_back({
+            (VaultIndexEntryType) type,
+            string(titleBuffer),
+            children,
+        });
+    }
+
+    return entries;
+}
+
+vector<VaultIndexEntry> getVaultIndex(string vaultName) {
+    vector<VaultIndexEntry> index;
+
+    filesystem::path vaultIndexPath = getVaultsDirectoryPath() / vaultName / ".index";
+
+    if (!filesystem::exists(vaultIndexPath)) {
+        // TODO: handle error if vault does not exist.
+        return index;
+    }
+
+    ifstream f;
+
+    f.open(vaultIndexPath.string(), ios::in | ios::binary);
+
+    if (!checkMagic(f, MAGIC_1, MAGIC_2, MAGIC_3, MAGIC_4_VI)) {
+        f.close();
+
+        cerr << "\nMagic does not match.";
+        return index;
+    }
+
+    uint16_t version = 0;
+    uint32_t numRootEntries;
+
+    f.read((char *)&version, sizeof(uint16_t));
+
+    if (version != 0) {
+        f.close();
+        cerr << "\nInvalid version";
+        return index;
+    }
+
+    f.read((char *)&numRootEntries, sizeof(uint32_t));
+
+    if (numRootEntries > 0) {
+        uint32_t titleBufferLen = 2048;
+        char* titleBuffer = new char[titleBufferLen];
+        index = readVaultIndexEntry(f, numRootEntries, titleBuffer, titleBufferLen);
+        delete [] titleBuffer;
+    }
+
+    f.close();
+
+    return index;
+}
+
+void writeVaultIndexEntries(ofstream& f, vector<VaultIndexEntry> entries) {
+    for (VaultIndexEntry entry: entries) {
+        uint16_t titleLen = entry.title.length();
+        uint8_t type = (uint8_t) entry.type;
+        char* title = (char *) entry.title.c_str();
+        uint32_t childrenLen = entry.children.size();
+
+        f.write((const char*)&titleLen, sizeof(uint16_t));
+        f.write((const char*)title, sizeof(char) * titleLen);
+        f.write((const char*)&type, sizeof(uint8_t));
+        f.write((const char*)&childrenLen, sizeof(uint32_t));
+
+        writeVaultIndexEntries(f, entry.children);
+    }
+}
+
+void setVaultIndex(string vaultName, vector<VaultIndexEntry> index) {
+    string separator = string(1, filesystem::path::preferred_separator);
+    string vaultDir = getVaultsDirectory() + separator + vaultName;
+
+    ofstream f;
+    f.open(vaultDir + separator + ".index", ios::out | ios::binary);
+
+    writeMagic(f, MAGIC_1, MAGIC_2, MAGIC_3, MAGIC_4_VI);
+
+    uint16_t ver = VAULT_INDEX_FILE_VERSION;
+
+    f.write((const char*)&ver, sizeof(uint16_t));
+
+    uint32_t numRootEntries = index.size();
+
+    f.write((const char*)&numRootEntries, sizeof(uint32_t));
+
+    if (numRootEntries > 0) {
+        writeVaultIndexEntries(f, index);
+    }
+
+    f.close();
+}
+
+vector<VaultIndexEntry> getVaultContent(string vaultName) {
+    vector<VaultIndexEntry> index;
+
+    filesystem::path vaultPath = getVaultsDirectoryPath() / vaultName;
+
+    if (!filesystem::exists(vaultPath)) {
+        // TODO: some way of showing this error!
+        return index;
+    }
+
+    try {
+        for (const auto& entry: filesystem::directory_iterator(vaultPath)) {
+            VaultIndexEntryType type;
+
+            if (entry.is_directory()) {
+                type = VaultIndexEntryType::Folder;
+            } else if (entry.is_regular_file()) {
+                type = VaultIndexEntryType::File;
+            } else {
+                continue;
+            }
+
+            string filename = entry.path().filename().string();
+
+            if (filename[0] == '.') {
+                continue;
+            }
+
+            index.push_back({
+                type,
+                filename,
+                vector<VaultIndexEntry>(),
+            });
+        }
+    } catch (const filesystem::filesystem_error& e) {
+        cerr << "\nError: " << e.what();
+    }
+
+    // TODO: handle error if vault does not exist.
+
+    return index;
 }
 
 void createCacheDirectory() {
