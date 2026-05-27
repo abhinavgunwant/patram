@@ -133,9 +133,11 @@
 
 #define ROOT_CONTAINER          elements[0]
 #define WELCOME_SCREEN          elements[1]
-#define CONTENT_CONTAINER       elements[2]
-#define TAB_BAR                 elements[3]
-#define WELCOME_MAIN_CONTAINER  elements[4]
+#define TAB_BAR                 elements[2]
+#define MAIN_CONTAINER          elements[3]
+#define EXPLORER                elements[4]
+#define CONTENT_CONTAINER       elements[5]
+#define WELCOME_MAIN_CONTAINER  elements[6]
 
 using namespace std;
 
@@ -201,6 +203,7 @@ enum class UIElementType: uint8_t {
     TextArea,
     TabBar,
     Tab,
+    Explorer,
 };
 
 enum class ContentBlockType: uint8_t {
@@ -516,6 +519,49 @@ struct ContentTabDisplay {
     float width;
 };
 
+enum class ExplorerNodeType: uint8_t {
+    Folder          = 0b00000010,
+    FolderUpdated   = 0b00000011,
+    Note            = 0b00000100,
+    NoteUpdated     = 0b00000101,
+};
+
+struct ExplorerNode {
+    ExplorerNodeType type;
+    bool expanded;
+
+    uint16_t left;
+    uint16_t height;
+    uint16_t width;
+
+    float top;
+    float netHeight;
+
+    string name;
+
+    vector<ExplorerNode> children;
+};
+
+struct Explorer {
+    bool show;
+    bool updated;
+    bool active;
+
+    float verticalScrollOffset;
+    float horizontalScrollOffset;
+
+    uint32_t vao;
+    uint32_t vbo;
+    uint32_t activeBgVao;
+    uint32_t activeBgVbo;
+    uint32_t verticalScrollVao;
+    uint32_t verticalScrollVbo;
+    uint32_t horizontalScrollVao;
+    uint32_t horizontalScrollVbo;
+
+    vector<ExplorerNode> nodes;
+};
+
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
@@ -546,6 +592,8 @@ UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity);
 void growCapacity(UIElement* parent);
 void addChild(UIElement* parent, UIElement* child);
+
+void toggleExplorer();
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
 void recalculateLayout(UIElement * elem);
 void updateCBCursor(ContentTab* tab, SelectionData sd);

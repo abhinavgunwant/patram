@@ -102,6 +102,8 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
+Explorer explorer = { false, false, false, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, vector<ExplorerNode>() };
+
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
     float textTime = 0.0f;
@@ -979,18 +981,67 @@ void windowFocusCallback(GLFWwindow *window, int isFocused) {
     focused = isFocused != 0;
 }
 
+vector<ExplorerNode> createExplorerNodesFromIndex(vector<VaultIndexEntry>& index) {
+    vector<ExplorerNode> nodes;
+
+    if (index.empty()) {
+        return nodes;
+    }
+
+    nodes.reserve(index.size());
+
+    for (VaultIndexEntry entry: index) {
+        vector<ExplorerNode> children;
+
+        if (!entry.children.empty()) {
+            children = createExplorerNodesFromIndex(entry.children);
+        }
+
+        ExplorerNodeType nodeType;
+
+        if (entry.type == VaultIndexEntryType::Folder) {
+            nodeType = ExplorerNodeType::Folder;
+        } else {
+            nodeType = ExplorerNodeType::Note;
+        }
+
+        nodes.push_back({
+            nodeType, false, 0, 0, 0, 0.0f, 0.0f, entry.title, children
+        });
+    }
+
+    return nodes;
+}
+
+void populateExplorer() {
+    vector<VaultIndexEntry> index = getVaultIndex(selectedVault);
+
+    if (index.empty()) {
+        vector<VaultIndexEntry> newIndex = getVaultContent(selectedVault);
+
+        if (!newIndex.empty()) {
+            index = newIndex;
+            setVaultIndex(selectedVault, newIndex);
+        }
+    }
+
+    explorer.nodes = createExplorerNodesFromIndex(index);
+
+    // TODO: parallelly get vault content here...
+}
+
 void setupWelcomeScreen() {
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    UIElement* title = &elements[5];
-    UIElement* version = &elements[6];
-    UIElement* line1 = &elements[7];
-    UIElement* line2 = &elements[8];
-    UIElement* line3 = &elements[9];
-    UIElement* line4 = &elements[10];
-    UIElement* line5 = &elements[11];
-    UIElement* createVaultButton = &elements[12];
-    UIElement* switchVaultButton = &elements[13];
+    UIElement* title = &elements[7];
+    UIElement* version = &elements[8];
+    UIElement* line1 = &elements[9];
+    UIElement* line2 = &elements[10];
+    UIElement* line3 = &elements[11];
+    UIElement* line4 = &elements[12];
+    UIElement* line5 = &elements[13];
+    UIElement* createVaultButton = &elements[13];
+    UIElement* switchVaultButton = &elements[14];
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -1127,15 +1178,15 @@ void setupWelcomeScreen() {
 }
 
 void destroyWelcomeScreen() {
-    UIElement* title = &elements[5];
-    UIElement* version = &elements[6];
-    UIElement* line1 = &elements[7];
-    UIElement* line2 = &elements[8];
-    UIElement* line3 = &elements[9];
-    UIElement* line4 = &elements[10];
-    UIElement* line5 = &elements[11];
-    UIElement* createVaultButton = &elements[12];
-    UIElement* switchVaultButton = &elements[13];
+    UIElement* title = &elements[7];
+    UIElement* version = &elements[8];
+    UIElement* line1 = &elements[9];
+    UIElement* line2 = &elements[10];
+    UIElement* line3 = &elements[11];
+    UIElement* line4 = &elements[12];
+    UIElement* line5 = &elements[13];
+    UIElement* createVaultButton = &elements[14];
+    UIElement* switchVaultButton = &elements[15];
 
     for (int i=5; i<14; ++i) {
         if (elements[i].vao != 0) {
@@ -1200,7 +1251,9 @@ void setupUI(bool isDarkTheme) {
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
     initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
     initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(MAIN_CONTAINER, UIElementType::Container, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
     initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
+    initElement(EXPLORER, UIElementType::Container, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
 
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
@@ -1233,6 +1286,7 @@ void setupUI(bool isDarkTheme) {
     ROOT_CONTAINER.text = "Root Container";
     ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     ROOT_CONTAINER.preferences->heightPreference = UISizePreference::Full;
+    ROOT_CONTAINER.preferences->direction = false;
 
     TAB_BAR.text = "Tab Bar";
     TAB_BAR.preferences->widthPreference = UISizePreference::Full;
@@ -1240,17 +1294,28 @@ void setupUI(bool isDarkTheme) {
     TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
     TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
 
-    CONTENT_CONTAINER.text = "Main Scroll Area";
+    MAIN_CONTAINER.text = "MAIN_CONTAINER";
+    MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
+    MAIN_CONTAINER.preferences->verticalAlign = UIAlignment::End;
+
+    EXPLORER.text = "EXPLORER";
+    EXPLORER.show = false;
+
+    CONTENT_CONTAINER.text = "CONT_CONTAINER";
     CONTENT_CONTAINER.scrollData->width = WINDOW_WIDTH;
     CONTENT_CONTAINER.scrollData->height = WINDOW_HEIGHT - 64;
-    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Stretch;
     CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
     CONTENT_CONTAINER.preferences->verticalAlign = UIAlignment::End;
+    CONTENT_CONTAINER.preferences->horizontalAlign = UIAlignment::End;
     CONTENT_CONTAINER.active = true;
 
     WELCOME_SCREEN.text = "Welcome Screen";
-    WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Full;
+    WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Stretch;
     WELCOME_SCREEN.preferences->heightPreference = UISizePreference::Full;
+    WELCOME_SCREEN.preferences->horizontalAlign = UIAlignment::End;
+    WELCOME_SCREEN.preferences->direction = false;
 
     WELCOME_MAIN_CONTAINER.preferences->verticalAlign = UIAlignment::Center;
     WELCOME_MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Full;
@@ -1285,16 +1350,30 @@ void setupUI(bool isDarkTheme) {
         }
     }
 
+    thread explorerLoadThread(populateExplorer);
+
+    UIElement* testLabel = new UIElement;
+    initElement(*testLabel, UIElementType::Label, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
+    testLabel->text = "test";
+
+    addChild(&EXPLORER, testLabel);
+
     addChild(&WELCOME_SCREEN, &WELCOME_MAIN_CONTAINER);
-    addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
+
+    addChild(&MAIN_CONTAINER, &EXPLORER);
+    addChild(&MAIN_CONTAINER, &WELCOME_SCREEN);
+    addChild(&MAIN_CONTAINER, &CONTENT_CONTAINER);
+
     addChild(&ROOT_CONTAINER, &TAB_BAR);
-    addChild(&ROOT_CONTAINER, &CONTENT_CONTAINER);
+    addChild(&ROOT_CONTAINER, &MAIN_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);
     #endif
+
+    explorerLoadThread.join();
 }
 
 void enterRenderLoop() {
@@ -1374,6 +1453,13 @@ void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
                         // TODO: display a warning here...
                     }
                 }
+                break;
+
+            case GLFW_KEY_E:
+                if (mod & GLFW_MOD_CONTROL) {
+                    toggleExplorer();
+                }
+                break;
         }
     }
 }
@@ -2261,7 +2347,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 }
                 break;
             case GLFW_KEY_D: if (capsLck || shift) { TYPE("D"); } else { TYPE("d"); } break;
-            case GLFW_KEY_E: if (capsLck || shift) { TYPE("E"); } else { TYPE("e"); } break;
+            case GLFW_KEY_E: if (ctrl) { toggleExplorer(); } else if (capsLck || shift) { TYPE("E"); } else { TYPE("e"); } break;
             case GLFW_KEY_F: if (capsLck || shift) { TYPE("F"); } else { TYPE("f"); } break;
             case GLFW_KEY_G: if (capsLck || shift) { TYPE("G"); } else { TYPE("g"); } break;
             case GLFW_KEY_H: if (capsLck || shift) { TYPE("H"); } else { TYPE("h"); } break;
@@ -4490,6 +4576,7 @@ void closeCurrentTab() {
         activeElement = nullptr;
         TAB_BAR.show = false;
         CONTENT_CONTAINER.show = false;
+        recalculateLayout(&WELCOME_SCREEN);
     }
 
     updateWindowTitle();
@@ -4597,6 +4684,15 @@ void addChild(UIElement* parent, UIElement * child) {
     ++parent->totalChildren;
 }
 
+inline void toggleExplorer() {
+    EXPLORER.show = !EXPLORER.show;
+    recalculateLayout(&MAIN_CONTAINER);
+
+    if (CONTENT_CONTAINER.show) {
+        CURRENT_TAB->redrawCursor = true;
+    }
+}
+
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
     bool updated = false;
 
@@ -4614,14 +4710,26 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                 }
                 break;
 
-            case UISizePreference::Stretch:
+            case UISizePreference::Grow:
                 if (elem->parent != nullptr) {
+                    if(!elem->parent->preferences->direction) {
+                        elem->left = elem->parent->left + (elem->parent->width - elem->width)/2;
+                        updated = true;
+                        break;
+                    }
+                }
+                // no break intentional
+
+            case UISizePreference::Stretch:
+                if (elem->parent != nullptr && elem->parent->preferences->direction) {
                     #ifdef DEBUG_LAYOUT
                         cout << "\n-> Resizing width of element (text: "
                             << elem->text << ") with UI_STRETCH width preference";
                     #endif
 
                     float width = elem->parent->width;
+                    float left = elem->parent->left;
+                    bool currElemFound = false;
 
                     UIElement* siblingElem = nullptr;
 
@@ -4631,10 +4739,22 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                     for (uint32_t i=0; i<elem->parent->totalChildren; ++i) {
                         siblingElem = elem->parent->children[i];
 
-                        if (siblingElem != elem && siblingElem->preferences != nullptr) {
+                        if (elem == siblingElem) {
+                            currElemFound = true;
+                        }
+
+                        if (
+                            siblingElem != elem
+                            && siblingElem->show
+                            && siblingElem->preferences != nullptr
+                        ) {
                             switch (siblingElem->preferences->widthPreference) {
                                 case UISizePreference::Fixed:
                                 case UISizePreference::Grow:
+                                    if (!currElemFound) {
+                                        left += siblingElem->width;
+                                    }
+
                                     width -= siblingElem->width;
                                     break;
 
@@ -4642,6 +4762,11 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                                     width -= elem->parent->width * siblingElem->width;
 
                                 case UISizePreference::Stretch:
+                                    if (!currElemFound) {
+                                        left += siblingElem->width;
+                                    }
+
+                                    width -= siblingElem->width;
                                     ++stretchCandidates;
                                     break;
 
@@ -4663,6 +4788,7 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                         break;
                     }
 
+                    elem->left = left;
                     elem->width = width;
 
                     if (elem->type == UIElementType::ScrollArea && elem->scrollData->width < width) {
@@ -4674,13 +4800,6 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                     updated = true;
                 }
                 break;
-
-            case UISizePreference::Grow:
-                if (elem->parent != nullptr && elem->width > elem->parent->width) {
-                    float diff = elem->width - elem->parent->width;
-                    elem->left -= diff/2;
-                    updated = true;
-                }
 
             default:
                 break;
@@ -4720,7 +4839,9 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                             switch (siblingElem->preferences->heightPreference) {
                                 case UISizePreference::Fixed:
                                 case UISizePreference::Grow:
-                                    height -= siblingElem->height;
+                                    if (!siblingElem->parent->preferences->direction) {
+                                        height -= siblingElem->height;
+                                    }
                                     break;
 
                                 case UISizePreference::Percent:
@@ -4790,7 +4911,7 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
 
             case UIAlignment::Center:
                 if (elem->parent != nullptr) {
-                    elem->left = (elem->parent->width - elem->width) / 2;
+                    elem->left = elem->parent->left + (elem->parent->width - elem->width) / 2;
                 }
                 break;
         }
@@ -5297,7 +5418,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 float yp = 0.0f;
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    renderElement(*elem.children[i], resolution, cursor, i, yp);
+                    if (elem.children[i]->show) {
+                        renderElement(*elem.children[i], resolution, cursor, i, yp);
+                    }
                 }
 
                 if (
