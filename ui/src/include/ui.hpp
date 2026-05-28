@@ -596,6 +596,8 @@ void addChild(UIElement* parent, UIElement* child);
 void toggleExplorer();
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
 void recalculateLayout(UIElement * elem);
+void recalculateContentWidth();
+void recalculateCBCursor();
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 void destroyElement(UIElement& elem);

@@ -113,6 +113,10 @@ inline bool getCharParams(
     float& texX2,
     float& texY1,
     float& texY2,
+    float& glyphHeight,
+    float& glyphWidth,
+    float& bearingTop,
+    float& bearingLeft,
     float& advance,
     float parentLeft,
     float parentWidth,
@@ -123,8 +127,8 @@ inline bool getCharParams(
 ) {
     float aspectRatio = static_cast<float>(c.width) / static_cast<float>(c.height);
     float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
-    float glyphHeight = static_cast<float>(c.height) * fontHeightRatio;
-    float glyphWidth = glyphHeight * aspectRatio;
+    glyphHeight = static_cast<float>(c.height) * fontHeightRatio;
+    glyphWidth = glyphHeight * aspectRatio;
 
     if (glyphWidth != glyphWidth) {
         if (c.width != 0) {
@@ -136,8 +140,8 @@ inline bool getCharParams(
 
     float widthRatio = glyphWidth / c.width;
     float heightRatio = glyphHeight / c.height;
-    float bearingTop = c.bearingTop * heightRatio;
-    float bearingLeft = c.bearingLeft * widthRatio;
+    bearingTop = c.bearingTop * heightRatio;
+    bearingLeft = c.bearingLeft * widthRatio;
 
     if (bearingLeft != bearingLeft) {
         bearingLeft = 0.0f;
@@ -149,16 +153,12 @@ inline bool getCharParams(
 
     xpos += bearingLeft;
 
-    if (
-        parentWidth < 800.0f
-        && (xpos + glyphWidth) - parentLeft > parentWidth - CONTENT_HORIZONTAL_MARGIN
-        || (xpos + glyphWidth) - parentLeft > contentRight
-    ) {
+    if (xpos + glyphWidth > contentRight) {
         if (!breakLine) {
             return false;
         }
 
-        yNet += fontSize * (1 - glyphDescender);
+        yNet += static_cast<float>(fontSize) * (1.0f - glyphDescender);
         xpos = pos.x;
         rows++;
 
@@ -298,6 +298,8 @@ RopeRenderResult renderContentRope(
             numVertices += r->text.length() * 24;
         }
 
+        float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+
         for (const char c : r->text) {
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
@@ -318,8 +320,12 @@ RopeRenderResult renderContentRope(
                 texX2,
                 texY1,
                 texY2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
                 advance,
-                0.0f,
+                contentLeft,
                 parentWidth,
                 result.rows,
                 fontSize,
@@ -407,6 +413,8 @@ RopeRenderResult renderTextCached(
         _numVertices += str.length() * 24;
     }
 
+    float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+
     for (char c: str) {
         if (!getCharParams(
             characters[(int)c],
@@ -421,6 +429,10 @@ RopeRenderResult renderTextCached(
             texX2,
             texY1,
             texY2,
+            glyphHeight,
+            glyphWidth,
+            bearingTop,
+            bearingLeft,
             advance,
             parentLeft,
             parentWidth,
@@ -476,6 +488,8 @@ RopeRenderResult getTextDimensions(
     float ypos_plus_h = 0.0f;
     float advance = 0.0f;
 
+    float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+
     for (char c: str) {
         if (!getCharParams(
             characters[(int)c],
@@ -490,6 +504,10 @@ RopeRenderResult getTextDimensions(
             texX2,
             texY1,
             texY2,
+            glyphHeight,
+            glyphWidth,
+            bearingTop,
+            bearingLeft,
             advance,
             parentLeft,
             parentWidth,
@@ -577,7 +595,7 @@ glm::vec4 renderText(
         if (
             parent != nullptr
             && (
-                parent->width < 800.0f
+                parent->width < CONTENT_BREAKPOINT
                 && xpos + glyphWidth > parent->width - CONTENT_HORIZONTAL_MARGIN
                 || xpos + glyphWidth > contentRight
             )
@@ -718,7 +736,7 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
     float yNet = y;
 
     if (
-        CONTENT_CONTAINER.width < 800.0f
+        CONTENT_CONTAINER.width < CONTENT_BREAKPOINT
         && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
         || xpos + glyphWidth > contentRight
     ) {

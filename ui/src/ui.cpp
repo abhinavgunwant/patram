@@ -51,7 +51,7 @@ uint32_t iconButtonVAO;
 uint32_t iconButtonVBO;
 
 float contentLeft = CONTENT_HORIZONTAL_MARGIN;
-float contentRight = 550.0f;
+float contentRight = 530.0f;
 
 HighlightedContentBlock highlightedContentBlock = {
     .cbIndex = 0,
@@ -593,14 +593,6 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 void resizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 
-    if (width >= CONTENT_BREAKPOINT) {
-        contentLeft = (static_cast<float>(width) - CONTENT_MAX_WIDTH) / 2;
-        contentRight = contentLeft + CONTENT_MAX_WIDTH;
-    } else {
-        contentLeft = CONTENT_HORIZONTAL_MARGIN;
-        contentRight = width - CONTENT_HORIZONTAL_MARGIN;
-    }
-
     ROOT_CONTAINER.width = width;
     ROOT_CONTAINER.height = height;
 
@@ -621,8 +613,12 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     resolution = glm::vec2(width, height);
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
-    if (!tabs.empty()) {
+    if (CONTENT_CONTAINER.show && !tabs.empty()) {
+        recalculateContentWidth();
+
         ContentTab* tab = CURRENT_TAB;
+
+        tab->redrawCursor = true;
 
         reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
 
@@ -3092,23 +3088,19 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
 
     uint8_t fontSize = getCBFontSize(cb->type);
 
-    float x = (*cb).left;
+    float x = contentLeft;
     float y = (*cb).top - tab->scrollOffsetY;
-
-    if (resolution.x >= CONTENT_BREAKPOINT) {
-        x += contentLeft;
-    } else {
-        x += CONTENT_HORIZONTAL_MARGIN;
-    }
-
     float xpos = x;
+    float ypos;
     float yNet = y;
 
     uint32_t index = 0;
     uint32_t row = 0;
     uint32_t col = 0;
-    uint16_t h = static_cast<uint16_t>(static_cast<uint16_t>(fontSize) * glyphDescender);
+    float h = fontSize * glyphDescender;
     uint32_t i = 0;
+
+    uint16_t height = static_cast<uint16_t>(fontSize) - static_cast<uint16_t>(h);
 
     if (tab->cursorPosition == 0) {
         return SelectionData {
@@ -3116,8 +3108,8 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             .row = 0,
             .col = 0,
             .x = xpos,
-            .y = yNet + static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender,
-            .height = static_cast<uint16_t>(fontSize - h),
+            .y = yNet + static_cast<float>(fontSize) - h,
+            .height = height,
         };
     }
 
@@ -3127,50 +3119,35 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
         for (const char c : r->text) {
             Character* ch = &characters[(int)c];
 
-            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+            float _tx1, _tx2, _ty1, _ty2, _h, _xw, _yh, advance;
+            float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+            bool _;
+            glm::vec2 pos = glm::vec2(x, y);
 
-            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
-
-            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
-            float glyphWidth = glyphHeight * aspectRatio;
-
-            if (glyphWidth != glyphWidth) {
-                if (ch->width != 0) {
-                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
-                } else {
-                    glyphWidth = 0.0f;
-                }
-            }
-
-            float widthRatio = glyphWidth / ch->width;
-            float heightRatio = glyphHeight / ch->height;
-
-            float bearingTop = ch->bearingTop * heightRatio;
-            float bearingLeft = ch->bearingLeft * widthRatio;
-
-            if (bearingLeft != bearingLeft) {
-                bearingLeft = 0.0f;
-            }
-
-            if (bearingTop != bearingTop) {
-                bearingTop = 0.0f;
-            }
-
-            xpos += bearingLeft;
-
-            float ypos = yNet + static_cast<float>(fontSize);
-
-            if (
-                CONTENT_CONTAINER.width < 800.0f
-                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
-                || xpos + glyphWidth > contentRight
-            ) {
-                yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
-                xpos = x;
-                ypos = yNet + static_cast<float>(fontSize);
-                ++row;
-                col = 0;
-            }
+            getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                _xw,
+                _yh,
+                _h,
+                _tx1,
+                _tx2,
+                _ty1,
+                _ty2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
+                advance,
+                contentLeft,
+                CONTENT_CONTAINER.width,
+                row,
+                fontSize,
+                _
+            );
 
             if (i == tab->cursorPosition) {
                 cout << "\nDEBUG: Cursor position: " << tab->cursorPosition << " found";
@@ -3180,13 +3157,13 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
                     .row = row,
                     .col = col,
                     .x = xpos,
-                    .y = ypos - fontSize * glyphDescender,
-                    .height = static_cast<uint16_t>(fontSize - h),
+                    .y = ypos + bearingTop - glyphHeight - h,
+                    .height = height,
                 };
             }
 
             ++i;
-            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+            xpos += advance;
         }
     }
 
@@ -3196,8 +3173,8 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             .row = row,
             .col = col,
             .x = xpos,
-            .y = yNet + static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender,
-            .height = static_cast<uint16_t>(fontSize - h),
+            .y = yNet + static_cast<float>(fontSize) - h,
+            .height = height,
         };
     }
 
@@ -3212,16 +3189,11 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
 
     float fontSize = static_cast<float>(getCBFontSize(cb->type));
 
-    float x = (*cb).left;
+    float x = contentLeft;
     float y = (*cb).top - tab->scrollOffsetY;
 
-    if (resolution.x >= CONTENT_BREAKPOINT) {
-        x += contentLeft;
-    } else {
-        x += CONTENT_HORIZONTAL_MARGIN;
-    }
-
     float xpos = x;
+    float ypos;
     float yNet = y;
     float xprev = x;
 
@@ -3235,68 +3207,36 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
         Rope* r = rt.next();
 
         for (const char c : r->text) {
-            Character* ch = &characters[(int)c];
+            float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
+            float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+            bool _;
 
-            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+            glm::vec2 pos = glm::vec2(x, y);
 
-            float fontHeightRatio = fontSize / DEFAULT_FONT_SIZE;
-
-            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
-            float glyphWidth = glyphHeight * aspectRatio;
-
-            if (glyphWidth != glyphWidth) {
-                if (ch->width != 0) {
-                    glyphWidth = static_cast<float>(ch->width) / fontSize;
-                } else {
-                    glyphWidth = 0.0f;
-                }
-            }
-
-            float widthRatio = glyphWidth / ch->width;
-            float heightRatio = glyphHeight / ch->height;
-
-            float bearingTop = ch->bearingTop * heightRatio;
-            float bearingLeft = ch->bearingLeft * widthRatio;
-
-            if (bearingLeft != bearingLeft) {
-                bearingLeft = 0.0f;
-            }
-
-            if (bearingTop != bearingTop) {
-                bearingTop = 0.0f;
-            }
-
-            xpos += bearingLeft;
-
-            // float ypos = yNet + glyphHeight - bearingTop + fontSize;
-            float ypos = yNet + fontSize;
-
-            if (
-                CONTENT_CONTAINER.width < 800.0f
-                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
-                || xpos + glyphWidth > contentRight
-            ) {
-                yNet += fontSize - fontSize * glyphDescender;
-                xpos = x;
-                xprev = x;
-                ypos = yNet + fontSize;
-                ++row;
-                col = 0;
-            }
-
-            float xpos_plus_w = xpos + glyphWidth;
-            float ypos_plus_h = ypos - height;
-
-            #ifdef DEBUG_TEXT
-            if (debugTextFirstRenderPrint) {
-                cout << "; x: " << xpos << " y: " << ypos << " x + w: "
-                    << xpos_plus_w << " y + h: " << ypos_plus_h
-                    << " bearingLeft: " << bearingLeft
-                    << " bearingTop: " << bearingTop
-                    << " widthRatio: " << widthRatio
-                    << " heightRatio: " << heightRatio;
-            }
-            #endif
+            getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                xpos_plus_w,
+                ypos_plus_h,
+                height,
+                _x1,
+                _x2,
+                _y1,
+                _y2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
+                advance,
+                contentLeft,
+                CONTENT_CONTAINER.width,
+                row,
+                fontSize,
+                _
+            );
 
             if (
                 xpos <= mouseX && xpos + (glyphWidth/2) >= mouseX
@@ -3316,7 +3256,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .col = col,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xprev,
-                    .y = ypos - fontSize * glyphDescender,
+                    .y = ypos + bearingTop - glyphHeight - h,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             } else if (
@@ -3337,29 +3277,23 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .col = col + 1,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos_plus_w,
-                    .y = ypos - fontSize * glyphDescender,
+                    .y = ypos + bearingTop - glyphHeight - h,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             } else if (xpos_plus_w >= mouseX && ypos >= mouseY && ypos_plus_h <= mouseY) {
-                // cout << "\n4: xpos: " << xpos << ", ypos: " << ypos;
-
-                // if (tab->activeCBIndex == 2) {
-                //     cout << "\nArey bhai!!!! h: " << height;
-                // }
-
                 return SelectionData {
                     .cursorPosition = index,
                     .row = row,
                     .col = col,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos,
-                    .y = ypos - fontSize * glyphDescender,
+                    .y = ypos + bearingTop - glyphHeight - h,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             }
 
             xprev = xpos_plus_w;
-            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+            xpos += advance;
 
             ++index;
             ++col;
@@ -3420,16 +3354,11 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
         }
     }
 
-    float x = (*cb).left;
+    float x = contentLeft;
     float y = (*cb).top - tab->scrollOffsetY;
 
-    if (resolution.x >= CONTENT_BREAKPOINT) {
-        x += contentLeft;
-    } else {
-        x += CONTENT_HORIZONTAL_MARGIN;
-    }
-
     float xpos = x;
+    float ypos;
     float yNet = y;
     float xprev = x;
 
@@ -3449,67 +3378,48 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
         Rope* r = rt.next();
 
         for (const char c : r->text) {
-            Character* ch = &characters[(int)c];
+            float xpos_plus_w, ypos_plus_h, advance, _x1, _x2, _y1, _y2, height;
+            float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+            bool _;
 
-            float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+            glm::vec2 pos = glm::vec2(x, y);
 
-            float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
-
-            float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
-            float glyphWidth = glyphHeight * aspectRatio;
-
-            if (glyphWidth != glyphWidth) {
-                if (ch->width != 0) {
-                    glyphWidth = static_cast<float>(ch->width) / static_cast<float>(fontSize);
-                } else {
-                    glyphWidth = 0.0f;
-                }
-            }
-
-            float widthRatio = glyphWidth / ch->width;
-            float heightRatio = glyphHeight / ch->height;
-
-            float bearingTop = ch->bearingTop * heightRatio;
-            float bearingLeft = ch->bearingLeft * widthRatio;
-
-            if (bearingLeft != bearingLeft) {
-                bearingLeft = 0.0f;
-            }
-
-            if (bearingTop != bearingTop) {
-                bearingTop = 0.0f;
-            }
-
-            xpos += bearingLeft;
-
-            float ypos = yNet + static_cast<float>(fontSize);
-
-            if (
-                CONTENT_CONTAINER.width < 800.0f
-                && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
-                || xpos + glyphWidth > contentRight
-            ) {
-                yNet += static_cast<float>(fontSize) - static_cast<float>(fontSize) * glyphDescender;
-                xpos = x;
-                xprev = x;
-                ypos = yNet + static_cast<float>(fontSize);
-                ++row;
-                col = 0;
-                visibleRow = ypos > TAB_BAR_HEIGHT && ypos < windowHeight;
-            }
+            getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                xpos_plus_w,
+                ypos_plus_h,
+                height,
+                _x1,
+                _x2,
+                _y1,
+                _y2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
+                advance,
+                contentLeft,
+                CONTENT_CONTAINER.width,
+                row,
+                fontSize,
+                _
+            );
 
             if (page) {
                 if (ypos > windowHeight) {
                     break;
                 }
 
+                visibleRow = ypos > TAB_BAR_HEIGHT && ypos < windowHeight;
+
                 if (!visibleRow) {
                     continue;
                 }
             }
-
-            float xpos_plus_w = xpos + glyphWidth;
-            float ypos_plus_h = ypos - glyphHeight; // ypos + h
 
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
@@ -3547,7 +3457,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                         .col = col,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xprev,
-                        .y = ypos - fontSize * glyphDescender,
+                        .y = ypos - h,
                         .height = static_cast<uint16_t>(fontSize - h),
                         .cbPos = sd.cbPos,
                     };
@@ -3573,7 +3483,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                         .col = col + 1,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xpos_plus_w,
-                        .y = ypos - fontSize * glyphDescender,
+                        .y = ypos - h,
                         .height = static_cast<uint16_t>(fontSize - h),
                         .cbPos = sd.cbPos,
                     };
@@ -3599,7 +3509,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                         .col = col,
                         .cursorCBIndex = cursorCBIndex,
                         .x = xpos,
-                        .y = ypos - fontSize * glyphDescender,
+                        .y = ypos - h,
                         .height = static_cast<uint16_t>(fontSize - h),
                         .cbPos = sd.cbPos,
                     };
@@ -3607,7 +3517,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
             }
 
             xprev = xpos_plus_w;
-            xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+            xpos += advance;
 
             ++index;
             ++col;
@@ -3634,7 +3544,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
             .col = col,
             .cursorCBIndex = cursorCBIndex,
             .x = xpos,
-            .y = yNet + static_cast<float>(fontSize) - fontSize * glyphDescender,
+            .y = yNet + static_cast<float>(fontSize) - h,
             .height = static_cast<uint16_t>(fontSize - h),
             .cbPos = sd.cbPos,
         };
@@ -4686,11 +4596,15 @@ void addChild(UIElement* parent, UIElement * child) {
 
 inline void toggleExplorer() {
     EXPLORER.show = !EXPLORER.show;
+    highlightedContentBlock.show = false;
+    highlightedContentBlock.updated = true;
     recalculateLayout(&MAIN_CONTAINER);
 
     if (CONTENT_CONTAINER.show) {
         CURRENT_TAB->redrawCursor = true;
     }
+
+    recalculateContentWidth();
 }
 
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
@@ -4948,6 +4862,16 @@ void recalculateLayout(UIElement * elem) {
         if (elem->children[i]->show) {
             recalculateLayout(elem->children[i]);
         }
+    }
+}
+
+inline void recalculateContentWidth() {
+    if (CONTENT_CONTAINER.width >= CONTENT_BREAKPOINT) {
+        contentLeft = CONTENT_CONTAINER.left + (CONTENT_CONTAINER.width - CONTENT_MAX_WIDTH) / 2 + CONTENT_HORIZONTAL_MARGIN;
+        contentRight = contentLeft + CONTENT_MAX_WIDTH - 2*CONTENT_HORIZONTAL_MARGIN;
+    } else {
+        contentLeft = CONTENT_CONTAINER.left + CONTENT_HORIZONTAL_MARGIN;
+        contentRight = contentLeft + CONTENT_CONTAINER.width - 2*CONTENT_HORIZONTAL_MARGIN;
     }
 }
 
@@ -5307,6 +5231,11 @@ inline void renderCBScrollbar() {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     tab->scrollbarUpdated = true;
+}
+
+inline void recalculateCBCursor() {
+    SelectionData sd = getCBTextCursor(resolution);
+    updateCBCursor(CURRENT_TAB, sd);
 }
 
 void updateCBCursor(ContentTab* tab, SelectionData sd) {
@@ -6774,14 +6703,8 @@ bool renderContentBlock(
     }
 
     float top = (*cb).top - tab->scrollOffsetY;
-    float left = (*cb).left;
+    float left = contentLeft;
     float bottom = top + (*cb).height;
-
-    if (resolution.x >= CONTENT_BREAKPOINT) {
-        left += contentLeft;
-    } else {
-        left += CONTENT_HORIZONTAL_MARGIN;
-    }
 
     bool visible = top >= 0 && top <= windowHeight
         || bottom >= 0 && bottom <= windowHeight
@@ -6985,25 +6908,18 @@ void renderCBTextSelection(ContentTab* tab) {
                             << endX << ", " << endY << "), ("
                             << startX << ", " << startY_h << ")";
 
-                        vertices.push_back(startX);
-                        vertices.push_back(startY_h);
-                        vertices.push_back(endX);
-                        vertices.push_back(endY_h);
-                        vertices.push_back(endX);
-                        vertices.push_back(endY);
-                        vertices.push_back(endX);
-                        vertices.push_back(endY);
-                        vertices.push_back(startX);
-                        vertices.push_back(startY);
-                        vertices.push_back(startX);
-                        vertices.push_back(startY_h);
+                        vertices.insert(vertices.end(), {
+                            startX, startY_h,
+                            endX,   endY_h,
+                            endX,   endY,
+                            endX,   endY,
+                            startX, startY,
+                            startX, startY_h,
+                        });
                         break;
                     }
 
-                    if (
-                        xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
-                        || xpos + glyphWidth > contentRight
-                    ) {
+                    if (xpos + glyphWidth > contentRight) {
                         if (selectionStarted) {
                             endX = xpos;
                             endY_h = yNet;
@@ -7017,18 +6933,14 @@ void renderCBTextSelection(ContentTab* tab) {
                                 << endX << ", " << endY << "), ("
                                 << startX << ", " << startY_h << ")";
 
-                            vertices.push_back(startX);
-                            vertices.push_back(startY_h);
-                            vertices.push_back(endX);
-                            vertices.push_back(endY_h);
-                            vertices.push_back(endX);
-                            vertices.push_back(endY);
-                            vertices.push_back(endX);
-                            vertices.push_back(endY);
-                            vertices.push_back(startX);
-                            vertices.push_back(startY);
-                            vertices.push_back(startX);
-                            vertices.push_back(startY_h);
+                            vertices.insert(vertices.end(), {
+                                startX, startY_h,
+                                endX,   endY_h,
+                                endX,   endY,
+                                endX,   endY,
+                                startX, startY,
+                                startX, startY_h,
+                            });
                         }
 
                         yNet += fontSize - fontSize * glyphDescender;
@@ -7084,18 +6996,14 @@ void renderCBTextSelection(ContentTab* tab) {
                 endY_h = yNet;
                 endY = yNet + fontSize - fontSize * glyphDescender;
 
-                vertices.push_back(startX);
-                vertices.push_back(startY_h);
-                vertices.push_back(endX);
-                vertices.push_back(endY_h);
-                vertices.push_back(endX);
-                vertices.push_back(endY);
-                vertices.push_back(endX);
-                vertices.push_back(endY);
-                vertices.push_back(startX);
-                vertices.push_back(startY);
-                vertices.push_back(startX);
-                vertices.push_back(startY_h);
+                vertices.insert(vertices.end(), {
+                    startX, startY_h,
+                    endX,   endY_h,
+                    endX,   endY,
+                    endX,   endY,
+                    startX, startY,
+                    startX, startY_h,
+                });
             }
         }
 
