@@ -102,7 +102,7 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
-Explorer explorer = { false, false, false, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0, 0, 0, vector<ExplorerNode>() };
+Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, vector<ExplorerNode>() };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -1009,21 +1009,77 @@ vector<ExplorerNode> createExplorerNodesFromIndex(vector<VaultIndexEntry>& index
     return nodes;
 }
 
-void populateExplorer() {
+void populateExplorerFromIndex() {
+    #ifdef DEBUG_EXPLORER
+        auto t0 = std::chrono::high_resolution_clock::now();
+    #endif
+
     vector<VaultIndexEntry> index = getVaultIndex(selectedVault);
 
-    if (index.empty()) {
-        vector<VaultIndexEntry> newIndex = getVaultContent(selectedVault);
+    #ifdef DEBUG_EXPLORER
+        auto t1 = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
 
-        if (!newIndex.empty()) {
-            index = newIndex;
-            setVaultIndex(selectedVault, newIndex);
+        cout << "\nDEBUG: Time taken to get entries from index: " << duration.count();
+
+        cout << "\nDEBUG: VaultIndex Entries:";
+
+        for (VaultIndexEntry entry : index) {
+            cout << "\n\t" << entry.title;
         }
+    #endif
+
+    if (!index.empty()) {
+        explorer.nodes = createExplorerNodesFromIndex(index);
+    }
+}
+
+void populateExplorerFromContent() {
+    #ifdef DEBUG_EXPLORER
+        auto t1 = std::chrono::high_resolution_clock::now();
+    #endif
+
+    vector<VaultIndexEntry> index = getVaultContent(selectedVault);
+
+    if (!index.empty()) {
+        #ifdef DEBUG_EXPLORER
+            auto t2 = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+            cout << "\nDEBUG: Time taken to get entries from content: " << duration.count();
+
+            cout << "\nDEBUG: VaultIndex content Entries:";
+
+            for (VaultIndexEntry entry : index) {
+                cout << "\n\t" << entry.title;
+            }
+        #endif
+
+        vector<ExplorerNode> newExplorerNodes = createExplorerNodesFromIndex(index);
+
+        if (newExplorerNodes != explorer.nodes) {
+            setVaultIndex(selectedVault, index);
+            explorer.nodes = newExplorerNodes;
+            EXPLORER.reDraw = true;
+#ifdef DEBUG_EXPLORER
+        } else {
+            cout << "\nDEBUG: entries in index and contents in vault are same. No changes made!";
+#endif
+        }
+
+        #ifdef DEBUG_EXPLORER
+            auto t3 = std::chrono::high_resolution_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
+
+            cout << "\nDEBUG: Time taken to get compare (and maybe also to assign) entries: " << duration.count();
+        #endif
     }
 
-    explorer.nodes = createExplorerNodesFromIndex(index);
-
-    // TODO: parallelly get vault content here...
+    #ifdef DEBUG_EXPLORER
+        auto t4 = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t1);
+        cout << "\nDEBUG: Total Time taken in " << __func__ << ": " << duration.count();
+    #endif
 }
 
 void setupWelcomeScreen() {
@@ -1223,6 +1279,37 @@ void destroyWelcomeScreen() {
     }
 }
 
+void setupExplorer() {
+    if (explorer.vao != 0) {
+        glDeleteVertexArrays(1, &explorer.vao);
+        glDeleteBuffers(1, &explorer.vbo);
+    }
+
+    float y = TAB_BAR_HEIGHT + 8.0f;
+    vector<float> vertices;
+
+    vertices.reserve(64000);
+
+    for (
+        vector<ExplorerNode>::iterator iter = explorer.nodes.begin();
+        iter != explorer.nodes.end();
+        ++iter, y += 32.0f
+    ) {
+        appendTextVertices(16.0f, y, (*iter).name, vertices);
+    }
+
+    explorer.textVertices = vertices.size();
+
+    glGenVertexArrays(1, &explorer.vao);
+    glBindVertexArray(explorer.vao);
+
+    glGenBuffers(1, &explorer.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
+    glBufferData(GL_ARRAY_BUFFER, explorer.textVertices * sizeof(float), &vertices[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+}
+
 void setupUI(bool isDarkTheme) {
     windowHeight = WINDOW_HEIGHT;
     windowWidth = WINDOW_WIDTH;
@@ -1249,7 +1336,7 @@ void setupUI(bool isDarkTheme) {
     initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(MAIN_CONTAINER, UIElementType::Container, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
     initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
-    initElement(EXPLORER, UIElementType::Container, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
+    initElement(EXPLORER, UIElementType::Explorer, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
 
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
@@ -1257,6 +1344,7 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
+    SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
     for (int i=0; i<100; ++i) {
         tabsDisplay[i].vao = 0;
@@ -1346,13 +1434,18 @@ void setupUI(bool isDarkTheme) {
         }
     }
 
-    thread explorerLoadThread(populateExplorer);
+    populateExplorerFromIndex();
+    thread explorerLoadThread(populateExplorerFromContent);
 
-    UIElement* testLabel = new UIElement;
-    initElement(*testLabel, UIElementType::Label, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
-    testLabel->text = "test";
+    EXPLORER.backgroundColor = darkTheme ? EXPLORER_BG_DARK : EXPLORER_BG;
+    EXPLORER.preferences->widthPreference = UISizePreference::Fixed;
+    EXPLORER.preferences->heightPreference = UISizePreference::Full;
 
-    addChild(&EXPLORER, testLabel);
+    // UIElement* testLabel = new UIElement;
+    // initElement(*testLabel, UIElementType::Label, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
+    // testLabel->text = "test";
+
+    // addChild(&EXPLORER, testLabel);
 
     addChild(&WELCOME_SCREEN, &WELCOME_MAIN_CONTAINER);
 
@@ -3142,8 +3235,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
                 bearingTop,
                 bearingLeft,
                 advance,
-                contentLeft,
-                CONTENT_CONTAINER.width,
+                contentRight,
                 row,
                 fontSize,
                 _
@@ -3231,8 +3323,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                 bearingTop,
                 bearingLeft,
                 advance,
-                contentLeft,
-                CONTENT_CONTAINER.width,
+                contentRight,
                 row,
                 fontSize,
                 _
@@ -3402,8 +3493,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                 bearingTop,
                 bearingLeft,
                 advance,
-                contentLeft,
-                CONTENT_CONTAINER.width,
+                contentRight,
                 row,
                 fontSize,
                 _
@@ -4166,6 +4256,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             }
             break;
 
+        case UIElementType::Explorer:
         case UIElementType::ContentContainer:
         case UIElementType::ScrollArea:
             pref = initPreferences();
@@ -5655,7 +5746,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                     RopeRenderResult rRes = getTextDimensions(
                         elem.text, pos, resolution, elem.fontSize,
-                        elem.parent->height, elem.parent->width, false
+                        elem.parent->left, elem.parent->width, false
                     );
 
                     if (elem.preferences->widthPreference == UISizePreference::Grow) {
@@ -6569,6 +6660,69 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         }
 
         case UIElementType::Tab: {
+            break;
+        }
+
+        case UIElementType::Explorer: {
+            if (!elem.show) {
+                break;
+            }
+
+            glBindVertexArray(elem.vao);
+
+            if (elem.reDraw) {
+                updateElementDimensionsAccordingToPreferences(&elem);
+
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
+
+                float vertices[] = {
+                    elem.left, elem.top,
+                    elem.left, elem.top + elem.height,
+                    elem.left + elem.width, elem.top,
+                    elem.left + elem.width, elem.top + elem.height,
+                };
+
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+
+                elem.reDraw = false;
+            }
+
+            glUseProgram(shaders[SHADER_DEFAULT].programId);
+            glUniform4f(
+                uniforms[U_DEFAULT_COLOR],
+                elem.backgroundColor.r,
+                elem.backgroundColor.g,
+                elem.backgroundColor.b,
+                elem.backgroundColor.a
+            );
+            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            glScissor(elem.left, elem.top, elem.width, elem.height);
+            glEnable(GL_SCISSOR_TEST);
+
+            if (explorer.vao == 0 || elem.reDraw) {
+                setupExplorer();
+            }
+
+            glm::vec2 ___;
+            vector<float> _;
+            uint32_t __ = 0;
+
+            drawTextBuffers(
+                explorer.vao,
+                explorer.vbo,
+                __,
+                explorer.textVertices,
+                ___,
+                _,
+                elem.color, false
+            );
+
+            glDisable(GL_SCISSOR_TEST);
+
             break;
         }
 

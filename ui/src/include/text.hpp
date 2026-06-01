@@ -91,8 +91,7 @@ inline bool getCharParams(
     float& bearingTop,
     float& bearingLeft,
     float& advance,
-    float parentLeft,
-    float parentWidth,
+    float rightBound,
     uint32_t& rows,
     uint8_t fontSize,
     bool& renderNextContentBlock,
@@ -142,6 +141,13 @@ RopeRenderResult renderTextCached(
 RopeRenderResult getTextDimensions(
     string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine = true
+);
+
+void appendTextVertices(
+    float x,
+    float y,
+    string text,
+    vector<float>& vertices
 );
 
 /**

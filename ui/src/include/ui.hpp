@@ -59,6 +59,7 @@
 #define BUTTON_BG                   glm::vec4(0.93, 0.7, 0.7, 1.0)
 #define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
+#define EXPLORER_BG                 glm::vec4(0.82, 0.82, 0.82, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
 
@@ -82,6 +83,7 @@
 #define BUTTON_BG_DARK              glm::vec4(0.19, 0.17, 0.17, 1.0)
 #define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
 #define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
+#define EXPLORER_BG_DARK            glm::vec4(0.12, 0.1, 0.1, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 
@@ -127,6 +129,7 @@
 // #define DEBUG_RENDER
 #define DEBUG_CONTENT_BLOCKS
 // #define DEBUG_SCROLL
+#define DEBUG_EXPLORER
 
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
@@ -174,6 +177,7 @@ void maximizedCallback(GLFWwindow* window, int maximized);
 void windowFocusCallback(GLFWwindow *window, int focused);
 
 void showWindow();
+void setupExplorer();
 void setupUI(bool darkTheme);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
@@ -540,24 +544,28 @@ struct ExplorerNode {
     string name;
 
     vector<ExplorerNode> children;
+
+    bool operator== (ExplorerNode const &other) const {
+        return (
+            type == other.type
+            && name == other.name
+            && children == other.children
+        );
+    }
 };
 
 struct Explorer {
-    bool show;
-    bool updated;
-    bool active;
-
-    float verticalScrollOffset;
-    float horizontalScrollOffset;
-
     uint32_t vao;
     uint32_t vbo;
+    uint32_t lineVAO;
+    uint32_t lineVBO;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
     uint32_t verticalScrollVao;
     uint32_t verticalScrollVbo;
     uint32_t horizontalScrollVao;
     uint32_t horizontalScrollVbo;
+    uint32_t textVertices;
 
     vector<ExplorerNode> nodes;
 };

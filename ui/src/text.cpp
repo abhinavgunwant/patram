@@ -118,8 +118,7 @@ inline bool getCharParams(
     float& bearingTop,
     float& bearingLeft,
     float& advance,
-    float parentLeft,
-    float parentWidth,
+    float rightBound,
     uint32_t& rows,
     uint8_t fontSize,
     bool& renderNextContentBlock,
@@ -153,7 +152,7 @@ inline bool getCharParams(
 
     xpos += bearingLeft;
 
-    if (xpos + glyphWidth > contentRight) {
+    if (xpos + glyphWidth > rightBound) {
         if (!breakLine) {
             return false;
         }
@@ -325,8 +324,7 @@ RopeRenderResult renderContentRope(
                 bearingTop,
                 bearingLeft,
                 advance,
-                contentLeft,
-                parentWidth,
+                contentRight,
                 result.rows,
                 fontSize,
                 result.renderNextContentBlock
@@ -434,8 +432,7 @@ RopeRenderResult renderTextCached(
             bearingTop,
             bearingLeft,
             advance,
-            parentLeft,
-            parentWidth,
+            parentLeft + parentWidth,
             result.rows,
             fontSize,
             result.renderNextContentBlock,
@@ -509,8 +506,7 @@ RopeRenderResult getTextDimensions(
             bearingTop,
             bearingLeft,
             advance,
-            parentLeft,
-            parentWidth,
+            parentLeft + parentWidth,
             result.rows,
             fontSize,
             result.renderNextContentBlock,
@@ -529,6 +525,60 @@ RopeRenderResult getTextDimensions(
     }
 
     return result;
+}
+
+void appendTextVertices(
+    float x,
+    float y,
+    string text,
+    vector<float>& vertices
+) {
+    float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
+        glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
+    float infinity = numeric_limits<float>::infinity();
+
+    uint32_t rows;
+
+    bool renderNextContentBlock;
+
+    for (char c: text) {
+        glm::vec2 pos = glm::vec2(x, y);
+
+        getCharParams(
+            characters[(int)c],
+            pos,
+            xpos,
+            ypos,
+            yNet,
+            xpos_plus_w,
+            ypos_plus_h,
+            totalHeight,
+            texX1,
+            texX2,
+            texY1,
+            texY2,
+            glyphHeight,
+            glyphWidth,
+            bearingTop,
+            bearingLeft,
+            advance,
+            infinity,
+            rows,
+            16,
+            renderNextContentBlock
+        );
+
+        vertices.insert(vertices.end(), {
+            xpos,           ypos_plus_h,    texX1, texY1,
+            xpos,           ypos,           texX1, texY2,
+            xpos_plus_w,    ypos,           texX2, texY2,
+            xpos,           ypos_plus_h,    texX1, texY1,
+            xpos_plus_w,    ypos,           texX2, texY2,
+            xpos_plus_w,    ypos_plus_h,    texX2, texY1
+        });
+
+        xpos += advance;
+    }
 }
 
 // render line of text
