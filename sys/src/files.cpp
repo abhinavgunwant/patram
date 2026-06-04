@@ -123,6 +123,10 @@ inline string getVaultsDirectory() {
     return getPatramDirectory() + string(1, filesystem::path::preferred_separator) + "vaults";
 }
 
+filesystem::path getVaultPath(string selectedVault) {
+    return getVaultsDirectoryPath() / selectedVault;
+}
+
 string getDefaultVault() {
     vector<string> dvf = readFileText(getDefaultVaultFile());
 

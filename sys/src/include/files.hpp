@@ -89,6 +89,8 @@ filesystem::path getFontInfoPath(uint8_t index);
 filesystem::path getVaultsDirectoryPath();
 string getVaultsDirectory();
 
+filesystem::path getVaultPath(string selectedVault);
+
 string getDefaultVault();
 
 void setDefaultVault(string vaultName);
