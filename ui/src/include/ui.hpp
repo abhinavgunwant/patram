@@ -60,6 +60,7 @@
 #define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
 #define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
 #define EXPLORER_BG                 glm::vec4(0.82, 0.82, 0.82, 1.0)
+#define EXPLORER_HOVER_BG           glm::vec4(0.89, 0.827, 0.827, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
 
@@ -84,6 +85,7 @@
 #define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
 #define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
 #define EXPLORER_BG_DARK            glm::vec4(0.12, 0.1, 0.1, 1.0)
+#define EXPLORER_HOVER_BG_DARK      glm::vec4(0.19, 0.18, 0.18, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 
@@ -141,6 +143,15 @@
 #define EXPLORER                elements[4]
 #define CONTENT_CONTAINER       elements[5]
 #define WELCOME_MAIN_CONTAINER  elements[6]
+
+#define EXPLORER_ELEMENT_HEIGHT 32.0f
+#define EXPLORER_FLAG_EXPANDED  0b00000001
+#define EXPLORER_FLAG_HOVER     0b00000010
+#define EXPLORER_FLAG_ACTIVE    0b00000100
+
+#define GET_FLAG(x, flag)   (x & flag)
+#define SET_FLAG(x, flag)   x = x | flag
+#define UNSET_FLAG(x, flag) x = x & ~(flag)
 
 using namespace std;
 
@@ -532,7 +543,7 @@ enum class ExplorerNodeType: uint8_t {
 
 struct ExplorerNode {
     ExplorerNodeType type;
-    bool expanded;
+    uint8_t flags;
 
     uint16_t left;
     uint16_t height;
@@ -559,6 +570,8 @@ struct Explorer {
     uint32_t vbo;
     uint32_t lineVAO;
     uint32_t lineVBO;
+    uint32_t hoverBgVao;
+    uint32_t hoverBgVbo;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
     uint32_t verticalScrollVao;
@@ -566,6 +579,10 @@ struct Explorer {
     uint32_t horizontalScrollVao;
     uint32_t horizontalScrollVbo;
     uint32_t textVertices;
+
+    float lastClickedTime;
+
+    bool elementHover;
 
     vector<ExplorerNode> nodes;
 };
@@ -676,7 +693,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up);
 vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab);
 vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
 
-void openFile();
+void openFile(bool openDialog, filesystem::path p = "");
 void saveFile();
 void newNote();
 void updateWindowTitle();

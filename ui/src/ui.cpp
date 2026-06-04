@@ -36,6 +36,16 @@
         glEnableVertexAttribArray(0);\
     } while (false)
 
+#define SETUP_BUFFERS_DYNAMIC(vao, vbo, vertices) do {\
+        glGenVertexArrays(1, &vao);\
+        glBindVertexArray(vao);\
+        glGenBuffers(1, &vbo);\
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);\
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);\
+        glEnableVertexAttribArray(0);\
+    } while (false)
+
 using namespace std;
 
 float iconButtonVertices[16] = {
@@ -102,7 +112,7 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
-Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, vector<ExplorerNode>() };
+Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, vector<ExplorerNode>() };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -399,6 +409,94 @@ void onSwitchVaultClicked() {
     #undef ELEM_COUNT
 }
 
+filesystem::path getClickedExplorerNodePath(
+    vector<ExplorerNode>& nodes,
+    float& y,
+    float mouseY
+) {
+    filesystem::path p;
+
+    for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
+        float y1 = y + EXPLORER_ELEMENT_HEIGHT;
+
+        if (mouseY > y && mouseY < y1) {
+            return (*itr).name;
+        }
+
+        y = y1;
+
+        if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED) && !(*itr).children.empty()) {
+            filesystem::path _p = getClickedExplorerNodePath((*itr).children, y, mouseY);
+
+            if (!_p.empty()) {
+                return p /= (*itr).name / _p;
+            }
+        }
+    }
+
+    #ifdef DEBUG_EXPLORER
+        cout << "\nDEBUG: Clicked explorer path: " << p;
+    #endif
+
+    return p;
+}
+
+void unsetExplorerTreeFlag(vector<ExplorerNode>& nodes, uint8_t flag) {
+    for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
+        UNSET_FLAG((*itr).flags, flag);
+
+        if (!(*itr).children.empty()) {
+            unsetExplorerTreeFlag((*itr).children, flag);
+        }
+    }
+}
+
+void setExplorerTreeFlag(
+    vector<ExplorerNode>& nodes,
+    float& y,
+    float mouseY,
+    uint8_t flag
+) {
+    for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
+        float y1 = y + EXPLORER_ELEMENT_HEIGHT;
+
+        if (mouseY > y && mouseY < y1) {
+            SET_FLAG((*itr).flags, flag);
+            explorer.elementHover = true;
+
+            float vertices[8] = {
+                0,              y,
+                0,              y1,
+                EXPLORER.width, y,
+                EXPLORER.width, y1,
+            };
+
+            #ifdef DEBUG_EXPLORER
+                cout << "\nDEBUG: explorer flag " << (int)flag << " set for "
+                    << (*itr).name << ", vertices:\n";
+                for (int i=0; i<8; ++i) {
+                    cout << vertices[i];
+                    if (i != 7) {
+                        cout << ", ";
+                    }
+                }
+            #endif
+
+            glBindVertexArray(explorer.hoverBgVao);
+            glBindBuffer(GL_ARRAY_BUFFER, explorer.hoverBgVbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        } else {
+            UNSET_FLAG((*itr).flags, flag);
+        }
+
+        y = y1;
+
+        if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED) && !(*itr).children.empty()) {
+            setExplorerTreeFlag((*itr).children, y, mouseY, flag);
+        }
+    }
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     if (button == GLFW_MOUSE_BUTTON_1) {
         if (action == GLFW_PRESS) {
@@ -482,6 +580,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             activeElement = prevActiveElement;
                         }
                         break;
+                    case UIElementType::Explorer:
+                        float y = EXPLORER.top + elem->scrollData->yOffset;
+                        float time = glfwGetTime();
+
+                        if (time - explorer.lastClickedTime < 0.4f) {
+                            explorer.lastClickedTime = 0.0f;
+                            filesystem::path nodePath = getVaultPath(selectedVault)
+                                / getClickedExplorerNodePath(explorer.nodes, y, mouseY);
+                            openFile(false, nodePath);
+                        } else {
+                            explorer.lastClickedTime = time;
+                        }
+                        break;
                 }
 
                 // elem->onMouseDown(elem, mouseX, mouseY, resolution);
@@ -533,7 +644,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         break;
                     case UIElementType::IconButton:
                         if (elem->id == OPEN_BUTTON_ID) {
-                            openFile();
+                            openFile(true);
                         }
                         break;
                 }
@@ -849,13 +960,33 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             case UIElementType::ScrollArea:
                 cShape = CursorShape::Text;
                 scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
-                break;
+                throttleUpdateCursorShape(cShape);
+                return;
             case UIElementType::TextArea:
             case UIElementType::TextInput:
                 cShape = CursorShape::Text;
                 textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
-                break;
+                throttleUpdateCursorShape(cShape);
+                return;
         }
+    }
+
+    UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
+
+    if (
+        elem != nullptr
+        && elem->type == UIElementType::Explorer
+        && elem->show
+        && mouseX < elem->width
+        && (TAB_BAR.show && mouseY > TAB_BAR.height || !TAB_BAR.show)
+    ) {
+        float y = EXPLORER.top + elem->scrollData->yOffset;
+
+        setExplorerTreeFlag(explorer.nodes, y, mouseY, EXPLORER_FLAG_HOVER);
+        cShape = CursorShape::Default;
+    } else if (explorer.elementHover) {
+        unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_HOVER);
+        explorer.elementHover = false;
     }
 
     throttleUpdateCursorShape(cShape);
@@ -1020,7 +1151,7 @@ void populateExplorerFromIndex() {
         auto t1 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
 
-        cout << "\nDEBUG: Time taken to get entries from index: " << duration.count();
+        cout << "\nDEBUG: Time taken to get entries from index: " << duration.count() << " microseconds.";
 
         cout << "\nDEBUG: VaultIndex Entries:";
 
@@ -1046,7 +1177,7 @@ void populateExplorerFromContent() {
             auto t2 = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-            cout << "\nDEBUG: Time taken to get entries from content: " << duration.count();
+            cout << "\nDEBUG: Time taken to get entries from content: " << duration.count() << " microseconds.";
 
             cout << "\nDEBUG: VaultIndex content Entries:";
 
@@ -1293,7 +1424,7 @@ void setupExplorer() {
     for (
         vector<ExplorerNode>::iterator iter = explorer.nodes.begin();
         iter != explorer.nodes.end();
-        ++iter, y += 32.0f
+        ++iter, y += EXPLORER_ELEMENT_HEIGHT
     ) {
         appendTextVertices(16.0f, y, (*iter).name, vertices);
     }
@@ -1345,6 +1476,12 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
+
+    SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
+    SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
+    SETUP_BUFFERS_DYNAMIC(explorer.activeBgVao, explorer.activeBgVbo, vertices);
+    SETUP_BUFFERS_DYNAMIC(explorer.verticalScrollVao, explorer.verticalScrollVbo, vertices);
+    SETUP_BUFFERS_DYNAMIC(explorer.horizontalScrollVao, explorer.horizontalScrollVao, vertices);
 
     for (int i=0; i<100; ++i) {
         tabsDisplay[i].vao = 0;
@@ -1440,12 +1577,6 @@ void setupUI(bool isDarkTheme) {
     EXPLORER.backgroundColor = darkTheme ? EXPLORER_BG_DARK : EXPLORER_BG;
     EXPLORER.preferences->widthPreference = UISizePreference::Fixed;
     EXPLORER.preferences->heightPreference = UISizePreference::Full;
-
-    // UIElement* testLabel = new UIElement;
-    // initElement(*testLabel, UIElementType::Label, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
-    // testLabel->text = "test";
-
-    // addChild(&EXPLORER, testLabel);
 
     addChild(&WELCOME_SCREEN, &WELCOME_MAIN_CONTAINER);
 
@@ -2446,7 +2577,7 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_L: if (capsLck || shift) { TYPE("L"); } else { TYPE("l"); } break;
             case GLFW_KEY_M: if (capsLck || shift) { TYPE("M"); } else { TYPE("m"); } break;
             case GLFW_KEY_N: if (ctrl) { newNote(); } else if (capsLck || shift) { TYPE("N"); } else { TYPE("n"); } break;
-            case GLFW_KEY_O: if (ctrl) { openFile(); } else if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
+            case GLFW_KEY_O: if (ctrl) { openFile(true); } else if (capsLck || shift) { TYPE("O"); } else { TYPE("o"); } break;
             case GLFW_KEY_P: if (capsLck || shift) { TYPE("P"); } else { TYPE("p"); } break;
             case GLFW_KEY_Q: if (capsLck || shift) { TYPE("Q"); } else { TYPE("q"); } break;
             case GLFW_KEY_R: if (capsLck || shift) { TYPE("R"); } else { TYPE("r"); } break;
@@ -3689,46 +3820,57 @@ vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab) {
     return lastVisibleIter;
 }
 
-void openFile() {
-    FileDialogResult result = openFileDialog(window, "Open file", FileDialogMode::Open);
+void openFile(bool openDialog, filesystem::path p) {
+    filesystem::path path;
+    string fileName;
 
-    if (result.success) {
-        cout << "\nDEBUG: Choosing file was successful! you chose: " << result.filepath;
+    if (openDialog) {
+        FileDialogResult result = openFileDialog(window, "Open file", FileDialogMode::Open);
 
-        filesystem::path path = result.filepath;
-        string fileName = path.filename().string();
+        if (result.success) {
+            path = result.filepath;
+            fileName = path.filename().string();
 
-        cout << "\nDEBUG: File Name: " << fileName;
-
-        if (checkFile(path) == OpenedFileType::TextFile) {
-            newTab(result.filepath);
-
-            ContentTab* tab = &tabs[activeTabIndex];
-
-            tab->contentBlocks.erase(tab->contentBlocks.begin());
-            tab->filePath = path;
-
-            vector<string> lines = readFileText(path);
-
-            for (string line: lines) {
-                tab->contentBlocks.emplace_back(ContentBlock {
-                    ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
-                });
-            }
-
-            #ifdef DEBUG_CONTENT_BLOCKS
-                cout << "\nRead following content from file ("
-                    << tab->contentBlocks.size() << "): ";
-
-                printContentBlocksFromVector(tab->contentBlocks);
-            #endif
-
-            updateWindowTitle();
+            cout << "\nDEBUG: Choosing file was successful! you chose: " << result.filepath
+                << "\nDEBUG: File Name: " << fileName;
+        } else {
+            cerr << "\nSome error opening file dialog.";
+            return;
         }
     } else {
-        cout << "\nSome error opening file dialog.";
+        path = p;
+        fileName = path.filename().string();
+    }
+
+    if (checkFile(path) == OpenedFileType::TextFile) {
+        newTab(path);
+
+        ContentTab* tab = &tabs[activeTabIndex];
+
+        tab->contentBlocks.erase(tab->contentBlocks.begin());
+        tab->filePath = path;
+
+        vector<string> lines = readFileText(path);
+
+        for (string line: lines) {
+            tab->contentBlocks.emplace_back(ContentBlock {
+                ContentBlockType::Paragraph,
+                CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
+            });
+        }
+
+        #ifdef DEBUG_CONTENT_BLOCKS
+            cout << "\nRead following content from file ("
+                << tab->contentBlocks.size() << "): ";
+
+            printContentBlocksFromVector(tab->contentBlocks);
+        #endif
+
+        updateWindowTitle();
+
+        TAB_BAR.show = true;
+        CONTENT_CONTAINER.show = true;
     }
 }
 
@@ -6707,6 +6849,22 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 setupExplorer();
             }
 
+            glm::vec4 bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
+            glBindVertexArray(explorer.activeBgVao);
+            glUseProgram(shaders[SHADER_DEFAULT].programId);
+            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            if (explorer.elementHover) {
+                bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
+                glBindVertexArray(explorer.hoverBgVao);
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
+                glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
+
             glm::vec2 ___;
             vector<float> _;
             uint32_t __ = 0;
@@ -7584,6 +7742,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
                     || elem->type == UIElementType::ContentContainer
                     || elem->type == UIElementType::IconButton
                     || elem->type == UIElementType::TabBar
+                    || elem->type == UIElementType::Explorer
                 )
                 && !(
                     elem->type == UIElementType::Button
