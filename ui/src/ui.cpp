@@ -92,10 +92,11 @@ GLFWwindow* window;
 bool minimized = false;
 bool focused = true;
 bool mouse1Down = false;
-bool cursorShouldUpdate = false;
+bool cursorShouldUpdate = true;
 bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
+CursorShape currentCursorShape = CursorShape::Default;
 
 string selectedVault = "";
 
@@ -160,7 +161,8 @@ void showWindow() {
 }
 
 void updateCursorShape(CursorShape shape) {
-    if (!cursorShouldUpdate) {
+    if (shape == currentCursorShape && shape != CursorShape::Auto) {
+        cursorShouldUpdate = true;
         return;
     }
 
@@ -169,29 +171,62 @@ void updateCursorShape(CursorShape shape) {
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
             if (elem != nullptr && (elem->type == UIElementType::TextArea || elem->type == UIElementType::TextInput)) {
+                #ifdef DEBUG_CURSOR_SHAPE
+                cout << "\nDEBUG: Cursor shape: Text";
+                #endif
                 glfwSetCursor(window, textCursor);
+                currentCursorShape = CursorShape::Text;
             } else {
+                #ifdef DEBUG_CURSOR_SHAPE
+                cout << "\nDEBUG: Cursor shape: Default";
+                #endif
                 glfwSetCursor(window, nullptr);
+                currentCursorShape = CursorShape::Default;
             }
 
             break;
         }
 
-        case CursorShape::Default: glfwSetCursor(window, nullptr); break;
-        case CursorShape::Text: glfwSetCursor(window, textCursor); break;
-        case CursorShape::Pointer: glfwSetCursor(window, pointerCursor); break;
-        case CursorShape::HorizontalResize: glfwSetCursor(window, hResizeCursor); break;
+        case CursorShape::Default:
+            #ifdef DEBUG_CURSOR_SHAPE
+            cout << "\nDEBUG: Cursor shape: Default";
+            #endif
+            glfwSetCursor(window, nullptr);
+            currentCursorShape = CursorShape::Default;
+            break;
+
+        case CursorShape::Text:
+            #ifdef DEBUG_CURSOR_SHAPE
+            cout << "\nDEBUG: Cursor shape: Text";
+            #endif
+            glfwSetCursor(window, textCursor);
+            currentCursorShape = CursorShape::Text;
+            break;
+        case CursorShape::Pointer:
+            #ifdef DEBUG_CURSOR_SHAPE
+            cout << "\nDEBUG: Cursor shape: Pointer";
+            #endif
+            glfwSetCursor(window, pointerCursor);
+            currentCursorShape = CursorShape::Pointer;
+            break;
+        case CursorShape::HorizontalResize:
+            #ifdef DEBUG_CURSOR_SHAPE
+            cout << "\nDEBUG: Cursor shape: HorizontalResize";
+            #endif
+            glfwSetCursor(window, hResizeCursor);
+            currentCursorShape = CursorShape::HorizontalResize;
+            break;
     }
 
     while (glfwGetTime() < cursorUpdateTime) {}
 
     cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
-    cursorShouldUpdate = false;
+    cursorShouldUpdate = true;
 }
 
 void throttleUpdateCursorShape(CursorShape shape) {
-    if (!cursorShouldUpdate) {
-        cursorShouldUpdate = true;
+    if (cursorShouldUpdate) {
+        cursorShouldUpdate = false;
         thread t(updateCursorShape, shape);
         t.detach();
     }

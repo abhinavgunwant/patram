@@ -131,6 +131,7 @@
 // #define DEBUG_RENDER
 #define DEBUG_CONTENT_BLOCKS
 // #define DEBUG_SCROLL
+// #define DEBUG_CURSOR_SHAPE
 #define DEBUG_EXPLORER
 
 #define MENU_BAR 0
