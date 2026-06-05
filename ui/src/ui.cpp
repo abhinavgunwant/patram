@@ -6980,7 +6980,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glScissor(elem.left, elem.top, elem.width, elem.height);
+            glScissor(0, 0, elem.width, elem.height);
             glEnable(GL_SCISSOR_TEST);
 
             if (elem.reDraw) {
