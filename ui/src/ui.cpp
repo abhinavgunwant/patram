@@ -4111,6 +4111,8 @@ void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::v
             break;
         }
     }
+
+    updateWindowTitle();
 }
 
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
