@@ -205,6 +205,7 @@ enum class CursorShape: uint8_t {
     Default,
     Text,
     Pointer,
+    HorizontalResize
 };
 
 enum class UIElementType: uint8_t {
@@ -584,6 +585,8 @@ struct Explorer {
     float lastClickedTime;
 
     bool elementHover;
+    bool lineHover;
+    bool redrawLine;
 
     vector<ExplorerNode> nodes;
 };

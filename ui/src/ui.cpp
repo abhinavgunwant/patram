@@ -101,6 +101,7 @@ string selectedVault = "";
 
 GLFWcursor* textCursor;
 GLFWcursor* pointerCursor;
+GLFWcursor* hResizeCursor;
 
 UIElement elements[16];
 
@@ -112,7 +113,7 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
-Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, vector<ExplorerNode>() };
+Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, false, false, vector<ExplorerNode>() };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -179,6 +180,7 @@ void updateCursorShape(CursorShape shape) {
         case CursorShape::Default: glfwSetCursor(window, nullptr); break;
         case CursorShape::Text: glfwSetCursor(window, textCursor); break;
         case CursorShape::Pointer: glfwSetCursor(window, pointerCursor); break;
+        case CursorShape::HorizontalResize: glfwSetCursor(window, hResizeCursor); break;
     }
 
     while (glfwGetTime() < cursorUpdateTime) {}
@@ -990,6 +992,21 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
     }
 
+    if (
+        mouseX >= EXPLORER.width - 3 && mouseX <= EXPLORER.width + 3
+        && (TAB_BAR.show && mouseY > TAB_BAR.height || !TAB_BAR.show)
+    ) {
+        if (!explorer.lineHover) {
+            explorer.lineHover = true;
+            explorer.redrawLine = true;
+            cShape = CursorShape::HorizontalResize;
+        }
+        throttleUpdateCursorShape(cShape);
+        return;
+    } else {
+        explorer.lineHover = false;
+    }
+
     UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
     if (
@@ -1497,6 +1514,7 @@ void setupUI(bool isDarkTheme) {
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
     pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    hResizeCursor = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
 
     initShaders();
     initTextRendering(windowWidth, windowHeight);
@@ -6938,6 +6956,30 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             );
 
             glDisable(GL_SCISSOR_TEST);
+
+            if (explorer.lineHover) {
+                glBindVertexArray(explorer.lineVAO);
+
+                if (explorer.redrawLine) {
+                    float vertices[8] = {
+                        EXPLORER.width - 3, EXPLORER.top,
+                        EXPLORER.width - 3, windowHeight,
+                        EXPLORER.width + 3, EXPLORER.top,
+                        EXPLORER.width + 3, windowHeight,
+                    };
+
+                    glBindBuffer(GL_ARRAY_BUFFER, explorer.lineVBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+                    explorer.redrawLine = false;
+                }
+
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUniform4f(uniforms[U_DEFAULT_COLOR], 1.0, 0.7, 0.7, 1.0);
+                glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
+
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
 
             elem.reDraw = false;
 
