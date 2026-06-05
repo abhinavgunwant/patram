@@ -112,7 +112,7 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
-Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, vector<ExplorerNode>() };
+Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, vector<ExplorerNode>() };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -409,27 +409,51 @@ void onSwitchVaultClicked() {
     #undef ELEM_COUNT
 }
 
-filesystem::path getClickedExplorerNodePath(
+tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
     vector<ExplorerNode>& nodes,
     float& y,
     float mouseY
 ) {
     filesystem::path p;
+    ExplorerNodeType nodeType;
 
     for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
         float y1 = y + EXPLORER_ELEMENT_HEIGHT;
 
         if (mouseY > y && mouseY < y1) {
-            return (*itr).name;
+            ExplorerNodeType ent = (*itr).type;
+
+            if (ent == ExplorerNodeType::Folder) {
+                if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)) {
+                    UNSET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
+                    #ifdef DEBUG_EXPLORER
+                    cout << "\nDEBUG: explorer flag " << (int)((*itr).flags) << " unset for "
+                        << (*itr).name << ", vertices:\n";
+                    #endif
+                } else {
+                    SET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
+                    #ifdef DEBUG_EXPLORER
+                    cout << "\nDEBUG: explorer flag " << (int)((*itr).flags) << " set for "
+                        << (*itr).name << ", vertices:\n";
+                    #endif
+                }
+                EXPLORER.reDraw = true;
+            }
+
+            return make_tuple(ent, (*itr).name);
         }
 
         y = y1;
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED) && !(*itr).children.empty()) {
-            filesystem::path _p = getClickedExplorerNodePath((*itr).children, y, mouseY);
+            auto node_tuple = getClickedExplorerNodePath((*itr).children, y, mouseY);
+            ExplorerNodeType t = get<0>(node_tuple);
+            filesystem::path _p = get<1>(node_tuple);
 
             if (!_p.empty()) {
-                return p /= (*itr).name / _p;
+                p /= (*itr).name / _p;
+
+                return make_tuple(t, p);
             }
         }
     }
@@ -438,7 +462,7 @@ filesystem::path getClickedExplorerNodePath(
         cout << "\nDEBUG: Clicked explorer path: " << p;
     #endif
 
-    return p;
+    return make_tuple(ExplorerNodeType::Note, p);
 }
 
 void unsetExplorerTreeFlag(vector<ExplorerNode>& nodes, uint8_t flag) {
@@ -470,17 +494,6 @@ void setExplorerTreeFlag(
                 EXPLORER.width, y,
                 EXPLORER.width, y1,
             };
-
-            #ifdef DEBUG_EXPLORER
-                cout << "\nDEBUG: explorer flag " << (int)flag << " set for "
-                    << (*itr).name << ", vertices:\n";
-                for (int i=0; i<8; ++i) {
-                    cout << vertices[i];
-                    if (i != 7) {
-                        cout << ", ";
-                    }
-                }
-            #endif
 
             glBindVertexArray(explorer.hoverBgVao);
             glBindBuffer(GL_ARRAY_BUFFER, explorer.hoverBgVbo);
@@ -584,13 +597,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         float y = EXPLORER.top + elem->scrollData->yOffset;
                         float time = glfwGetTime();
 
-                        if (time - explorer.lastClickedTime < 0.4f) {
-                            explorer.lastClickedTime = 0.0f;
-                            filesystem::path nodePath = getVaultPath(selectedVault)
-                                / getClickedExplorerNodePath(explorer.nodes, y, mouseY);
-                            openFile(false, nodePath);
-                        } else {
-                            explorer.lastClickedTime = time;
+                        auto node_tuple = getClickedExplorerNodePath(explorer.nodes, y, mouseY);
+                        ExplorerNodeType t = get<0>(node_tuple);
+                        filesystem::path p = get<1>(node_tuple);
+
+                        if (t == ExplorerNodeType::Note) {
+                            if (time - explorer.lastClickedTime < 0.4f) {
+                                explorer.lastClickedTime = 0.0f;
+
+                                filesystem::path nodePath = getVaultPath(selectedVault) / p;
+                                openFile(false, nodePath);
+                            } else {
+                                explorer.lastClickedTime = time;
+                            }
                         }
                         break;
                 }
@@ -1410,35 +1429,65 @@ void destroyWelcomeScreen() {
     }
 }
 
-void setupExplorer() {
-    if (explorer.vao != 0) {
-        glDeleteVertexArrays(1, &explorer.vao);
-        glDeleteBuffers(1, &explorer.vbo);
+inline void appendTextVerticesForExplorerNode(
+    float x,
+    float& y,
+    vector<ExplorerNode>& nodes,
+    vector<float>& vertices
+) {
+    float initialY = y;
+
+    for (
+        auto itr = nodes.begin();
+        itr != nodes.end();
+        ++itr, y += EXPLORER_ELEMENT_HEIGHT
+    ) {
+        appendTextVertices(x, y, (*itr).name, vertices);
+        bool expanded = GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
+        bool empty = (*itr).children.empty();
+
+        if (
+            (*itr).type == ExplorerNodeType::Folder
+            && GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
+            && !(*itr).children.empty()
+        ) {
+            y += EXPLORER_ELEMENT_HEIGHT;
+            appendTextVerticesForExplorerNode(x + 16.0f, y, (*itr).children, vertices);
+        }
     }
 
-    float y = TAB_BAR_HEIGHT + 8.0f;
+    if (y != initialY) {
+        y -= EXPLORER_ELEMENT_HEIGHT;
+    }
+}
+
+void setupExplorer() {
+    float y = EXPLORER.top + 4.0f;
     vector<float> vertices;
 
     vertices.reserve(64000);
 
-    for (
-        vector<ExplorerNode>::iterator iter = explorer.nodes.begin();
-        iter != explorer.nodes.end();
-        ++iter, y += EXPLORER_ELEMENT_HEIGHT
-    ) {
-        appendTextVertices(16.0f, y, (*iter).name, vertices);
+    appendTextVerticesForExplorerNode(16.0f, y, explorer.nodes, vertices);
+
+    glBindVertexArray(explorer.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
+
+    if (vertices.size() <= explorer.textVerCap) {
+        vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
+        move(zeros.begin(), zeros.end(), back_inserter(vertices));
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
+    } else {
+        while (vertices.size() <= explorer.textVerCap) {
+            explorer.textVerCap += 240;
+        }
+
+        vector<float> zeros(explorer.textVerCap, 0);
+
+        glBufferData(GL_ARRAY_BUFFER, explorer.textVerCap * sizeof(float), &vertices[0], GL_DYNAMIC_DRAW);
+        explorer.textVerCap = vertices.size();
     }
 
     explorer.textVertices = vertices.size();
-
-    glGenVertexArrays(1, &explorer.vao);
-    glBindVertexArray(explorer.vao);
-
-    glGenBuffers(1, &explorer.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
-    glBufferData(GL_ARRAY_BUFFER, explorer.textVertices * sizeof(float), &vertices[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 }
 
 void setupUI(bool isDarkTheme) {
@@ -1476,6 +1525,17 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
+
+    float verts[2400];
+    memset(verts, 0, sizeof(verts));
+    glGenVertexArrays(1, &explorer.vao);
+    glBindVertexArray(explorer.vao);
+    glGenBuffers(1, &explorer.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    explorer.textVerCap = 2400;
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -6825,10 +6885,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 };
 
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
-
-                elem.reDraw = false;
             }
 
             glUseProgram(shaders[SHADER_DEFAULT].programId);
@@ -6845,7 +6901,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glScissor(elem.left, elem.top, elem.width, elem.height);
             glEnable(GL_SCISSOR_TEST);
 
-            if (explorer.vao == 0 || elem.reDraw) {
+            if (elem.reDraw) {
                 setupExplorer();
             }
 
@@ -6880,6 +6936,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             );
 
             glDisable(GL_SCISSOR_TEST);
+
+            elem.reDraw = false;
 
             break;
         }

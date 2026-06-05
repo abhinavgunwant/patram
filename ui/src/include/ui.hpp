@@ -579,6 +579,7 @@ struct Explorer {
     uint32_t horizontalScrollVao;
     uint32_t horizontalScrollVbo;
     uint32_t textVertices;
+    uint32_t textVerCap;
 
     float lastClickedTime;
 
