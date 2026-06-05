@@ -365,22 +365,17 @@ void setVaultIndex(string vaultName, vector<VaultIndexEntry> index) {
     f.close();
 }
 
-vector<VaultIndexEntry> getVaultContent(string vaultName) {
+vector<VaultIndexEntry> getDirectoryContent(filesystem::path dirPath) {
     vector<VaultIndexEntry> index;
 
-    filesystem::path vaultPath = getVaultsDirectoryPath() / vaultName;
-
-    if (!filesystem::exists(vaultPath)) {
-        // TODO: some way of showing this error!
-        return index;
-    }
-
     try {
-        for (const auto& entry: filesystem::directory_iterator(vaultPath)) {
+        for (const auto& entry: filesystem::directory_iterator(dirPath)) {
             VaultIndexEntryType type;
+            vector<VaultIndexEntry> children;
 
             if (entry.is_directory()) {
                 type = VaultIndexEntryType::Folder;
+                children = getDirectoryContent(dirPath / entry.path().filename().string());
             } else if (entry.is_regular_file()) {
                 type = VaultIndexEntryType::File;
             } else {
@@ -393,15 +388,24 @@ vector<VaultIndexEntry> getVaultContent(string vaultName) {
                 continue;
             }
 
-            index.push_back({
-                type,
-                filename,
-                vector<VaultIndexEntry>(),
-            });
+            index.push_back({ type, filename, children });
         }
     } catch (const filesystem::filesystem_error& e) {
         cerr << "\nError: " << e.what();
     }
+
+    return index;
+}
+
+vector<VaultIndexEntry> getVaultContent(string vaultName) {
+    filesystem::path vaultPath = getVaultsDirectoryPath() / vaultName;
+
+    if (!filesystem::exists(vaultPath)) {
+        // TODO: some way of showing this error!
+        return vector<VaultIndexEntry>();
+    }
+
+    vector<VaultIndexEntry> index = getDirectoryContent(vaultPath);
 
     // TODO: handle error if vault does not exist.
 
