@@ -46,6 +46,9 @@
         glEnableVertexAttribArray(0);\
     } while (false)
 
+#define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
+    && x <= EXPLORER.width + 2 && y > EXPLORER.top
+
 using namespace std;
 
 float iconButtonVertices[16] = {
@@ -114,7 +117,11 @@ float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
-Explorer explorer = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, false, false, false, vector<ExplorerNode>() };
+Explorer explorer = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    false, false, false, false,
+    vector<ExplorerNode>()
+};
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -575,6 +582,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
             }
 
+            if (explorer.lineHover) {
+                explorer.lineMouseDown = true;
+                return;
+            }
+
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
             if (elem != nullptr) {
@@ -661,6 +673,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 cout << "\nMouse button 1 released";
             #endif
             mouse1Down = false;
+            explorer.lineMouseDown = false;
 
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
                 cout << "\nHighlighted content block RELEASE target: ";
@@ -1008,6 +1021,23 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         #undef SCROLL_DATA
     }
 
+    if (explorer.lineMouseDown) {
+        if (mouseX > 100.0f && mouseX < 500.0f) {
+            float diff = mouseX - EXPLORER.width;
+
+            EXPLORER.width += diff;
+            WELCOME_SCREEN.width -= diff;
+            CONTENT_CONTAINER.width -= diff;
+
+            MAIN_CONTAINER.reDraw = true;
+            EXPLORER.reDraw = true;
+            WELCOME_SCREEN.reDraw = true;
+            CONTENT_CONTAINER.reDraw = true;
+            explorer.redrawLine = true;
+        }
+        return;
+    }
+
     if (
         activeElement != nullptr
         && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS
@@ -1027,15 +1057,12 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
     }
 
-    if (
-        mouseX >= EXPLORER.width - 3 && mouseX <= EXPLORER.width + 3
-        && (TAB_BAR.show && mouseY > TAB_BAR.height || !TAB_BAR.show)
-    ) {
+    if (MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
         if (!explorer.lineHover) {
             explorer.lineHover = true;
             explorer.redrawLine = true;
-            cShape = CursorShape::HorizontalResize;
         }
+        cShape = CursorShape::HorizontalResize;
         throttleUpdateCursorShape(cShape);
         return;
     } else {
@@ -6997,10 +7024,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 if (explorer.redrawLine) {
                     float vertices[8] = {
-                        EXPLORER.width - 3, EXPLORER.top,
-                        EXPLORER.width - 3, windowHeight,
-                        EXPLORER.width + 3, EXPLORER.top,
-                        EXPLORER.width + 3, windowHeight,
+                        EXPLORER.width - 2, EXPLORER.top,
+                        EXPLORER.width - 2, windowHeight,
+                        EXPLORER.width,     EXPLORER.top,
+                        EXPLORER.width,     windowHeight,
                     };
 
                     glBindBuffer(GL_ARRAY_BUFFER, explorer.lineVBO);

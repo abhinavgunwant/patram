@@ -587,6 +587,7 @@ struct Explorer {
 
     bool elementHover;
     bool lineHover;
+    bool lineMouseDown;
     bool redrawLine;
 
     vector<ExplorerNode> nodes;
