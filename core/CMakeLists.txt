@@ -18,3 +18,6 @@ target_link_libraries(patram
     ${LIB_DIR}
 )
 
+# TODO: Uncomment below after implementing logging
+# target_link_options(patram PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
+
