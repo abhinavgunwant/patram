@@ -63,6 +63,7 @@
 #define EXPLORER_HOVER_BG           glm::vec4(0.89, 0.827, 0.827, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
+#define SCROLL_BAR_THUMB_COLOR      glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
 
 #define CURSOR_COLOR                glm::vec4(0.0, 0.38, 0.65, 1.0)
 
@@ -88,6 +89,7 @@
 #define EXPLORER_HOVER_BG_DARK      glm::vec4(0.19, 0.18, 0.18, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
+#define SCROLL_BAR_THUMB_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
 
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
 
@@ -354,12 +356,15 @@ struct ScrollData {
     float yOffset;
     float width;
     float height;
+    float mouseDownX;
+    float mouseDownY;
 
     float lastScrolled;
 
     bool showVerticalScrollbar;
     bool showHorizontalScrollbar;
     bool renderedUpdate;
+    bool mouseDown;
 
     uint32_t verticalScrollBarVAO;
     uint32_t verticalScrollBarVBO;
@@ -548,11 +553,8 @@ struct ExplorerNode {
     uint8_t flags;
 
     uint16_t left;
-    uint16_t height;
-    uint16_t width;
 
     float top;
-    float netHeight;
 
     string name;
 

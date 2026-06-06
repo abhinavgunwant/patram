@@ -462,9 +462,7 @@ tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
     ExplorerNodeType nodeType;
 
     for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
-        float y1 = y + EXPLORER_ELEMENT_HEIGHT;
-
-        if (mouseY > y && mouseY < y1) {
+        if (mouseY > (*itr).top && mouseY < (*itr).top + EXPLORER_ELEMENT_HEIGHT) {
             ExplorerNodeType ent = (*itr).type;
 
             if (ent == ExplorerNodeType::Folder) {
@@ -487,7 +485,7 @@ tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
             return make_tuple(ent, (*itr).name);
         }
 
-        y = y1;
+        y += EXPLORER_ELEMENT_HEIGHT;
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED) && !(*itr).children.empty()) {
             auto node_tuple = getClickedExplorerNodePath((*itr).children, y, mouseY);
@@ -523,20 +521,22 @@ void setExplorerTreeFlag(
     vector<ExplorerNode>& nodes,
     float& y,
     float mouseY,
+    float yOffset,
     uint8_t flag
 ) {
     for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
         float y1 = y + EXPLORER_ELEMENT_HEIGHT;
+        float top = (*itr).top;
 
-        if (mouseY > y && mouseY < y1) {
+        if (mouseY > (*itr).top && mouseY < (*itr).top + EXPLORER_ELEMENT_HEIGHT) {
             SET_FLAG((*itr).flags, flag);
             explorer.elementHover = true;
 
             float vertices[8] = {
-                0,              y,
-                0,              y1,
-                EXPLORER.width, y,
-                EXPLORER.width, y1,
+                0,              (*itr).top - 4.0f,
+                0,              (*itr).top + EXPLORER_ELEMENT_HEIGHT - 4.0f,
+                EXPLORER.width, (*itr).top - 4.0f,
+                EXPLORER.width, (*itr).top + EXPLORER_ELEMENT_HEIGHT - 4.0f,
             };
 
             glBindVertexArray(explorer.hoverBgVao);
@@ -549,7 +549,7 @@ void setExplorerTreeFlag(
         y = y1;
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED) && !(*itr).children.empty()) {
-            setExplorerTreeFlag((*itr).children, y, mouseY, flag);
+            setExplorerTreeFlag((*itr).children, y, mouseY, yOffset, flag);
         }
     }
 }
@@ -646,6 +646,16 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         float y = EXPLORER.top + elem->scrollData->yOffset;
                         float time = glfwGetTime();
 
+                        if (
+                            elem->scrollData->showVerticalScrollbar
+                            && mouseX > elem->width - SCROLL_BAR_THICKNESS
+                        ) {
+                            elem->scrollData->mouseDown = true;
+                            elem->scrollData->mouseDownX = mouseX;
+                            elem->scrollData->mouseDownY = mouseY;
+                            break;
+                        }
+
                         auto node_tuple = getClickedExplorerNodePath(explorer.nodes, y, mouseY);
                         ExplorerNodeType t = get<0>(node_tuple);
                         filesystem::path p = get<1>(node_tuple);
@@ -674,6 +684,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             #endif
             mouse1Down = false;
             explorer.lineMouseDown = false;
+            EXPLORER.scrollData->mouseDown = false;
 
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
                 cout << "\nHighlighted content block RELEASE target: ";
@@ -1078,10 +1089,35 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         && mouseX < elem->width
         && (TAB_BAR.show && mouseY > TAB_BAR.height || !TAB_BAR.show)
     ) {
-        float y = EXPLORER.top + elem->scrollData->yOffset;
+        if (
+            elem->scrollData->showVerticalScrollbar
+            && mouseX > elem->width - SCROLL_BAR_THICKNESS
+        ) {
+            if (elem->scrollData->mouseDown) {
+                float oldOffset = elem->scrollData->yOffset;
+                elem->scrollData->yOffset += mouseY - elem->scrollData->mouseDownY;
 
-        setExplorerTreeFlag(explorer.nodes, y, mouseY, EXPLORER_FLAG_HOVER);
-        cShape = CursorShape::Default;
+                if (elem->scrollData->yOffset < 0) {
+                    elem->scrollData->yOffset = 0;
+                } else if (elem->scrollData->yOffset + elem->height > elem->scrollData->height) {
+                    elem->scrollData->yOffset = elem->scrollData->height - elem->height;
+                }
+
+                if (elem->scrollData->yOffset != oldOffset) {
+                    elem->reDraw = true;
+                    elem->scrollData->renderedUpdate = false;
+                    cout << "\nScroll offset: " << elem->scrollData->yOffset;
+                }
+                elem->scrollData->mouseDownY = mouseY;
+            }
+            throttleUpdateCursorShape(CursorShape::Default);
+            return;
+        } else {
+            float y = EXPLORER.top + elem->scrollData->yOffset;
+
+            setExplorerTreeFlag(explorer.nodes, y, mouseY, elem->scrollData->yOffset, EXPLORER_FLAG_HOVER);
+            cShape = CursorShape::Default;
+        }
     } else if (explorer.elementHover) {
         unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_HOVER);
         explorer.elementHover = false;
@@ -1107,86 +1143,90 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
             elem = elem->parent;
         }
 
-        if (elem->type == UIElementType::ScrollArea) {
-            bool scrolled = false;
-            bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
-                || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
-            bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
-            bool verticalScroll = !shiftPressed && yOffset != 0;
+        switch (elem->type) {
+            case UIElementType::Explorer:
+            case UIElementType::ScrollArea: {
+                bool scrolled = false;
+                bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+                    || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+                bool horizontalScroll = xOffset != 0 || shiftPressed && yOffset != 0;
+                bool verticalScroll = !shiftPressed && yOffset != 0;
 
-            if (verticalScroll) {
-                if (elem->height + Y_OFFSET < elem->scrollData->height && yOffset < 0) {
-                    Y_OFFSET += SCROLL_AMOUNT;
+                if (verticalScroll) {
+                    if (elem->height + Y_OFFSET < elem->scrollData->height && yOffset < 0) {
+                        Y_OFFSET += SCROLL_AMOUNT;
+                    } else if (yOffset > 0) {
+                        Y_OFFSET -= SCROLL_AMOUNT;
+                    }
+
+                    if (Y_OFFSET < 0) {
+                        Y_OFFSET = 0;
+                    } else if (Y_OFFSET > elem->scrollData->height) {
+                        Y_OFFSET = elem->scrollData->height - elem->height;
+                    }
+
+                    scrolled = true;
+                }
+
+                if (horizontalScroll) {
+                    if (
+                        elem->width + X_OFFSET < elem->scrollData->width
+                        && (!shiftPressed && xOffset < 0 || yOffset < 0)
+                    ) {
+                        X_OFFSET += SCROLL_AMOUNT;
+                    } else if (
+                        X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
+                    ) {
+                        X_OFFSET -= SCROLL_AMOUNT;
+                    }
+
+                    if (X_OFFSET < 0) {
+                        X_OFFSET = 0;
+                    }
+
+                    scrolled = true;
+                }
+
+                if (scrolled) {
+                    elem->reDraw = true;
+                    elem->scrollData->lastScrolled = glfwGetTime();
+                    elem->scrollData->renderedUpdate = false;
+
+                    for (int i=0; i<elem->totalChildren; ++i) {
+                        elem->children[i]->reDraw = true;
+                        elem->children[i]->show = true;
+                    }
+                }
+
+                break;
+            }
+
+            case UIElementType::ContentContainer: {
+                ContentTab* tab = &tabs[activeTabIndex];
+
+                if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
+                    tab->scrollOffsetY += SCROLL_AMOUNT;
                 } else if (yOffset > 0) {
-                    Y_OFFSET -= SCROLL_AMOUNT;
+                    tab->scrollOffsetY -= SCROLL_AMOUNT;
                 }
 
-                if (Y_OFFSET < 0) {
-                    Y_OFFSET = 0;
-                } else if (Y_OFFSET > elem->scrollData->height) {
-                    Y_OFFSET = elem->scrollData->height - elem->height;
+                if (tab->scrollOffsetY < 0) {
+                    tab->scrollOffsetY = 0;
+                } else if (tab->scrollOffsetY > tab->maxHeight) {
+                    tab->scrollOffsetY = tab->maxHeight - CONTENT_CONTAINER.height;
                 }
 
-                scrolled = true;
-            }
-
-            if (horizontalScroll) {
-                if (
-                    elem->width + X_OFFSET < elem->scrollData->width
-                    && (!shiftPressed && xOffset < 0 || yOffset < 0)
-                ) {
-                    X_OFFSET += SCROLL_AMOUNT;
-                } else if (
-                    X_OFFSET > 0 && !shiftPressed && xOffset > 0 || yOffset > 0
-                ) {
-                    X_OFFSET -= SCROLL_AMOUNT;
+                if (tab->showCursor) {
+                    tab->redrawCursor = true;
                 }
 
-                if (X_OFFSET < 0) {
-                    X_OFFSET = 0;
-                }
+                tab->scrollbarUpdated = false;
 
-                scrolled = true;
+                reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+
+                cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
+                break;
             }
-
-            if (scrolled) {
-                elem->reDraw = true;
-                elem->scrollData->lastScrolled = glfwGetTime();
-                elem->scrollData->renderedUpdate = false;
-
-                for (int i=0; i<elem->totalChildren; ++i) {
-                    elem->children[i]->reDraw = true;
-                    elem->children[i]->show = true;
-                }
-            }
-
-            return;
-        }
-
-        if (elem->type == UIElementType::ContentContainer) {
-            ContentTab* tab = &tabs[activeTabIndex];
-
-            if (elem->height + tab->scrollOffsetY < tab->maxHeight && yOffset < 0) {
-                tab->scrollOffsetY += SCROLL_AMOUNT;
-            } else if (yOffset > 0) {
-                tab->scrollOffsetY -= SCROLL_AMOUNT;
-            }
-
-            if (tab->scrollOffsetY < 0) {
-                tab->scrollOffsetY = 0;
-            } else if (tab->scrollOffsetY > tab->maxHeight) {
-                tab->scrollOffsetY = tab->maxHeight - CONTENT_CONTAINER.height;
-            }
-
-            if (tab->showCursor) {
-                tab->redrawCursor = true;
-            }
-
-            tab->scrollbarUpdated = false;
-
-            reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
-
-            cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
         }
     }
 
@@ -1230,9 +1270,7 @@ vector<ExplorerNode> createExplorerNodesFromIndex(vector<VaultIndexEntry>& index
             nodeType = ExplorerNodeType::Note;
         }
 
-        nodes.push_back({
-            nodeType, false, 0, 0, 0, 0.0f, 0.0f, entry.title, children
-        });
+        nodes.push_back({ nodeType, 0, 0, 0, entry.title, children });
     }
 
     return nodes;
@@ -1522,6 +1560,7 @@ inline void appendTextVerticesForExplorerNode(
         ++itr, y += EXPLORER_ELEMENT_HEIGHT
     ) {
         appendTextVertices(x, y, (*itr).name, vertices);
+        (*itr).top = y;
         bool expanded = GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
         bool empty = (*itr).children.empty();
 
@@ -1541,30 +1580,39 @@ inline void appendTextVerticesForExplorerNode(
 }
 
 void setupExplorer() {
-    float y = EXPLORER.top + 4.0f;
+    const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
+    float y = y0;
     vector<float> vertices;
 
     vertices.reserve(64000);
 
     appendTextVerticesForExplorerNode(16.0f, y, explorer.nodes, vertices);
+    float scrollHeight = y - y0 + 32.0f;
+
+    EXPLORER.scrollData->height = scrollHeight;
+    EXPLORER.scrollData->showVerticalScrollbar = scrollHeight > EXPLORER.height;
 
     glBindVertexArray(explorer.vao);
     glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
 
-    if (vertices.size() <= explorer.textVerCap) {
+    uint32_t currentSize = vertices.size();
+
+    if (currentSize <= explorer.textVerCap) {
         vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
         move(zeros.begin(), zeros.end(), back_inserter(vertices));
+
         glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
     } else {
-        while (vertices.size() <= explorer.textVerCap) {
-            explorer.textVerCap += 240;
-        }
+        while (currentSize > explorer.textVerCap) { explorer.textVerCap *= 1.5; }
 
-        vector<float> zeros(explorer.textVerCap, 0);
+        vector<float> zeros(explorer.textVerCap - currentSize, 0);
+        move(zeros.begin(), zeros.end(), back_inserter(vertices));
 
         glBufferData(GL_ARRAY_BUFFER, explorer.textVerCap * sizeof(float), &vertices[0], GL_DYNAMIC_DRAW);
         explorer.textVerCap = vertices.size();
     }
+
+    vertices.reserve(0);
 
     explorer.textVertices = vertices.size();
 }
@@ -4547,7 +4595,9 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             pref->widthPreference = UISizePreference::Grow;
 
             sd = new ScrollData {
-                0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0, 0, 0, 0
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                false, false, false, false,
+                0, 0, 0, 0, 0, 0, 0, 0
             };
 
             backgroundColor = TRANSPARENT_COLOR;
@@ -5250,287 +5300,122 @@ inline void recalculateContentWidth() {
     }
 }
 
+void setupScrollbars(
+    UIElement* elem,
+    bool vertical, uint32_t& vVAO, uint32_t& vVBO, uint32_t& vtVAO, uint32_t& vtVBO,
+    bool horizontal, uint32_t& hVAO, uint32_t& hVBO, uint32_t& htVAO, uint32_t& htVBO
+) {
+    // WARNING: side effects!
+    float top, left, bottom, right, thumbStart, thumbEnd;
+
+    if (vertical && vVAO == 0) {
+        getScrollbarDimensions(elem, top, right, bottom, left, thumbStart, thumbEnd, true);
+
+        float vertices[] = { right, bottom, right, elem->top, left, bottom, left, elem->top };
+        float thumbVertices[] = { right, thumbEnd, right, thumbStart, left, thumbEnd, left, thumbStart };
+
+        SETUP_BUFFERS_DYNAMIC(vVAO, vVBO, vertices);
+        SETUP_BUFFERS_DYNAMIC(vtVAO, vtVBO, thumbVertices);
+    }
+
+    if (horizontal && hVAO == 0) {
+        getScrollbarDimensions(elem, top, right, bottom, left, thumbStart, thumbEnd, false);
+
+        float vertices[] = { right, bottom, right, elem->top, left, bottom, left, elem->top };
+        float thumbVertices[] = { right, thumbEnd, right, thumbStart, left, thumbEnd, left, thumbStart };
+
+        SETUP_BUFFERS_DYNAMIC(hVAO, hVBO, vertices);
+        SETUP_BUFFERS_DYNAMIC(htVAO, htVBO, thumbVertices);
+    }
+}
+
+void updateScrollbars(
+    UIElement* elem,
+    bool vertical, uint32_t vVAO, uint32_t vVBO, uint32_t vtVAO, uint32_t vtVBO,
+    bool horizontal, uint32_t hVAO, uint32_t hVBO, uint32_t htVAO, uint32_t htVBO
+) {
+    #define UPDATE(vao, vbo, vertices) do { \
+        glBindVertexArray(vao);\
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);\
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);\
+    } while (false)
+
+    // WARNING: side effects!
+    float top, left, bottom, right, thumbStart, thumbEnd;
+
+    if (vertical) {
+        getScrollbarDimensions(elem, top, right, bottom, left, thumbStart, thumbEnd, true);
+
+        float vertices[] = { right, bottom, right, elem->top, left, bottom, left, elem->top };
+        float thumbVertices[] = { right, thumbEnd, right, thumbStart, left, thumbEnd, left, thumbStart };
+
+        UPDATE(vVAO, vVBO, vertices);
+        UPDATE(vtVAO, vtVBO, thumbVertices);
+    }
+
+    if (vertical) {
+        getScrollbarDimensions(elem, top, right, bottom, left, thumbStart, thumbEnd, true);
+
+        float vertices[] = { right, bottom, right, elem->top, left, bottom, left, elem->top };
+        float thumbVertices[] = { right, thumbEnd, right, thumbStart, left, thumbEnd, left, thumbStart };
+
+        UPDATE(hVAO, hVBO, vertices);
+        UPDATE(htVAO, htVBO, thumbVertices);
+    }
+}
+
 // NOTE: only for UIElementType::ContentContainer and UIElementType::ScrollArea.
 inline void renderScrollbars(UIElement* elem) {
     #define SCROLL_DATA elem->scrollData
+    #define DRAW(vao, c) do {\
+        glBindVertexArray(vao);\
+        glUseProgram(shaders[SHADER_DEFAULT].programId);\
+        glUniform4f(uniforms[U_DEFAULT_COLOR], c.r, c.g, c.b, c.a);\
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
+    } while (false)
 
-    bool update = !SCROLL_DATA->renderedUpdate;
+    if (
+        SCROLL_DATA->showVerticalScrollbar && SCROLL_DATA->verticalScrollBarVAO == 0
+        || SCROLL_DATA->showHorizontalScrollbar && SCROLL_DATA->horizontalScrollBarVAO == 0
+    ) {
+        setupScrollbars(
+            elem,
+            SCROLL_DATA->showVerticalScrollbar,
+            SCROLL_DATA->verticalScrollBarVAO, SCROLL_DATA->verticalScrollBarVBO,
+            SCROLL_DATA->verticalScrollThumbVAO, SCROLL_DATA->verticalScrollThumbVBO,
+            SCROLL_DATA->showHorizontalScrollbar,
+            SCROLL_DATA->horizontalScrollBarVAO, SCROLL_DATA->horizontalScrollBarVBO,
+            SCROLL_DATA->horizontalScrollThumbVAO, SCROLL_DATA->horizontalScrollThumbVBO
+        );
+    } else if (!SCROLL_DATA->renderedUpdate) {
+        updateScrollbars(
+            elem,
+            SCROLL_DATA->showVerticalScrollbar,
+            SCROLL_DATA->verticalScrollBarVAO, SCROLL_DATA->verticalScrollBarVBO,
+            SCROLL_DATA->verticalScrollThumbVAO, SCROLL_DATA->verticalScrollThumbVBO,
+            SCROLL_DATA->showHorizontalScrollbar,
+            SCROLL_DATA->horizontalScrollBarVAO, SCROLL_DATA->horizontalScrollBarVBO,
+            SCROLL_DATA->horizontalScrollThumbVAO, SCROLL_DATA->horizontalScrollThumbVBO
+        );
+    }
+
+    glm::vec4 trackColor = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
+    glm::vec4 thumbColor = darkTheme ? SCROLL_BAR_THUMB_COLOR_DARK : SCROLL_BAR_THUMB_COLOR;
 
     if (SCROLL_DATA->showVerticalScrollbar) {
-        // WARNING: side effects!
-        float top, left, bottom, right, thumbStart, thumbEnd;
-        bool dimensionsInitialized = false;
-
-        if (SCROLL_DATA->verticalScrollBarVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollBarVAO);
-            SCROLL_DATA->verticalScrollBarVAO = 0;
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared vertical scrollbar vertex array";
-            #endif
-
-            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVAO);
-                SCROLL_DATA->verticalScrollBarVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared vertical scrollbar vertex buffers";
-                #endif
-            }
-        }
-
-        if (SCROLL_DATA->verticalScrollBarVAO == 0) {
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nShowing vertical scrollbar. Element width: " << elem->width;
-            #endif
-            // WARNING: side effects!
-            getScrollbarDimensions(
-                elem, top, right, bottom, left,
-                thumbStart, thumbEnd,
-                true
-            );
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\n--> Vertical scrollbar dimensions. top: "
-                    << top << ", left: " << left << ", bottom: "
-                    << bottom << ", right:" << right
-                    << ", thumbStart: " << thumbStart << ", thumbEnd: " << thumbEnd;
-            #endif
-
-            dimensionsInitialized = true;
-
-            float vertices[] = {
-                right, bottom,
-                right, elem->top,
-                left, bottom,
-                left, elem->top,
-            };
-
-            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVBO);
-            }
-
-            SETUP_BUFFERS(SCROLL_DATA->verticalScrollBarVAO, SCROLL_DATA->verticalScrollBarVBO, vertices);
-        }
-
-        glBindVertexArray(SCROLL_DATA->verticalScrollBarVAO);
-        glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-        glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
-
-        if (darkTheme) {
-            color = SCROLL_BAR_TRACK_COLOR_DARK;
-        }
-
-        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        if (SCROLL_DATA->verticalScrollThumbVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollThumbVAO);
-            glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
-            SCROLL_DATA->verticalScrollThumbVAO = 0;
-            SCROLL_DATA->verticalScrollThumbVBO = 0;
-        }
-
-        if (SCROLL_DATA->verticalScrollThumbVAO == 0) {
-            if (!dimensionsInitialized) {
-                // WARNING: side effects!
-                getScrollbarDimensions(
-                    elem, top, right, bottom, left,
-                    thumbStart, thumbEnd,
-                    true
-                );
-            }
-
-            float vertices[] = {
-                right, thumbEnd,
-                right, thumbStart,
-                left, thumbEnd,
-                left, thumbStart,
-            };
-
-            if (SCROLL_DATA->verticalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
-            }
-
-            SETUP_BUFFERS(SCROLL_DATA->verticalScrollThumbVAO, SCROLL_DATA->verticalScrollThumbVBO, vertices);
-            SCROLL_DATA->renderedUpdate = true;
-        }
-
-        glBindVertexArray(SCROLL_DATA->verticalScrollThumbVAO);
-        glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    } else {
-        if (SCROLL_DATA->verticalScrollBarVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollBarVAO);
-            SCROLL_DATA->verticalScrollBarVAO = 0;
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared vertical scrollbar vertex array";
-            #endif
-
-            if (SCROLL_DATA->verticalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollBarVBO);
-                SCROLL_DATA->verticalScrollBarVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared vertical scroll bar vertex buffers";
-                #endif
-            }
-        }
-
-        if (SCROLL_DATA->verticalScrollThumbVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->verticalScrollThumbVAO);
-            SCROLL_DATA->verticalScrollThumbVAO = 0;
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared vertical scrollbar thumb vertex array";
-            #endif
-
-            if (SCROLL_DATA->verticalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->verticalScrollThumbVBO);
-                SCROLL_DATA->verticalScrollThumbVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared vertical scroll bar thumb vertex buffers";
-                #endif
-            }
-        }
+        DRAW(SCROLL_DATA->verticalScrollBarVAO, trackColor);
+        DRAW(SCROLL_DATA->verticalScrollThumbVAO, thumbColor);
     }
 
     if (SCROLL_DATA->showHorizontalScrollbar) {
-        // WARNING: side effects!
-        float top, left, bottom, right, thumbStart, thumbEnd;
-        bool dimensionsInitialized = false;
-
-        if (SCROLL_DATA->horizontalScrollBarVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollBarVAO);
-            SCROLL_DATA->horizontalScrollBarVAO = 0;
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared horizontal scrollbar vertex array";
-            #endif
-
-            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollBarVAO);
-                SCROLL_DATA->horizontalScrollBarVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared horizontal scrollbar vertex buffers";
-                #endif
-            }
-        }
-
-        if (SCROLL_DATA->horizontalScrollBarVAO == 0) {
-            getScrollbarDimensions(
-                elem, top, right, bottom, left,
-                thumbStart, thumbEnd,
-                false
-            );
-
-            dimensionsInitialized = true;
-
-            float vertices[] = {
-                right, bottom,
-                right, top,
-                left, bottom,
-                left, top,
-            };
-
-            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollBarVBO);
-            }
-
-            SETUP_BUFFERS(SCROLL_DATA->horizontalScrollBarVAO, SCROLL_DATA->horizontalScrollBarVBO, vertices);
-        }
-
-        glBindVertexArray(SCROLL_DATA->horizontalScrollBarVAO);
-        glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.9f, 0.9f, 0.9f, 1.0f);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        if (SCROLL_DATA->horizontalScrollThumbVAO != 0 && update) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
-            glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
-            SCROLL_DATA->horizontalScrollThumbVAO = 0;
-            SCROLL_DATA->horizontalScrollThumbVBO = 0;
-        }
-
-        if (SCROLL_DATA->horizontalScrollThumbVAO == 0) {
-            if (!dimensionsInitialized) {
-                // WARNING: side effects!
-                getScrollbarDimensions(
-                    elem, top, right, bottom, left,
-                    thumbStart, thumbEnd,
-                    false
-                );
-            }
-
-            float vertices[] = {
-                thumbStart, bottom,
-                thumbStart, top,
-                thumbEnd, bottom,
-                thumbEnd, top,
-            };
-
-            if (SCROLL_DATA->horizontalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
-            }
-
-            SETUP_BUFFERS(SCROLL_DATA->horizontalScrollThumbVAO, SCROLL_DATA->horizontalScrollThumbVBO, vertices);
-            SCROLL_DATA->renderedUpdate = true;
-        }
-
-        glBindVertexArray(SCROLL_DATA->horizontalScrollThumbVAO);
-        glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-        glUniform4f(uniforms[U_DEFAULT_COLOR], 0.6f, 0.6f, 0.6f, 1.0f);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    } else {
-        if (SCROLL_DATA->horizontalScrollBarVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
-            SCROLL_DATA->horizontalScrollBarVAO = 0;
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared horizontal scrollbar vertex array";
-            #endif
-
-            if (SCROLL_DATA->horizontalScrollBarVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
-                SCROLL_DATA->horizontalScrollBarVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared horizontal scroll bar vertex buffers";
-                #endif
-            }
-        }
-
-        if (SCROLL_DATA->horizontalScrollThumbVAO != 0) {
-            glDeleteVertexArrays(1, &SCROLL_DATA->horizontalScrollThumbVAO);
-            SCROLL_DATA->horizontalScrollThumbVAO = 0;
-
-            #ifdef DEBUG_SCROLL_AREA
-                cout << "\nCleared horizontal scrollbar thumb vertex array";
-            #endif
-
-            if (SCROLL_DATA->horizontalScrollThumbVBO != 0) {
-                glDeleteBuffers(1, &SCROLL_DATA->horizontalScrollThumbVBO);
-                SCROLL_DATA->horizontalScrollThumbVBO = 0;
-
-                #ifdef DEBUG_SCROLL_AREA
-                    cout << "\nCleared horizontal scroll bar thumb vertex buffers";
-                #endif
-            }
-        }
+        DRAW(SCROLL_DATA->horizontalScrollBarVAO, trackColor);
+        DRAW(SCROLL_DATA->horizontalScrollThumbVAO, thumbColor);
     }
 
+    SCROLL_DATA->renderedUpdate = true;
+
     #undef SCROLL_DATA
+    #undef DRAW
 }
 
 // NOTE: only for UIElementType::ContentContainer.
@@ -7019,6 +6904,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             glDisable(GL_SCISSOR_TEST);
 
+            if (
+                elem.scrollData->showVerticalScrollbar
+                || elem.scrollData->showHorizontalScrollbar
+            ) {
+                renderScrollbars(&elem);
+            }
+
             if (explorer.lineHover) {
                 glBindVertexArray(explorer.lineVAO);
 
@@ -7034,6 +6926,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 
                     explorer.redrawLine = false;
+                    elem.scrollData->renderedUpdate = false;
                 }
 
                 glUseProgram(shaders[SHADER_DEFAULT].programId);
