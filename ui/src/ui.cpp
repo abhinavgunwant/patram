@@ -1776,6 +1776,7 @@ void setupUI(bool isDarkTheme) {
     addChild(&ROOT_CONTAINER, &MAIN_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
+    initIconTexture();
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);

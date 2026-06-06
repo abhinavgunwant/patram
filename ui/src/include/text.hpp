@@ -14,7 +14,10 @@
 #include "ui.hpp"
 #include "files.hpp"
 
+#define ICONS_ATLAS_FILE            "assets/images/icons.png"
+
 #define MAX_CHARACTERS              65535
+#define MAX_ICONS                   5
 #define DEFAULT_FONT_SIZE           48
 #define ATLAS_DIMENSION             1024
 // #define DEBUG_TEXT
@@ -35,6 +38,12 @@ extern bool debugTextFirstRenderPrint;
 #define DEVANAGARI_EXT_LEN          32
 
 #define MAX_CHAR_INDEX              0xffff
+
+#define ICON_CHEVRON_DOWN           0
+#define ICON_CHEVRON_RIGHT          1
+#define ICON_FILE                   2
+#define ICON_SETTINGS               3
+#define ICON_SIDEBAR                4
 
 using namespace std;
 
@@ -58,8 +67,10 @@ struct GlyphDimensions {
 
 extern float glyphDescender;
 extern uint32_t fontTextureID;
+extern uint32_t iconTextureID;
 extern vector<Char> chvec;
 extern Character* characters;
+extern Character icons[MAX_ICONS];
 extern unsigned int textVAO, textVBO;
 
 void initTextRendering(uint16_t width, uint16_t height);
@@ -106,7 +117,8 @@ inline void drawTextBuffers(
     glm::vec2& res,
     vector<float>& vertices,
     glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-    bool redraw = false
+    bool redraw = false,
+    uint32_t texture = fontTextureID
 );
 
 RopeRenderResult renderContentRope(
@@ -143,6 +155,13 @@ RopeRenderResult getTextDimensions(
     float parentLeft, float parentWidth, bool breakLine = true
 );
 
+void appendCharVertices(
+    float x,
+    float y,
+    Character c,
+    vector<float>& vertices
+);
+
 void appendTextVertices(
     float x,
     float y,
@@ -176,6 +195,7 @@ glm::vec4 renderText(
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
 void initFontTexture(string path);
+void initIconTexture();
 
 uint16_t getCharIndex(uint32_t charcode);
 

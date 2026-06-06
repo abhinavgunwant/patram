@@ -26,7 +26,9 @@ bool debugTextFirstRenderPrint = true;
 
 float glyphDescender = 0;
 uint32_t fontTextureID = 0;
+uint32_t iconTextureID;
 Character* characters;
+Character icons[MAX_ICONS];
 Shader textShader;
 unsigned int textVAO, textVBO;
 
@@ -47,6 +49,73 @@ void initFontTexture(string path) {
 
     stbi_set_flip_vertically_on_load(true);
     uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+
+    if (stbi_failure_reason()) {
+        cerr << "\nError: Failed to load font texture: " << stbi_failure_reason();
+    }
+
+    if (data) {
+        #ifdef DEBUG_TEXTURE
+            cout << "\nTexture " << path << " loaded.";
+        #endif
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        cerr << "\nError: Failed to load texture (" << path << ").";
+    }
+
+    stbi_image_free(data);
+}
+
+void initIconTexture() {
+    uint8_t descender = static_cast<uint8_t>(glyphDescender * DEFAULT_FONT_SIZE);
+
+    icons[ICON_CHEVRON_DOWN] = {
+        32, 15, 0, 0, 27,
+        0.0111, 0.3407,
+        0.1670, 0.6614
+    };
+
+    icons[ICON_CHEVRON_RIGHT] = {
+        15, 32, 0, 0, 32,
+        0.1781, 0.2204,
+        0.2672, 0.7816
+    };
+
+    icons[ICON_FILE] = {
+        35, 42, 0, 0, 35,
+        0.2779, 0.0601,
+        0.4783, 0.9419
+    };
+
+    icons[ICON_SETTINGS] = {
+        46, 46, 0, 0, 46,
+        0.4874, 0.0200,
+        0.7546, 0.9820
+    };
+
+    icons[ICON_SIDEBAR] = {
+        38, 38, 0, 0, 38,
+        0.9659, 0.1002,
+        0.9886, 0.9018
+    };
+
+    glGenTextures(1, &iconTextureID);
+    glBindTexture(GL_TEXTURE_2D, iconTextureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    int width, height, nrChannels;
+
+    const char* path = ICONS_ATLAS_FILE;
+
+    stbi_set_flip_vertically_on_load(false);
+    uint8_t* data = stbi_load(path, &width, &height, &nrChannels, 0);
 
     if (stbi_failure_reason()) {
         cerr << "\nError: Failed to load font texture: " << stbi_failure_reason();
@@ -195,7 +264,8 @@ inline void drawTextBuffers(
     glm::vec2& res,
     vector<float>& vertices,
     glm::vec4 color,
-    bool redraw
+    bool redraw,
+    uint32_t texture
 ) {
     glUseProgram(shaders[SHADER_TEXT].programId);
 
@@ -217,7 +287,7 @@ inline void drawTextBuffers(
     }
 
     glBindVertexArray(vao);
-    glBindTexture(GL_TEXTURE_2D, fontTextureID);
+    glBindTexture(GL_TEXTURE_2D, texture);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     if (redraw && bufferSize > 0) {
@@ -527,6 +597,53 @@ RopeRenderResult getTextDimensions(
     return result;
 }
 
+void appendCharVertices(
+    float x,
+    float y,
+    Character c,
+    vector<float>& vertices
+) {
+    float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
+        glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
+    float infinity = numeric_limits<float>::infinity();
+    uint32_t rows;
+    glm::vec2 pos = glm::vec2(x, y);
+    bool renderNextContentBlock;
+
+    getCharParams(
+        c,
+        pos,
+        xpos,
+        ypos,
+        yNet,
+        xpos_plus_w,
+        ypos_plus_h,
+        totalHeight,
+        texX1,
+        texX2,
+        texY1,
+        texY2,
+        glyphHeight,
+        glyphWidth,
+        bearingTop,
+        bearingLeft,
+        advance,
+        infinity,
+        rows,
+        16,
+        renderNextContentBlock
+    );
+
+    vertices.insert(vertices.end(), {
+        xpos,           ypos_plus_h,    texX1, texY1,
+        xpos,           ypos,           texX1, texY2,
+        xpos_plus_w,    ypos,           texX2, texY2,
+        xpos,           ypos_plus_h,    texX1, texY1,
+        xpos_plus_w,    ypos,           texX2, texY2,
+        xpos_plus_w,    ypos_plus_h,    texX2, texY1
+    });
+}
+
 void appendTextVertices(
     float x,
     float y,
@@ -542,6 +659,7 @@ void appendTextVertices(
     bool renderNextContentBlock;
 
     for (char c: text) {
+        // appendCharVertices(x, y, characters[(int)c], vertices);
         glm::vec2 pos = glm::vec2(x, y);
 
         getCharParams(
