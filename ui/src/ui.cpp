@@ -1045,6 +1045,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             WELCOME_SCREEN.reDraw = true;
             CONTENT_CONTAINER.reDraw = true;
             explorer.redrawLine = true;
+
+            recalculateLayout(&ROOT_CONTAINER);
         }
         return;
     }
@@ -4094,6 +4096,9 @@ void openFile(bool openDialog, filesystem::path p) {
 
         TAB_BAR.show = true;
         CONTENT_CONTAINER.show = true;
+        CONTENT_CONTAINER.reDraw = true;
+        recalculateLayout(&ROOT_CONTAINER);
+        recalculateContentWidth();
     }
 }
 
@@ -4152,6 +4157,8 @@ void newNote() {
 
     TAB_BAR.show = true;
     CONTENT_CONTAINER.show = true;
+    recalculateLayout(&ROOT_CONTAINER);
+    recalculateContentWidth();
 }
 
 void updateWindowTitle() {
