@@ -95,7 +95,6 @@ GLFWwindow* window;
 bool minimized = false;
 bool focused = true;
 bool mouse1Down = false;
-bool cursorShouldUpdate = true;
 bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
@@ -113,7 +112,6 @@ float mouseX = 25000;
 float mouseY = 25000;
 float mouseDownX = 25000;
 float mouseDownY = 25000;
-float cursorUpdateTime = 0.0;
 
 uint32_t untitledNotes = 0;
 
@@ -168,10 +166,7 @@ void showWindow() {
 }
 
 void updateCursorShape(CursorShape shape) {
-    if (shape == currentCursorShape && shape != CursorShape::Auto) {
-        cursorShouldUpdate = true;
-        return;
-    }
+    if (shape == currentCursorShape && shape != CursorShape::Auto) { return; }
 
     switch (shape) {
         case CursorShape::Auto: {
@@ -223,19 +218,6 @@ void updateCursorShape(CursorShape shape) {
             glfwSetCursor(window, hResizeCursor);
             currentCursorShape = CursorShape::HorizontalResize;
             break;
-    }
-
-    while (glfwGetTime() < cursorUpdateTime) {}
-
-    cursorUpdateTime = glfwGetTime() + THROTTLE_FAST;
-    cursorShouldUpdate = true;
-}
-
-void throttleUpdateCursorShape(CursorShape shape) {
-    if (cursorShouldUpdate) {
-        cursorShouldUpdate = false;
-        thread t(updateCursorShape, shape);
-        t.detach();
     }
 }
 
@@ -1064,13 +1046,13 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             case UIElementType::ScrollArea:
                 cShape = CursorShape::Text;
                 scrollAreaMouseDragCallback(activeElement, mouseX, mouseY, resolution);
-                throttleUpdateCursorShape(cShape);
+                updateCursorShape(cShape);
                 return;
             case UIElementType::TextArea:
             case UIElementType::TextInput:
                 cShape = CursorShape::Text;
                 textInputMouseDragCallback(activeElement, mouseX, mouseY, resolution);
-                throttleUpdateCursorShape(cShape);
+                updateCursorShape(cShape);
                 return;
         }
     }
@@ -1081,7 +1063,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             explorer.redrawLine = true;
         }
         cShape = CursorShape::HorizontalResize;
-        throttleUpdateCursorShape(cShape);
+        updateCursorShape(cShape);
         return;
     } else {
         explorer.lineHover = false;
@@ -1117,7 +1099,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 }
                 elem->scrollData->mouseDownY = mouseY;
             }
-            throttleUpdateCursorShape(CursorShape::Default);
+            updateCursorShape(CursorShape::Default);
             return;
         } else {
             float y = EXPLORER.top + elem->scrollData->yOffset;
@@ -1130,7 +1112,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         explorer.elementHover = false;
     }
 
-    throttleUpdateCursorShape(cShape);
+    updateCursorShape(cShape);
 }
 
 void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
