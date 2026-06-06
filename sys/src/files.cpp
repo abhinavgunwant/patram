@@ -528,9 +528,7 @@ void createFontAtlasFile(uint8_t index, Character* characters) {
 
     uint8_t* png_data = new uint8_t[ATLAS_DIMENSION * ATLAS_DIMENSION];
 
-    for (uint32_t i=0; i<ATLAS_DIMENSION * ATLAS_DIMENSION; ++i) {
-        png_data[i] = 0;
-    }
+    memset(png_data, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
 
     uint16_t max_y = 0;
     uint16_t x = FONT_ATLAS_MARGIN;

@@ -62,6 +62,8 @@ bool initFonts(string fontPath, bool cache) {
     charcode = FT_Get_First_Char(face, &id);
     glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / DEFAULT_FONT_SIZE;
 
+    memset(characters, 0, MAX_CHARACTERS);
+
     while (id != 0) {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) {
             std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
