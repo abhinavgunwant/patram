@@ -366,9 +366,9 @@ void onSwitchVaultClicked() {
     }
 
     initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[1], UIElementType::Label, 60.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[2], UIElementType::ScrollArea, 120.0f, 0.0f, 300.0f, 200.0f);
-    initElement(*elems[3], UIElementType::Button, 330.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[1], UIElementType::Label, 16.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[2], UIElementType::ScrollArea, 166.0f, 0.0f, 300.0f, 200.0f);
+    initElement(*elems[3], UIElementType::Button, 64.0f, 0.0f, 0.0f, 0.0f);
 
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -386,6 +386,7 @@ void onSwitchVaultClicked() {
     SETUP_BUFFERS((*elems[3]).vao, (*elems[3]).vbo, vertices);
 
     for (int i=0; i<ELEM_COUNT; ++i) {
+        (*elems[i]).positioning = UIPositioning::Relative_sibling;
         (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
         (*elems[i]).preferences->widthPreference = UISizePreference::Grow;
         (*elems[i]).parent = &WELCOME_SCREEN;
@@ -409,28 +410,28 @@ void onSwitchVaultClicked() {
         (*vaultElems[i]).id = SWITCH_VAULT_OPTION_ID;
     }
 
-    (*elems[2]).text = "SWITCH_VLT_SCR";
-    (*elems[2]).scrollData->showVerticalScrollbar = true;
-
-    (*elems[3]).text = "Back";
-    (*elems[3]).preferences->heightPreference = UISizePreference::Grow;
-    (*elems[3]).id = VAULT_BACK_BUTTON_ID;
-
     (*elems[0]).text = "patram";
     (*elems[0]).fontSize = 48;
 
     (*elems[1]).text = "Switch Vault";
     (*elems[1]).fontSize = 16;
 
+    (*elems[2]).text = "SWITCH_VLT_SCR";
+    (*elems[2]).scrollData->showVerticalScrollbar = true;
     (*elems[2]).capacity = vaults.size();
     (*elems[2]).totalChildren = vaults.size();
     (*elems[2]).children = vaultElems;
+
+    (*elems[3]).text = "Back";
+    (*elems[3]).preferences->heightPreference = UISizePreference::Grow;
+    (*elems[3]).id = VAULT_BACK_BUTTON_ID;
 
     WELCOME_SCREEN.children = elems;
     WELCOME_SCREEN.totalChildren = ELEM_COUNT;
     WELCOME_SCREEN.capacity = ELEM_COUNT;
 
     destroyWelcomeScreen();
+    recalculateLayout(&ROOT_CONTAINER);
 
     #undef ELEM_COUNT
 }
