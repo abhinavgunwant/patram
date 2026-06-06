@@ -118,7 +118,7 @@ float cursorUpdateTime = 0.0;
 uint32_t untitledNotes = 0;
 
 Explorer explorer = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     false, false, false, false,
     vector<ExplorerNode>()
 };
@@ -1550,7 +1550,8 @@ inline void appendTextVerticesForExplorerNode(
     float x,
     float& y,
     vector<ExplorerNode>& nodes,
-    vector<float>& vertices
+    vector<float>& vertices,
+    vector<float>& iVertices
 ) {
     float initialY = y;
 
@@ -1561,16 +1562,18 @@ inline void appendTextVerticesForExplorerNode(
     ) {
         appendTextVertices(x, y, (*itr).name, vertices);
         (*itr).top = y;
-        bool expanded = GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
-        bool empty = (*itr).children.empty();
 
-        if (
-            (*itr).type == ExplorerNodeType::Folder
-            && GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
-            && !(*itr).children.empty()
-        ) {
-            y += EXPLORER_ELEMENT_HEIGHT;
-            appendTextVerticesForExplorerNode(x + 16.0f, y, (*itr).children, vertices);
+        if ((*itr).type == ExplorerNodeType::Folder) {
+            if (
+                GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
+                && !(*itr).children.empty()
+            ) {
+                appendCharVertices(x - 16.0f, y - 8.0f, icons[ICON_CHEVRON_DOWN], iVertices);
+                y += EXPLORER_ELEMENT_HEIGHT;
+                appendTextVerticesForExplorerNode(x + 24.0f, y, (*itr).children, vertices, iVertices);
+            } else {
+                appendCharVertices(x - 12.0f, y - 10.0f, icons[ICON_CHEVRON_RIGHT], iVertices);
+            }
         }
     }
 
@@ -1583,10 +1586,12 @@ void setupExplorer() {
     const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
     float y = y0;
     vector<float> vertices;
+    vector<float> iVertices;
 
     vertices.reserve(64000);
+    iVertices.reserve(2400);
 
-    appendTextVerticesForExplorerNode(16.0f, y, explorer.nodes, vertices);
+    appendTextVerticesForExplorerNode(24.0f, y, explorer.nodes, vertices, iVertices);
     float scrollHeight = y - y0 + 32.0f;
 
     EXPLORER.scrollData->height = scrollHeight;
@@ -1612,9 +1617,29 @@ void setupExplorer() {
         explorer.textVerCap = vertices.size();
     }
 
+    glBindVertexArray(explorer.iconsVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, explorer.iconsVBO);
+
+    if (iVertices.size() <= explorer.iconsVerCap) {
+        vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
+        move(zeros.begin(), zeros.end(), back_inserter(vertices));
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
+    } else {
+        uint32_t currISize = iVertices.size();
+        while (currISize > explorer.iconsVerCap) { explorer.iconsVerCap *= 1.5; }
+
+        vector<float> zeros(explorer.iconsVerCap - currISize, 0);
+        move(zeros.begin(), zeros.end(), back_inserter(iVertices));
+
+        glBufferData(GL_ARRAY_BUFFER, explorer.iconsVerCap * sizeof(float), &iVertices[0], GL_DYNAMIC_DRAW);
+        explorer.iconsVerCap = currISize;
+    }
+
     vertices.reserve(0);
 
     explorer.textVertices = vertices.size();
+    explorer.iconsVertices = iVertices.size();
 }
 
 void setupUI(bool isDarkTheme) {
@@ -1664,6 +1689,15 @@ void setupUI(bool isDarkTheme) {
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     explorer.textVerCap = 2400;
+
+    glGenVertexArrays(1, &explorer.iconsVAO);
+    glBindVertexArray(explorer.iconsVAO);
+    glGenBuffers(1, &explorer.iconsVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, explorer.iconsVBO);
+    glBufferData(GL_ARRAY_BUFFER, 1200 * sizeof(float), verts, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    explorer.iconsVerCap = 1200;
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -6901,6 +6935,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 ___,
                 _,
                 elem.color, false
+            );
+
+            drawTextBuffers(
+                explorer.iconsVAO,
+                explorer.iconsVBO,
+                __,
+                explorer.iconsVertices,
+                ___,
+                _,
+                elem.color,
+                false,
+                iconTextureID
             );
 
             glDisable(GL_SCISSOR_TEST);
