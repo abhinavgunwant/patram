@@ -1047,6 +1047,11 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             explorer.redrawLine = true;
 
             recalculateLayout(&ROOT_CONTAINER);
+            recalculateContentWidth();
+
+            if (!tabs.empty()) {
+                CURRENT_TAB->redrawCursor = true;
+            }
         }
         return;
     }
