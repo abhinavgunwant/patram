@@ -367,8 +367,8 @@ void onSwitchVaultClicked() {
 
     initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*elems[1], UIElementType::Label, 16.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[2], UIElementType::ScrollArea, 166.0f, 0.0f, 300.0f, 200.0f);
-    initElement(*elems[3], UIElementType::Button, 64.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*elems[2], UIElementType::ScrollArea, 16.0f, 0.0f, 300.0f, 200.0f);
+    initElement(*elems[3], UIElementType::Button, 16.0f, 0.0f, 0.0f, 0.0f);
 
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -396,12 +396,13 @@ void onSwitchVaultClicked() {
         }
     }
 
-    float top = 120.0f;
+    float top = 0.0f;
 
     for (int i=0; i<vaults.size(); ++i, top += 40.0f) {
         initElement(*vaultElems[i], UIElementType::Button, top, 0.0f, 0.0f, 35.0f);
 
         SETUP_BUFFERS((*vaultElems[i]).vao, (*vaultElems[i]).vbo, vertices);
+        (*vaultElems[i]).positioning = UIPositioning::Relative_sibling;
         (*vaultElems[i]).preferences->widthPreference = UISizePreference::Full;
         (*vaultElems[i]).parent = elems[2];
         (*vaultElems[i]).borderRadius = 0;
@@ -5909,8 +5910,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 && elem.parent != nullptr
             ) {
                 if (childIndex == 0) {
-                    left = elem.parent->left + elem.left;
-                    top = elem.parent->top + elem.top;
+                    if (elem.parent->positioning == UIPositioning::Relative_sibling) {
+                        left = elem.parent->left + elem.left;
+                        top = yPrev + elem.top;
+                    } else {
+                        left = elem.parent->left + elem.left;
+                        top = elem.parent->top + elem.top;
+                    }
                 } else {
                     if (elem.parent->preferences->direction) {
                         left = elem.parent->left
@@ -6048,22 +6054,50 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             // are set, then render borders.
 
             if (elem.totalChildren) {
+                float top = elem.top;
+                float left = elem.left;
                 float width = elem.width;
                 float height = elem.height;
 
                 if (elem.reDraw) {
+                    if (
+                        elem.positioning == UIPositioning::Relative_sibling
+                        && elem.parent != nullptr
+                    ) {
+                        if (childIndex == 0) {
+                            if (elem.parent->positioning == UIPositioning::Relative_sibling) {
+                                left = elem.parent->left + elem.left;
+                                top = yPrev + elem.top;
+                            } else {
+                                left = elem.parent->left + elem.left;
+                                top = elem.parent->top + elem.top;
+                            }
+                        } else {
+                            if (elem.parent->preferences->direction) {
+                                left = elem.parent->left
+                                    + elem.parent->children[childIndex - 1]->left
+                                    + elem.parent->children[childIndex - 1]->width
+                                    + elem.left;
+                            } else {
+                                top = yPrev
+                                    + elem.parent->children[childIndex - 1]->height
+                                    + elem.top;
+                            }
+                        }
+                    }
+
                     if (elem.preferences->horizontalAlign == UIAlignment::Center) {
-                        elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
+                        left = elem.parent->left + (elem.parent->width - elem.width) / 2;
                     }
 
                     glBindVertexArray(elem.vao);
                     glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
 
                     float vertices[8] = {
-                        elem.left,              elem.top,
-                        elem.left + elem.width, elem.top,
-                        elem.left + elem.width, elem.top + elem.height,
-                        elem.left,              elem.top + elem.height,
+                        left,              top,
+                        left + elem.width, top,
+                        left + elem.width, top + elem.height,
+                        left,              top + elem.height,
                     };
 
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
@@ -6079,10 +6113,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     height -= SCROLL_BAR_THICKNESS;
                 }
 
-                glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
+                glScissor(left, resolution.y - top - elem.height, width, height);
                 glEnable(GL_SCISSOR_TEST);
 
-                float yp = 0;
+                float yp = top;
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     if (elem.children[i]->show || elem.reDraw) {
