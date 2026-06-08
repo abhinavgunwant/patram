@@ -407,11 +407,6 @@ struct UIElement {
     uint32_t capacity;
     UIElement** children;
 
-    // Colors
-    glm::vec4 backgroundColor;
-    glm::vec4 hoverColor;
-    glm::vec4 color;
-
     uint32_t vao;
     uint32_t vbo;
     uint32_t texture;

@@ -415,8 +415,7 @@ void onSwitchVaultClicked() {
         vaultElem->positioning = UIPositioning::Relative_sibling;
         vaultElem->preferences->widthPreference = UISizePreference::Full;
         vaultElem->preferences->horizontalAlign = UIAlignment::Start;
-        // vaultElem->borderRadius = 5;
-        vaultElem->backgroundColor = TRANSPARENT_COLOR;
+        vaultElem->borderRadius = 0;
         vaultElem->text = vaultName;
         vaultElem->id = SWITCH_VAULT_OPTION_ID;
 
@@ -1352,12 +1351,6 @@ void setupWelcomeScreen() {
     initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*line1, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
 
-    if (darkTheme) {
-        title->color = WHITE;
-    } else {
-        title->color = BLACK;
-    }
-
     if (vaultSelected) {
         initElement(*line2, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
         initElement(*line3, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -1678,16 +1671,6 @@ void setupUI(bool isDarkTheme) {
         tabsDisplay[i].width = 0.0f;
     }
 
-    if (darkTheme) {
-        ROOT_CONTAINER.backgroundColor = ROOT_BG_DARK;
-        TAB_BAR.backgroundColor = TOOL_BAR_BG_DARK;
-        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG_DARK;
-    } else {
-        ROOT_CONTAINER.backgroundColor = ROOT_BG;
-        TAB_BAR.backgroundColor = TOOL_BAR_BG;
-        WELCOME_SCREEN.backgroundColor = TOOL_BAR_BG;
-    }
-
     ROOT_CONTAINER.text = "Root Container";
     ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     ROOT_CONTAINER.preferences->heightPreference = UISizePreference::Full;
@@ -1758,7 +1741,6 @@ void setupUI(bool isDarkTheme) {
     populateExplorerFromIndex();
     thread explorerLoadThread(populateExplorerFromContent);
 
-    EXPLORER.backgroundColor = darkTheme ? EXPLORER_BG_DARK : EXPLORER_BG;
     EXPLORER.preferences->widthPreference = UISizePreference::Fixed;
     EXPLORER.preferences->heightPreference = UISizePreference::Full;
 
@@ -4529,9 +4511,6 @@ void selectTextWithMouse(
 }
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
-    glm::vec4 backgroundColor = TRANSPARENT_COLOR;
-    glm::vec4 hoverColor = TRANSPARENT_COLOR;
-    glm::vec4 color = darkTheme ? WHITE : BLACK;
     uint8_t borderRadius = 0;
     UIPositioning positioning = UIPositioning::Absolute;
 
@@ -4544,59 +4523,18 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
     switch (type) {
         case UIElementType::Button: {
             pref = initPreferences();
-
-            if (darkTheme) {
-                backgroundColor = BUTTON_BG_DARK;
-                hoverColor = BUTTON_HOVER_BG_DARK;
-                color = BUTTON_COLOR_DARK;
-            } else {
-                backgroundColor = BUTTON_BG;
-                hoverColor = BUTTON_HOVER_BG;
-                color = BUTTON_COLOR;
-            }
-
             borderRadius = 4;
             break;
         }
 
-        case UIElementType::IconButton:
-            if (darkTheme) {
-                backgroundColor = ICON_BUTTON_BG_DARK;
-                hoverColor = ICON_BUTTON_HOVER_BG_DARK;
-                color = ICON_BUTTON_COLOR_DARK;
-            } else {
-                backgroundColor = ICON_BUTTON_BG;
-                hoverColor = ICON_BUTTON_HOVER_BG;
-                color = ICON_BUTTON_COLOR;
-            }
-            break;
-
         case UIElementType::Label:
             pref = initPreferences();
             pref->widthPreference = UISizePreference::Grow;
-
-            backgroundColor = TRANSPARENT_COLOR;
-            hoverColor = TRANSPARENT_COLOR;
-
-            if (darkTheme) {
-                color = WHITE;
-            } else {
-                color = BLACK;
-            }
             break;
 
         case UIElementType::TabBar:
         case UIElementType::Container:
             pref = initPreferences();
-
-            backgroundColor = TRANSPARENT_COLOR;
-            hoverColor = TRANSPARENT_COLOR;
-
-            if (darkTheme) {
-                color = WHITE;
-            } else {
-                color = BLACK;
-            }
             break;
 
         case UIElementType::Explorer:
@@ -4611,32 +4549,12 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
                 0, 0, 0, 0, 0, 0, 0, 0
             };
 
-            backgroundColor = TRANSPARENT_COLOR;
-            hoverColor = TRANSPARENT_COLOR;
-
-            if (darkTheme) {
-                color = WHITE;
-            } else {
-                color = BLACK;
-            }
-
             break;
 
         case UIElementType::TextArea:
-            // rope = new Rope();
         case UIElementType::TextInput:
             pref = initPreferences();
             borderRadius = 4;
-
-            // backgroundColor = TRANSPARENT_COLOR;
-            backgroundColor = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
-            hoverColor = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_HOVER_BG;
-
-            if (darkTheme) {
-                color = WHITE;
-            } else {
-                color = BLACK;
-            }
 
             tid = new TextInputData {
                 .cursorPosition = 0,
@@ -4662,11 +4580,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             };
 
             break;
-
-        default:
-            backgroundColor = TRANSPARENT_COLOR;
-            hoverColor = TRANSPARENT_COLOR;
-            color = BLACK;
     }
 
     elem = {
@@ -4684,17 +4597,12 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         true,
 
         "",
-        // nullptr,
 
         nullptr,
 
         0,
         0,
         nullptr,
-
-        backgroundColor,
-        hoverColor,
-        color,
 
         0,
         0,
@@ -5486,11 +5394,7 @@ inline void renderCBScrollbar() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    glm::vec4 color = SCROLL_BAR_TRACK_COLOR;
-
-    if (darkTheme) {
-        color = SCROLL_BAR_TRACK_COLOR_DARK;
-    }
+    glm::vec4 color = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
 
     glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
@@ -5590,7 +5494,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 updateElementDimensionsAccordingToPreferences(&elem);
             }
 
-            if (elem.backgroundColor.a != 0) {
+            if (&elem == &ROOT_CONTAINER || &elem == &WELCOME_SCREEN) {
                 if (elem.reDraw) {
                     #ifdef DEBUG_RENDER
                         cout << "\nRe-drawing Container";
@@ -5616,13 +5520,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glUseProgram(shaders[SHADER_DEFAULT].programId);
 
                 glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-                glUniform4f(
-                    uniforms[U_DEFAULT_COLOR],
-                    elem.backgroundColor.x,
-                    elem.backgroundColor.y,
-                    elem.backgroundColor.z,
-                    elem.backgroundColor.w
-                );
+                glm::vec4 bg = TRANSPARENT_COLOR;
+
+                if (&elem == &ROOT_CONTAINER) {
+                    bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+                } else if (&elem == &WELCOME_SCREEN) {
+                    bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                }
+
+                glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
@@ -5748,11 +5654,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                glm::vec4 color = CURSOR_COLOR;
-
-                if (darkTheme) {
-                    color = CURSOR_COLOR_DARK;
-                }
+                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
                 glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
@@ -5838,7 +5740,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                elem.color,
+                darkTheme ? WHITE : BLACK,
                 elem.fontSize,
                 elem.reDraw,
                 false
@@ -5953,20 +5855,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUseProgram(shaders[SHADER_BUTTON].programId);
 
             glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_BUTTON_BG_COLOR],
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
-            );
-            glUniform4f(
-                uniforms[U_BUTTON_HOV_COLOR],
-                elem.hoverColor.x,
-                elem.hoverColor.y,
-                elem.hoverColor.z,
-                elem.hoverColor.w
-            );
+            glm::vec4 bg = darkTheme ? BUTTON_BG_DARK : BUTTON_BG;
+            glm::vec4 hv = darkTheme ? BUTTON_HOVER_BG_DARK : BUTTON_HOVER_BG;
+            glm::vec4 color = darkTheme ? BUTTON_COLOR_DARK : BUTTON_COLOR;
+
+            if (elem.id == SWITCH_VAULT_OPTION_ID) {
+                bg = TRANSPARENT_COLOR;
+            }
+
+            glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
 
             glUniform2f(uniforms[U_BUTTON_TOP_LEFT], left, top);
             glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
@@ -5987,7 +5885,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                elem.color,
+                color,
                 elem.fontSize,
                 elem.reDraw,
                 false
@@ -6169,27 +6067,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             // cout << "icon button color: r: " << elem.color.r << " g: " << elem.color.g << " b: " << elem.color.b << " a: " << elem.color.a;
 
             glUniform2f(uniforms[U_ICON_BUTTON_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_ICON_BUTTON_BG_COLOR],
-                elem.backgroundColor.r,
-                elem.backgroundColor.g,
-                elem.backgroundColor.b,
-                elem.backgroundColor.a
-            );
-            glUniform4f(
-                uniforms[U_ICON_BUTTON_COLOR],
-                elem.color.r,
-                elem.color.g,
-                elem.color.b,
-                elem.color.a
-            );
-            glUniform4f(
-                uniforms[U_ICON_BUTTON_HOV_COLOR],
-                elem.hoverColor.r,
-                elem.hoverColor.g,
-                elem.hoverColor.b,
-                elem.hoverColor.a
-            );
+            glm::vec4 bg = darkTheme ? ICON_BUTTON_BG_DARK : ICON_BUTTON_BG;
+            glm::vec4 hv = darkTheme ? ICON_BUTTON_HOVER_BG_DARK : ICON_BUTTON_HOVER_BG;
+            glm::vec4 color = darkTheme ? ICON_BUTTON_COLOR_DARK : ICON_BUTTON_COLOR;
+            glUniform4f(uniforms[U_ICON_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform4f(uniforms[U_ICON_BUTTON_COLOR], color.r, color.g, color.b, color.a);
+            glUniform4f(uniforms[U_ICON_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
             glUniform2f(uniforms[U_ICON_BUTTON_TOP_LEFT], elem.left, elem.top);
             glUniform2f(uniforms[U_ICON_BUTTON_CURSOR], cursor.x, cursor.y);
             glUniform1f(uniforms[U_ICON_BUTTON_WIDTH], elem.width);
@@ -6318,27 +6201,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
             glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_COLOR],
-                elem.color.r,
-                elem.color.g,
-                elem.color.b,
-                elem.color.a
-            );
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_BG_COLOR],
-                elem.backgroundColor.r,
-                elem.backgroundColor.g,
-                elem.backgroundColor.b,
-                elem.backgroundColor.a
-            );
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_HOV_COLOR],
-                elem.hoverColor.r,
-                elem.hoverColor.g,
-                elem.hoverColor.b,
-                elem.hoverColor.a
-            );
+
+            glm::vec4 color = darkTheme ? WHITE : BLACK;
+            glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
+            glm::vec4 hv = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_BG;
+
+            glUniform4f(uniforms[U_TEXT_INPUT_COLOR], color.r, color.g, color.b, color.a);
+            glUniform4f(uniforms[U_TEXT_INPUT_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform4f(uniforms[U_TEXT_INPUT_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
 
             glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], left, top);
             glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
@@ -6393,7 +6263,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                elem.color,
+                darkTheme ? WHITE : BLACK,
                 elem.fontSize,
                 elem.reDraw,
                 false
@@ -6521,27 +6391,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
             glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_COLOR],
-                elem.color.x,
-                elem.color.y,
-                elem.color.z,
-                elem.color.w
-            );
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_BG_COLOR],
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
-            );
-            glUniform4f(
-                uniforms[U_TEXT_INPUT_HOV_COLOR],
-                elem.hoverColor.x,
-                elem.hoverColor.y,
-                elem.hoverColor.z,
-                elem.hoverColor.w
-            );
+            glm::vec4 color = darkTheme ? WHITE : BLACK;
+            glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
+            glm::vec4 hv = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_BG;
+            glUniform4f(uniforms[U_TEXT_INPUT_COLOR], color.x, color.y, color.z, color.w);
+            glUniform4f(uniforms[U_TEXT_INPUT_BG_COLOR], bg.x, bg.y, bg.z, bg.w);
+            glUniform4f(uniforms[U_TEXT_INPUT_HOV_COLOR], hv.x, hv.y, hv.z, hv.w);
 
             glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
             glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
@@ -6554,13 +6409,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             glUseProgram(shaders[SHADER_TEXT].programId);
 
-            glUniform4f(
-                uniforms[U_TEXT_COLOR],
-                elem.color.r,
-                elem.color.g,
-                elem.color.b,
-                elem.color.a
-            );
+            glUniform4f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b, color.a);
             glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
             glActiveTexture(GL_TEXTURE0);
             glBindVertexArray(textVAO);
@@ -6726,11 +6575,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
-                glm::vec4 color = CURSOR_COLOR;
-
-                if (darkTheme) {
-                    color = CURSOR_COLOR_DARK;
-                }
+                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
                 glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
@@ -6773,11 +6618,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                    glm::vec4 color = CURSOR_COLOR;
-
-                    if (darkTheme) {
-                        color = CURSOR_COLOR_DARK;
-                    }
+                    glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                     glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
 
@@ -6819,13 +6660,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUseProgram(shaders[SHADER_DEFAULT].programId);
 
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-            glUniform4f(
-                uniforms[U_DEFAULT_COLOR],
-                elem.backgroundColor.x,
-                elem.backgroundColor.y,
-                elem.backgroundColor.z,
-                elem.backgroundColor.w
-            );
+            glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -6840,8 +6676,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         glBindVertexArray(tabsDisplay[i].activeBgVao);
                         glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
                         glUseProgram(shaders[SHADER_DEFAULT].programId);
-                        glm::vec4 color = ROOT_BG_DARK;
-                        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
+                        glm::vec4 bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+                        glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
                         glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
                         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                     }
@@ -6859,7 +6695,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         bytes,
                         elem.left,
                         elem.width,
-                        WHITE,
+                        darkTheme ? WHITE : BLACK,
                         16,
                         true
                     );
@@ -6897,8 +6733,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         glBindVertexArray(tabsDisplay[i].activeBgVao);
                         glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
                         glUseProgram(shaders[SHADER_DEFAULT].programId);
-                        glm::vec4 color = ROOT_BG_DARK;
-                        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
+                        glm::vec4 bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+
+                        glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
                         glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
                         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                     }
@@ -6910,7 +6747,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         verts,
                         resolution,
                         v,
-                        WHITE,
+                        darkTheme ? WHITE : BLACK,
                         false
                     );
                 }
@@ -6948,13 +6785,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             glUseProgram(shaders[SHADER_DEFAULT].programId);
-            glUniform4f(
-                uniforms[U_DEFAULT_COLOR],
-                elem.backgroundColor.r,
-                elem.backgroundColor.g,
-                elem.backgroundColor.b,
-                elem.backgroundColor.a
-            );
+            glm::vec4 bg = darkTheme ? EXPLORER_BG_DARK : EXPLORER_BG;
+            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -6965,10 +6797,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 setupExplorer();
             }
 
-            glm::vec4 bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
+            glm::vec4 hv = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
             glBindVertexArray(explorer.activeBgVao);
             glUseProgram(shaders[SHADER_DEFAULT].programId);
-            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform4f(uniforms[U_DEFAULT_COLOR], hv.r, hv.g, hv.b, hv.a);
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -6992,7 +6824,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 explorer.textVertices,
                 ___,
                 _,
-                elem.color, false
+                darkTheme ? WHITE : BLACK,
+                false
             );
 
             drawTextBuffers(
@@ -7002,7 +6835,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 explorer.iconsVertices,
                 ___,
                 _,
-                elem.color,
+                darkTheme ? WHITE : BLACK,
                 false,
                 iconTextureID
             );
@@ -7165,11 +6998,7 @@ void renderContentBlockHighlight() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    glm::vec4 color = CONTENT_HIGHLIGHT_BG;
-
-    if (darkTheme) {
-        color = CONTENT_HIGHLIGHT_BG_DARK;
-    }
+    glm::vec4 color = darkTheme ? CONTENT_HIGHLIGHT_BG_DARK : CONTENT_HIGHLIGHT_BG;
 
     glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
@@ -7191,11 +7020,7 @@ void renderContentBlockHighlight() {
 
     glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-    color = CONTENT_HIGHLIGHT_DRAG;
-
-    if (darkTheme) {
-        color = CONTENT_HIGHLIGHT_DRAG_DARK;
-    }
+    color = darkTheme ? CONTENT_HIGHLIGHT_DRAG_DARK : CONTENT_HIGHLIGHT_DRAG;
 
     glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
 
