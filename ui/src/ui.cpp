@@ -241,6 +241,24 @@ void inputClickCallback(UIElement* elem) {
 void setupWelcomeScreen();
 void destroyWelcomeScreen();
 void onVaultBackClicked();
+void populateExplorerFromIndex();
+void populateExplorerFromContent();
+
+void setSelectedVault(string vaultName) {
+    selectedVault = vaultName;
+    explorer.nodes.clear();
+
+    populateExplorerFromIndex();
+
+    thread explorerLoadThread(populateExplorerFromContent);
+    explorerLoadThread.detach();
+
+    setDefaultVault(vaultName);
+    explorer.textVertices = 0;
+    explorer.iconsVertices = 0;
+    vaultSelected = true;
+    EXPLORER.reDraw = true;
+}
 
 void onVaultSetupCreateVaultClicked() {
     cout << "\nCreating vault...";
@@ -250,12 +268,12 @@ void onVaultSetupCreateVaultClicked() {
     bool nameInit = false;
     bool passwordInit = false;
 
-    for (int i=0; i<WELCOME_SCREEN.totalChildren && (!nameInit || !passwordInit); ++i) {
-        if (WELCOME_SCREEN.children[i]->id == VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID) {
-            vaultName = WELCOME_SCREEN.children[i]->text;
+    for (int i=0; i<WELCOME_MAIN_CONTAINER.totalChildren && (!nameInit || !passwordInit); ++i) {
+        if (WELCOME_MAIN_CONTAINER.children[i]->id == VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID) {
+            vaultName = WELCOME_MAIN_CONTAINER.children[i]->text;
             nameInit = true;
-        } else if (WELCOME_SCREEN.children[i]->id == VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID) {
-            vaultPassword = WELCOME_SCREEN.children[i]->text;
+        } else if (WELCOME_MAIN_CONTAINER.children[i]->id == VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID) {
+            vaultPassword = WELCOME_MAIN_CONTAINER.children[i]->text;
             passwordInit = true;
         }
     }
@@ -265,8 +283,7 @@ void onVaultSetupCreateVaultClicked() {
         createVaultIndexFile(vaultName, vaultPassword);
         setDefaultVault(vaultName);
 
-        vaultSelected = true;
-        selectedVault = vaultName;
+        setSelectedVault(vaultName);
 
         onVaultBackClicked();
         return;
@@ -276,163 +293,156 @@ void onVaultSetupCreateVaultClicked() {
 }
 
 void onVaultBackClicked() {
-    destroyElementChildren(WELCOME_SCREEN);
+    destroyWelcomeScreen();
     setupWelcomeScreen();
 }
 
 void onCreateANewVaultClicked() {
-    #define ELEM_COUNT  8
-
-    UIElement** elems = new UIElement*[ELEM_COUNT];
-
-    for (int i=0; i<ELEM_COUNT; ++i) {
-        elems[i] = new UIElement;
-    }
-
-    initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[1], UIElementType::Label, 60.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[2], UIElementType::Label, 120.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[3], UIElementType::Label, 200.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[4], UIElementType::TextInput, 150.0f, 0.0f, 240.0f, 30.0f);
-    initElement(*elems[5], UIElementType::TextInput, 230.0f, 0.0f, 240.0f, 30.0f);
-    initElement(*elems[6], UIElementType::Button, 290.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[7], UIElementType::Button, 340.0f, 0.0f, 0.0f, 0.0f);
-
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-
-    SETUP_BUFFERS((*elems[4]).vao, (*elems[4]).vbo, vertices);
-    SETUP_BUFFERS((*elems[5]).vao, (*elems[5]).vbo, vertices);
-    SETUP_BUFFERS((*elems[6]).vao, (*elems[6]).vbo, vertices);
-    SETUP_BUFFERS((*elems[7]).vao, (*elems[7]).vbo, vertices);
-
-    for (int i=0; i<ELEM_COUNT; ++i) {
-        (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
-        (*elems[i]).preferences->widthPreference = UISizePreference::Grow;
-        (*elems[i]).parent = &WELCOME_SCREEN;
-
-        if (i != 0) {
-            (*elems[i]).fontSize = 16;
-        }
-    }
-
-    (*elems[2]).text = "Vault Name:";
-    (*elems[3]).text = "Vault Password:";
-    (*elems[4]).text = "Untitled Vault";
-    (*elems[4]).textInputData->alignment = TextInputAlignment::Center;
-    (*elems[4]).id = VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID;
-    (*elems[5]).text = "password";
-    (*elems[5]).textInputData->alignment = TextInputAlignment::Center;
-    (*elems[5]).textInputData->password = true;
-    (*elems[5]).id = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
-
-    (*elems[6]).text = "Create Vault";
-    (*elems[6]).preferences->heightPreference = UISizePreference::Grow;
-    (*elems[6]).id = VAULT_SETUP_CREATE_VAULT_BUTTON_ID;
-
-    (*elems[7]).text = "Back";
-    (*elems[7]).preferences->heightPreference = UISizePreference::Grow;
-    (*elems[7]).id = VAULT_BACK_BUTTON_ID;
-
-    (*elems[0]).text = "patram";
-    (*elems[0]).fontSize = 48;
-
-    (*elems[1]).text = "Vault Setup";
-    (*elems[1]).fontSize = 16;
-
-    WELCOME_SCREEN.children = elems;
-    WELCOME_SCREEN.totalChildren = ELEM_COUNT;
-    WELCOME_SCREEN.capacity = ELEM_COUNT;
 
     destroyWelcomeScreen();
 
-    #undef ELEM_COUNT
+    UIElement* title                = &elements[7];
+    UIElement* vaultSetup           = &elements[8];
+    UIElement* vaultNameLabel       = &elements[9];
+    UIElement* vaultNameInput       = &elements[10];
+    UIElement* vaultPasswordLabel   = &elements[11];
+    UIElement* vaultPasswordInput   = &elements[12];
+    UIElement* createVaultButton    = &elements[13];
+    UIElement* backButton           = &elements[14];
+
+    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultSetup, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultNameLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultPasswordLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultNameInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f);
+    initElement(*vaultPasswordInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f);
+    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+
+    SETUP_BUFFERS(vaultNameInput->vao, vaultNameInput->vbo, vertices);
+    SETUP_BUFFERS(vaultPasswordInput->vao, vaultPasswordInput->vbo, vertices);
+    SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
+    SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
+
+    for (int i=7; i<15; ++i) {
+        elements[i].preferences->horizontalAlign = UIAlignment::Center;
+        elements[i].preferences->widthPreference = UISizePreference::Grow;
+        elements[i].positioning = UIPositioning::Relative_sibling;
+        elements[i].parent = &WELCOME_MAIN_CONTAINER;
+
+        if (i != 0) {
+            elements[i].fontSize = 16;
+            elements[i].marginTop = 8;
+        }
+    }
+
+    title->text                 = "patram";
+    vaultSetup->text            = "Vault Setup";
+    vaultNameLabel->text        = "Vault Name:";
+    vaultPasswordLabel->text    = "Vault Password:";
+    vaultNameInput->text        = "Untitled Vault";
+    vaultPasswordInput->text    = "password";
+    createVaultButton->text     = "Create Vault";
+    backButton->text            = "Back";
+
+    vaultNameInput->textInputData->alignment = TextInputAlignment::Center;
+    vaultPasswordInput->textInputData->alignment = TextInputAlignment::Center;
+    vaultPasswordInput->textInputData->password = true;
+
+    createVaultButton->preferences->heightPreference = UISizePreference::Grow;
+    backButton->preferences->heightPreference = UISizePreference::Grow;
+
+    title->fontSize = 48;
+    vaultSetup->fontSize = 16;
+
+    vaultNameInput->id      = VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID;
+    vaultPasswordInput->id  = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
+    createVaultButton->id   = VAULT_SETUP_CREATE_VAULT_BUTTON_ID;
+    backButton->id          = VAULT_BACK_BUTTON_ID;
+
+    addChild(&WELCOME_MAIN_CONTAINER, title);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultSetup);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultNameLabel);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultNameInput);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordLabel);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordInput);
+    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton);
+    addChild(&WELCOME_MAIN_CONTAINER, backButton);
 }
 
 void onSwitchVaultClicked() {
     #define ELEM_COUNT  4
 
-    vector<string> vaults = getVaults();
-
-    UIElement** elems = new UIElement*[ELEM_COUNT];
-    UIElement** vaultElems = new UIElement*[vaults.size()];
-
-    for (int i=0; i<ELEM_COUNT; ++i) {
-        elems[i] = new UIElement;
-    }
-
-    for (int i=0; i<vaults.size(); ++i) {
-        vaultElems[i] = new UIElement;
-        (*vaultElems[i]).positioning = UIPositioning::Relative;
-    }
-
-    initElement(*elems[0], UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[1], UIElementType::Label, 16.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*elems[2], UIElementType::ScrollArea, 16.0f, 0.0f, 300.0f, 200.0f);
-    initElement(*elems[3], UIElementType::Button, 16.0f, 0.0f, 0.0f, 0.0f);
-
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    SETUP_BUFFERS((*elems[2]).vao, (*elems[2]).vbo, vertices);
-    SETUP_BUFFERS(
-        (*elems[2]).scrollData->verticalScrollBarVAO,
-        (*elems[2]).scrollData->verticalScrollBarVBO,
-        vertices
-    );
-    SETUP_BUFFERS(
-        (*elems[2]).scrollData->verticalScrollThumbVAO,
-        (*elems[2]).scrollData->verticalScrollThumbVBO,
-        vertices
-    );
-    SETUP_BUFFERS((*elems[3]).vao, (*elems[3]).vbo, vertices);
+    destroyWelcomeScreen();
 
-    for (int i=0; i<ELEM_COUNT; ++i) {
-        (*elems[i]).positioning = UIPositioning::Relative_sibling;
-        (*elems[i]).preferences->horizontalAlign = UIAlignment::Center;
-        (*elems[i]).preferences->widthPreference = UISizePreference::Grow;
-        (*elems[i]).parent = &WELCOME_SCREEN;
+    UIElement* title        = &elements[7];
+    UIElement* switchVault  = &elements[8];
+    UIElement* vaultList    = &elements[9];
+    UIElement* backButton   = &elements[10];
+
+    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*switchVault, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*vaultList, UIElementType::ScrollArea, 0.0f, 0.0f, 300.0f, 300.0f);
+    initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+
+    vector<string> vaults = getVaults();
+
+    SETUP_BUFFERS(switchVault->vao, switchVault->vbo, vertices);
+    SETUP_BUFFERS(vaultList->vao, vaultList->vbo, vertices);
+    SETUP_BUFFERS(vaultList->scrollData->verticalScrollBarVAO, vaultList->scrollData->verticalScrollBarVBO, vertices);
+    SETUP_BUFFERS(vaultList->scrollData->verticalScrollThumbVAO, vaultList->scrollData->verticalScrollThumbVBO, vertices);
+    SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
+
+    for (int i=7; i<11; ++i) {
+        elements[i].positioning = UIPositioning::Relative_sibling;
+        elements[i].preferences->horizontalAlign = UIAlignment::Center;
+        elements[i].preferences->widthPreference = UISizePreference::Grow;
+        elements[i].parent = &WELCOME_MAIN_CONTAINER;
 
         if (i != 0) {
-            (*elems[i]).fontSize = 16;
+            elements[i].fontSize = 16;
         }
     }
 
-    float top = 0.0f;
+    for (string vaultName : vaults) {
+        UIElement* vaultElem = new UIElement;
+        initElement(*vaultElem, UIElementType::Button, 0.0f, 0.0f, 0.0f, 35.0f);
 
-    for (int i=0; i<vaults.size(); ++i, top += 40.0f) {
-        initElement(*vaultElems[i], UIElementType::Button, top, 0.0f, 0.0f, 35.0f);
+        SETUP_BUFFERS(vaultElem->vao, vaultElem->vbo, vertices);
+        vaultElem->positioning = UIPositioning::Relative_sibling;
+        vaultElem->preferences->widthPreference = UISizePreference::Full;
+        vaultElem->preferences->horizontalAlign = UIAlignment::Start;
+        // vaultElem->borderRadius = 5;
+        vaultElem->backgroundColor = TRANSPARENT_COLOR;
+        vaultElem->text = vaultName;
+        vaultElem->id = SWITCH_VAULT_OPTION_ID;
 
-        SETUP_BUFFERS((*vaultElems[i]).vao, (*vaultElems[i]).vbo, vertices);
-        (*vaultElems[i]).positioning = UIPositioning::Relative_sibling;
-        (*vaultElems[i]).preferences->widthPreference = UISizePreference::Full;
-        (*vaultElems[i]).parent = elems[2];
-        (*vaultElems[i]).borderRadius = 0;
-        (*vaultElems[i]).backgroundColor = TRANSPARENT_COLOR;
-        (*vaultElems[i]).text = vaults[i];
-        (*vaultElems[i]).id = SWITCH_VAULT_OPTION_ID;
+        addChild(vaultList, vaultElem);
     }
 
-    (*elems[0]).text = "patram";
-    (*elems[0]).fontSize = 48;
+    title->text         = "patram";
+    switchVault->text   = "Switch Vault";
+    vaultList->text     = "SWITCH_VLT_SCR";
+    backButton->text    = "Back";
 
-    (*elems[1]).text = "Switch Vault";
-    (*elems[1]).fontSize = 16;
+    title->fontSize = 48;
+    switchVault->fontSize = 16;
 
-    (*elems[2]).text = "SWITCH_VLT_SCR";
-    (*elems[2]).scrollData->showVerticalScrollbar = true;
-    (*elems[2]).capacity = vaults.size();
-    (*elems[2]).totalChildren = vaults.size();
-    (*elems[2]).children = vaultElems;
+    vaultList->scrollData->showVerticalScrollbar = true;
+    vaultList->marginTop = 8;
+    vaultList->preferences->direction = false;
 
-    (*elems[3]).text = "Back";
-    (*elems[3]).preferences->heightPreference = UISizePreference::Grow;
-    (*elems[3]).id = VAULT_BACK_BUTTON_ID;
+    backButton->preferences->heightPreference = UISizePreference::Grow;
+    backButton->id = VAULT_BACK_BUTTON_ID;
+    backButton->marginTop = 8;
 
-    WELCOME_SCREEN.children = elems;
-    WELCOME_SCREEN.totalChildren = ELEM_COUNT;
-    WELCOME_SCREEN.capacity = ELEM_COUNT;
-
-    destroyWelcomeScreen();
-    recalculateLayout(&ROOT_CONTAINER);
+    addChild(&WELCOME_MAIN_CONTAINER, title);
+    addChild(&WELCOME_MAIN_CONTAINER, switchVault);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultList);
+    addChild(&WELCOME_MAIN_CONTAINER, backButton);
 
     #undef ELEM_COUNT
 }
@@ -586,9 +596,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); return;
                         case NEW_NOTE_BUTTON_ID: newNote(); return;
                         case SWITCH_VAULT_OPTION_ID: {
-                            setDefaultVault(elem->text);
-                            vaultSelected = true;
-                            selectedVault = elem->text;
+                            setSelectedVault(elem->text);
                             onVaultBackClicked();
                             return;
                         };
@@ -729,35 +737,16 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
         #endif
     #endif
 
-    if (activeElement == nullptr) {
-        defaultKeyCallback(nullptr, key, action, mods);
-        return;
-    }
-
-    if (action == GLFW_PRESS && activeElement->type != UIElementType::ContentContainer) {
-        switch (key) {
-            case GLFW_KEY_ESCAPE: {
-                if (activeElement != nullptr && activeElement->type != UIElementType::TextInput) {
-                    activeElement->active = false;
-                    activeElement = nullptr;
-                }
-
-                break;
-            }
-
-            default: {
-                // Nothing!
-            }
-        }
-    }
-
     if (activeElement != nullptr) {
         switch (activeElement->type) {
             case UIElementType::ContentContainer: cbKeyCallback(key, action, mods); break;
             case UIElementType::TextInput:
             case UIElementType::TextArea: textInputKeyCallback(activeElement, key, action, mods); break;
-            defalt: defaultKeyCallback(activeElement, key, action, mods);
+            default: defaultKeyCallback(activeElement, key, action, mods);
         }
+    } else {
+        defaultKeyCallback(nullptr, key, action, mods);
+        return;
     }
 
     if (activeElement != nullptr && !activeElement->active) {
@@ -1059,7 +1048,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
     }
 
-    if (MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
+    if (EXPLORER.show && MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
         if (!explorer.lineHover) {
             explorer.lineHover = true;
             explorer.redrawLine = true;
@@ -1299,7 +1288,12 @@ void populateExplorerFromContent() {
 
     vector<VaultIndexEntry> index = getVaultContent(selectedVault);
 
-    if (!index.empty()) {
+    if (index.empty()) {
+        if (!explorer.nodes.empty()) {
+            explorer.nodes.clear();
+            EXPLORER.reDraw = true;
+        }
+    } else {
         #ifdef DEBUG_EXPLORER
             auto t2 = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
@@ -1350,8 +1344,8 @@ void setupWelcomeScreen() {
     UIElement* line3 = &elements[11];
     UIElement* line4 = &elements[12];
     UIElement* line5 = &elements[13];
-    UIElement* createVaultButton = &elements[13];
-    UIElement* switchVaultButton = &elements[14];
+    UIElement* createVaultButton = &elements[14];
+    UIElement* switchVaultButton = &elements[15];
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -1364,10 +1358,10 @@ void setupWelcomeScreen() {
     }
 
     if (vaultSelected) {
-        initElement(*line2, UIElementType::Button, 32.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line3, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line4, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line5, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line2, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line3, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line4, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line5, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
 
         SETUP_BUFFERS(line2->vao, line2->vbo, vertices);
         SETUP_BUFFERS(line3->vao, line3->vbo, vertices);
@@ -1380,98 +1374,53 @@ void setupWelcomeScreen() {
         initElement(*line5, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     }
 
-    initElement(*createVaultButton, UIElementType::Button, 24.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*switchVaultButton, UIElementType::Button, 4.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*switchVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
 
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
     SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
 
+    for (uint32_t i=7; i<16; ++i) {
+        elements[i].preferences->horizontalAlign = UIAlignment::Center;
+        elements[i].preferences->widthPreference = UISizePreference::Grow;
+        elements[i].positioning = UIPositioning::Relative_sibling;
+        elements[i].fontSize = 16;
+    }
+
     title->text = "patram";
     title->fontSize = 48;
-    title->preferences->horizontalAlign = UIAlignment::Center;
-    title->preferences->widthPreference = UISizePreference::Grow;
-    title->positioning = UIPositioning::Relative_sibling;
-
     version->text = "v0.1.0";
-    version->fontSize = 16;
-    version->preferences->horizontalAlign = UIAlignment::Center;
-    version->preferences->widthPreference = UISizePreference::Grow;
-    version->positioning = UIPositioning::Relative_sibling;
+    line1->marginTop = 8;
 
     if (vaultSelected) {
+        for (uint32_t i=9; i<16; ++i) {
+            elements[i].preferences->heightPreference = UISizePreference::Grow;
+            elements[i].marginTop = 8;
+        }
+
         line1->text = getDefaultVault();
+        line2->text = "New note (Ctrl + N)";
+        line3->text = "New Folder (Ctrl + Shift + N)";
+        line4->text = "Save Note (Ctrl + S)";
+        line5->text = "Toggle Explorer (Ctrl + E)";
+        switchVaultButton->text = "Switch note vault";
+
         line1->fontSize = 24;
-        line1->preferences->heightPreference = UISizePreference::Grow;
+
+        line2->id = NEW_NOTE_BUTTON_ID;
+        switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
     } else {
         line1->text = "Welcome to patram - your lightweight notes manager!";
-        line1->fontSize = 16;
-    }
-
-    line1->preferences->horizontalAlign = UIAlignment::Center;
-    line1->preferences->widthPreference = UISizePreference::Grow;
-    line1->positioning = UIPositioning::Relative_sibling;
-
-    if (vaultSelected) {
-        line2->text = "New note (Ctrl + N)";
-        line2->preferences->heightPreference = UISizePreference::Grow;
-        line2->id = NEW_NOTE_BUTTON_ID;
-    } else {
         line2->text = "You begin by creating a note vault.";
-    }
-
-    line2->fontSize = 16;
-    line2->preferences->horizontalAlign = UIAlignment::Center;
-    line2->preferences->widthPreference = UISizePreference::Grow;
-    line2->positioning = UIPositioning::Relative_sibling;
-
-    if (vaultSelected) {
-        line3->text = "New Folder (Ctrl + Shift + N)";
-        line3->preferences->heightPreference = UISizePreference::Grow;
-    } else {
         line3->text = "Note vaults contain notes and folders.";
-    }
-    line3->fontSize = 16;
-    line3->preferences->horizontalAlign = UIAlignment::Center;
-    line3->preferences->widthPreference = UISizePreference::Grow;
-    line3->positioning = UIPositioning::Relative_sibling;
-
-    if (vaultSelected) {
-        line4->text = "Save Note (Ctrl + S)";
-        line4->preferences->heightPreference = UISizePreference::Grow;
-    } else {
         line4->text = "Folders can have other notes and folders.";
-    }
-    line4->fontSize = 16;
-    line4->preferences->horizontalAlign = UIAlignment::Center;
-    line4->preferences->widthPreference = UISizePreference::Grow;
-    line4->positioning = UIPositioning::Relative_sibling;
-
-    if (vaultSelected) {
-        line5->text = "Toggle Explorer (Ctrl + E)";
-        line5->preferences->heightPreference = UISizePreference::Grow;
-    } else {
         line5->text = "You can password-protect a note vault - this encrypts all the notes in it.";
     }
-    line5->fontSize = 16;
-    line5->preferences->horizontalAlign = UIAlignment::Center;
-    line5->preferences->widthPreference = UISizePreference::Grow;
-    line5->positioning = UIPositioning::Relative_sibling;
 
     createVaultButton->text = "Create a note vault";
-    createVaultButton->fontSize = 16;
-    createVaultButton->preferences->horizontalAlign = UIAlignment::Center;
-    createVaultButton->preferences->widthPreference = UISizePreference::Grow;
     createVaultButton->preferences->heightPreference = UISizePreference::Grow;
     createVaultButton->id = CREATE_VAULT_BUTTON_ID;
-    createVaultButton->positioning = UIPositioning::Relative_sibling;
-
-    switchVaultButton->text = "Switch note vault";
-    switchVaultButton->fontSize = 16;
-    switchVaultButton->preferences->horizontalAlign = UIAlignment::Center;
-    switchVaultButton->preferences->widthPreference = UISizePreference::Grow;
-    switchVaultButton->preferences->heightPreference = UISizePreference::Grow;
-    switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
-    switchVaultButton->positioning = UIPositioning::Relative_sibling;
+    createVaultButton->marginTop = 8;
 
     addChild(&WELCOME_MAIN_CONTAINER, title);
     addChild(&WELCOME_MAIN_CONTAINER, version);
@@ -1488,17 +1437,7 @@ void setupWelcomeScreen() {
 }
 
 void destroyWelcomeScreen() {
-    UIElement* title = &elements[7];
-    UIElement* version = &elements[8];
-    UIElement* line1 = &elements[9];
-    UIElement* line2 = &elements[10];
-    UIElement* line3 = &elements[11];
-    UIElement* line4 = &elements[12];
-    UIElement* line5 = &elements[13];
-    UIElement* createVaultButton = &elements[14];
-    UIElement* switchVaultButton = &elements[15];
-
-    for (int i=5; i<14; ++i) {
+    for (int i=7; i<16; ++i) {
         if (elements[i].vao != 0) {
             glDeleteVertexArrays(1, &elements[i].vao);
             elements[i].vao = 0;
@@ -1517,6 +1456,8 @@ void destroyWelcomeScreen() {
         if (elements[i].textVBO != 0) {
             glDeleteBuffers(1, &elements[i].textVBO);
             elements[i].textVBO = 0;
+            elements[i].textBufferSize = 0;
+            elements[i].textVerticesCount = 0;
         }
 
         if (elements[i].preferences != nullptr) {
@@ -1524,17 +1465,43 @@ void destroyWelcomeScreen() {
             elements[i].preferences = nullptr;
         }
 
-        if (elements[i].type == UIElementType::TextInput) {
+        if (
+            elements[i].type == UIElementType::TextInput
+            && elements[i].type == UIElementType::TextArea
+        ) {
             TextInputData* tid = elements[i].textInputData;
 
             glDeleteVertexArrays(1, &tid->cursorVAO);
             glDeleteBuffers(1, &tid->cursorVBO);
             glDeleteVertexArrays(1, &tid->textSelectVAO);
             glDeleteBuffers(1, &tid->textSelectVBO);
+
+            delete tid;
+            elements[i].textInputData = nullptr;
         }
 
         elements[i].parent = nullptr;
+
+        if (
+            elements[i].totalChildren
+            && !(
+                *elements[i].children >= &elements[0]
+                && *elements[i].children <= &elements[DEFAULT_ELEM_LENGTH - 1]
+            )
+        ) {
+            cout << "\nDEBUG: Deleting elements for " << elements[i].text;
+            for (uint32_t j=0; i<elements[i].totalChildren; ++j) {
+                delete elements[i].children[j];
+            }
+
+            delete [] elements[i].children;
+        }
     }
+
+    WELCOME_MAIN_CONTAINER.totalChildren = 0;
+    WELCOME_MAIN_CONTAINER.capacity = 0;
+    delete [] WELCOME_MAIN_CONTAINER.children;
+    WELCOME_MAIN_CONTAINER.children = nullptr;
 }
 
 inline void appendTextVerticesForExplorerNode(
@@ -1574,6 +1541,8 @@ inline void appendTextVerticesForExplorerNode(
 }
 
 void setupExplorer() {
+    if (explorer.nodes.empty()) { return; }
+
     const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
     float y = y0;
     vector<float> vertices;
@@ -1658,8 +1627,8 @@ void setupUI(bool isDarkTheme) {
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
     initElement(TAB_BAR, UIElementType::TabBar, 0.0f, 0.0f, WINDOW_WIDTH, TAB_BAR_HEIGHT);
     initElement(WELCOME_SCREEN, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-    initElement(MAIN_CONTAINER, UIElementType::Container, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
-    initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 100.0f, 100.0f, WINDOW_WIDTH - 100.0f, WINDOW_HEIGHT - 100.0f);
+    initElement(MAIN_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+    initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(EXPLORER, UIElementType::Explorer, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
 
     TAB_BAR.show = false;
@@ -1894,6 +1863,15 @@ void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
                     toggleExplorer();
                 }
                 break;
+
+            case GLFW_KEY_ESCAPE: {
+                if (activeElement != nullptr && activeElement->type != UIElementType::TextInput) {
+                    activeElement->active = false;
+                    activeElement = nullptr;
+                }
+
+                break;
+            }
         }
     }
 }
@@ -4646,6 +4624,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
             // rope = new Rope();
         case UIElementType::TextInput:
             pref = initPreferences();
+            borderRadius = 4;
 
             // backgroundColor = TRANSPARENT_COLOR;
             backgroundColor = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
@@ -4690,6 +4669,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     elem = {
         type,
+        0,
         0,
         top,
         left,
@@ -5052,6 +5032,15 @@ void addChild(UIElement* parent, UIElement * child) {
 
 inline void toggleExplorer() {
     EXPLORER.show = !EXPLORER.show;
+
+    #ifdef DEBUG_EXPLORER
+        if (EXPLORER.show) {
+            cout << "\nExplorer visible";
+        } else {
+            cout << "\nExplorer hidden";
+        }
+    #endif
+
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
     recalculateLayout(&MAIN_CONTAINER);
@@ -5205,7 +5194,11 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                     for (uint32_t i=0; i<elem->parent->totalChildren; ++i) {
                         siblingElem = elem->parent->children[i];
 
-                        if (siblingElem != elem && siblingElem->preferences != nullptr) {
+                        if (
+                            siblingElem != elem
+                            && siblingElem->show
+                            && siblingElem->preferences != nullptr
+                        ) {
                             switch (siblingElem->preferences->heightPreference) {
                                 case UISizePreference::Fixed:
                                 case UISizePreference::Grow:
@@ -5648,7 +5641,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     && !elem.preferences->direction
                     && elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
-                    elem.height = yp - elem.top - elem.children[0]->top
+                    elem.height = elem.children[elem.totalChildren - 1]->top - elem.children[0]->top
                         + elem.children[elem.totalChildren - 1]->height;
                 }
             }
@@ -5775,104 +5768,67 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         case UIElementType::Label: {
             if (!elem.show) { break; }
 
-            glm::vec4 dim;
-
-            glm::vec2 pos = glm::vec2(elem.left, elem.top);
+            float top = elem.top;
+            float left = elem.left;
 
             if (elem.positioning == UIPositioning::Relative) {
-                pos.x = elem.parent->left + elem.left;
-                pos.y = elem.parent->top + elem.top;
-
-                if (elem.parent->type == UIElementType::ScrollArea) {
-                    pos.x -= elem.parent->scrollData->xOffset;
-                    pos.y -= elem.parent->scrollData->yOffset;
-                }
-
-                RopeRenderResult rrr = renderTextCached(
-                    elem.text,
-                    pos,
-                    resolution,
-                    elem.textVAO,
-                    elem.textVBO,
-                    elem.textBufferSize,
-                    elem.textVerticesCount,
-                    elem.parent->left,
-                    elem.parent->width,
-                    elem.color,
-                    elem.fontSize,
-                    elem.reDraw,
-                    false
-                );
-
-                if (
-                    elem.reDraw
-                    && elem.preferences->widthPreference == UISizePreference::Grow
-                    && elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->scrollData->width < rrr.width
-                ) {
-                    elem.parent->scrollData->width = rrr.width;
-                    elem.reDraw = false;
-                }
-
-                if (elem.parent->type == UIElementType::ScrollArea) {
-                    if (elem.parent->scrollData->height < rrr.height) {
-                        #ifdef DEBUG_SCROLL_AREA
-                            cout << "\nScroll height less than dim.z " << dim.z;
-                        #endif
-
-                        elem.parent->scrollData->height = rrr.height;
-                        elem.parent->scrollData->renderedUpdate = false;
-                        elem.parent->reDraw = true;
-                    }
-                }
-                break;
-            }
-
-            if (
+                top = elem.parent->top + elem.top;
+                left = elem.parent->left + elem.left;
+            } else if (
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
                 if (childIndex == 0) {
-                    pos.x = elem.parent->left + elem.left;
-                    pos.y = elem.parent->top + elem.top;
+                    top = elem.parent->top + elem.marginTop;
+                    left = elem.parent->left;
                 } else {
                     if (elem.parent->preferences->direction) {
-                        pos.x = elem.parent->left
+                        left = elem.parent->left
                             + elem.parent->children[childIndex - 1]->left
                             + elem.parent->children[childIndex - 1]->width;
+                        top = elem.top;
                     } else {
-                        pos.y = yPrev
-                            + elem.parent->children[childIndex - 1]->height
-                            + elem.top;
+                        top = yPrev + elem.marginTop;
+                        left = elem.left;
                     }
                 }
             }
 
-            if (
-                elem.reDraw
-                && elem.preferences->widthPreference == UISizePreference::Grow
-            ) {
+            if (elem.parent->type == UIElementType::ScrollArea) {
+                top -= elem.parent->scrollData->yOffset;
+                left -= elem.parent->scrollData->xOffset;
+            }
+
+            if (elem.reDraw) {
                 RopeRenderResult rRes = getTextDimensions(
-                    elem.text, pos, resolution, elem.fontSize,
+                    elem.text, glm::vec2(left, top), resolution, elem.fontSize,
                     elem.parent->left, elem.parent->width, false
                 );
 
                 elem.width = rRes.width;
                 elem.height = rRes.height;
-                updateElementDimensionsAccordingToPreferences(&elem);
-                pos.x = elem.left;
 
-                if (
-                    elem.parent->type == UIElementType::ScrollArea
-                    && elem.parent->scrollData->width < elem.width
-                ) {
-                    elem.parent->scrollData->width = elem.width;
+                updateElementDimensionsAccordingToPreferences(&elem);
+
+                if (elem.parent != nullptr && !elem.parent->preferences->direction) {
+                    left = elem.left;
+                }
+
+                if (elem.parent->type == UIElementType::ScrollArea) {
+                    if (elem.parent->scrollData->width < left + elem.width) {
+                        elem.parent->scrollData->width = left + elem.width;
+                    } else if (elem.parent->scrollData->height < top + elem.height) {
+                        elem.parent->scrollData->height = top + elem.height;
+                    }
+
+                    elem.parent->scrollData->renderedUpdate = false;
+                    elem.parent->reDraw = true;
                 }
             }
 
             renderTextCached(
                 elem.text,
-                pos,
+                glm::vec2(left, top),
                 resolution,
                 elem.textVAO,
                 elem.textVBO,
@@ -5890,7 +5846,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
-                yPrev = pos.y;
+                elem.top = top;
+                yPrev = top + elem.height;
             }
 
             elem.reDraw = false;
@@ -5898,25 +5855,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         }
 
         case UIElementType::Button: {
+            if (!elem.show) { return; }
+
             float top = elem.top;
             float left = elem.left;
-
-            if (elem.parent->type == UIElementType::ScrollArea) {
-                top -= elem.parent->scrollData->yOffset;
-            }
 
             if (
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
                 if (childIndex == 0) {
-                    if (elem.parent->positioning == UIPositioning::Relative_sibling) {
-                        left = elem.parent->left + elem.left;
-                        top = yPrev + elem.top;
-                    } else {
-                        left = elem.parent->left + elem.left;
-                        top = elem.parent->top + elem.top;
-                    }
+                    top = elem.parent->top + elem.marginTop;
                 } else {
                     if (elem.parent->preferences->direction) {
                         left = elem.parent->left
@@ -5924,23 +5873,26 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                             + elem.parent->children[childIndex - 1]->width
                             + elem.left;
                     } else {
-                        top = yPrev
-                            + elem.parent->children[childIndex - 1]->height
-                            + elem.top;
+                        top = yPrev + elem.marginTop;
                     }
                 }
             }
 
+            if (elem.parent->type == UIElementType::ScrollArea) {
+                top -= elem.parent->scrollData->yOffset;
+            }
+
             if (elem.reDraw) {
-                if (elem.parent->type == UIElementType::ScrollArea) {
-                    if (
+                if (
+                    elem.parent->type == UIElementType::ScrollArea
+                    && (
                         top < elem.parent->top
                         || top > elem.parent->top + elem.parent->height
-                    ) {
-                        elem.show = false;
-                        elem.reDraw = false;
-                        return;
-                    }
+                    )
+               ) {
+                    elem.show = false;
+                    elem.reDraw = false;
+                    return;
                 }
 
                 if (
@@ -5963,13 +5915,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     }
                 }
 
-                if (elem.preferences->widthPreference == UISizePreference::Full) {
-                    updateElementDimensionsAccordingToPreferences(&elem);
-                }
+                updateElementDimensionsAccordingToPreferences(&elem);
 
-                if (elem.preferences->horizontalAlign == UIAlignment::Center) {
-                    elem.left = elem.parent->left + (elem.parent->width - elem.width) / 2;
-                    left = elem.left;
+                if (
+                    elem.positioning == UIPositioning::Relative_sibling
+                    && elem.parent != nullptr
+                ) {
+                    if (elem.parent->preferences->direction) {
+                        elem.left = left;
+                    } else {
+                        left = elem.left;
+                    }
                 }
 
                 #ifdef DEBUG_RENDER
@@ -5990,8 +5946,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
             }
-
-            if (!elem.show) { return; }
 
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_BUTTON].programId);
@@ -6041,7 +5995,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
-                yPrev = top;
+                elem.top = top;
+                yPrev = top + elem.height;
             }
 
             elem.reDraw = false;
@@ -6065,31 +6020,37 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         && elem.parent != nullptr
                     ) {
                         if (childIndex == 0) {
-                            if (elem.parent->positioning == UIPositioning::Relative_sibling) {
-                                left = elem.parent->left + elem.left;
-                                top = yPrev + elem.top;
-                            } else {
-                                left = elem.parent->left + elem.left;
-                                top = elem.parent->top + elem.top;
-                            }
+                            top = elem.parent->top + elem.marginTop;
+                            left = elem.parent->left + elem.left;
                         } else {
                             if (elem.parent->preferences->direction) {
+                                top = elem.top;
                                 left = elem.parent->left
                                     + elem.parent->children[childIndex - 1]->left
                                     + elem.parent->children[childIndex - 1]->width
                                     + elem.left;
                             } else {
-                                top = yPrev
-                                    + elem.parent->children[childIndex - 1]->height
-                                    + elem.top;
+                                top = yPrev + elem.marginTop;
+                                left = elem.left;
                             }
                         }
                     }
+                }
 
-                    if (elem.preferences->horizontalAlign == UIAlignment::Center) {
-                        left = elem.parent->left + (elem.parent->width - elem.width) / 2;
+                updateElementDimensionsAccordingToPreferences(&elem);
+
+                if (
+                    elem.positioning == UIPositioning::Relative_sibling
+                    && elem.parent != nullptr
+                ) {
+                    if (!elem.parent->preferences->direction) {
+                        left = elem.left;
+                    } else {
+                        elem.left = left;
                     }
+                }
 
+                if (elem.reDraw) {
                     glBindVertexArray(elem.vao);
                     glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
 
@@ -6101,8 +6062,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     };
 
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-                    elem.scrollData->height = 0.0f;
                 }
 
                 if (elem.scrollData->showVerticalScrollbar) {
@@ -6116,7 +6075,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glScissor(left, resolution.y - top - elem.height, width, height);
                 glEnable(GL_SCISSOR_TEST);
 
-                float yp = top;
+                float yp = 0.0f;
+                elem.top = top;
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     if (elem.children[i]->show || elem.reDraw) {
@@ -6139,6 +6099,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         cout << "\nShow horizontal scrollbar: " << elem.scrollData->showHorizontalScrollbar;
                     #endif
 
+                    elem.scrollData->height = 0.0f;
+
                     elem.reDraw = false;
                 }
 
@@ -6148,6 +6110,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glUseProgram(shaders[SHADER_DEFAULT].programId);
                 glUniform4f(uniforms[U_DEFAULT_COLOR], 0.4f, 0.4f, 0.4f, 1.0f);
                 glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+                if (elem.positioning == UIPositioning::Relative_sibling) {
+                    yPrev = top + elem.height;
+                }
             }
             break;
         }
@@ -6270,21 +6236,74 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         }
 
         case UIElementType::TextInput: {
+            if (!elem.show) { return; }
+
+            float top = elem.top;
+            float left = elem.left;
+
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                if (childIndex == 0) {
+                    top = elem.parent->top + elem.marginTop;
+                } else {
+                    if (elem.parent->preferences->direction) {
+                        left = elem.parent->left
+                            + elem.parent->children[childIndex - 1]->left
+                            + elem.parent->children[childIndex - 1]->width
+                            + elem.left;
+                    } else {
+                        top = yPrev + elem.marginTop;
+                    }
+                }
+            }
+
+            if (elem.parent->type == UIElementType::ScrollArea) {
+                top -= elem.parent->scrollData->yOffset;
+            }
+
             if (elem.reDraw) {
+                if (
+                    elem.parent->type == UIElementType::ScrollArea
+                    && (
+                        top < elem.parent->top
+                        || top > elem.parent->top + elem.parent->height
+                    )
+               ) {
+                    elem.show = false;
+                    elem.reDraw = false;
+                    return;
+                }
+
                 #ifdef DEBUG_RENDER
                     cout << "\nRe-drawing Text Input";
                 #endif
 
                 updateElementDimensionsAccordingToPreferences(&elem);
 
-                float right = elem.left + elem.width;
-                float bottom = elem.top + elem.height;
+                if (
+                    elem.positioning == UIPositioning::Relative_sibling
+                    && elem.parent != nullptr
+                ) {
+                    if (elem.parent->preferences->direction) {
+                        elem.left = left;
+                    } else {
+                        left = elem.left;
+                    }
+                } else {
+                    left = elem.left;
+                    top = elem.top;
+                }
+
+                float right = left + elem.width;
+                float bottom = top + elem.height;
 
                 float vertices[] = {
                     right, bottom,
-                    right, elem.top,
-                    elem.left, bottom,
-                    elem.left, elem.top,
+                    right, top,
+                    left, bottom,
+                    left, top,
                 };
 
                 glBindVertexArray(elem.vao);
@@ -6319,7 +6338,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.hoverColor.a
             );
 
-            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
+            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], left, top);
             glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
             glUniform1f(uniforms[U_TEXT_INPUT_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
             glUniform2f(uniforms[U_TEXT_INPUT_CURSOR], cursor.x, cursor.y);
@@ -6328,7 +6347,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             TextInputData* tid = elem.textInputData;
 
-            glm::vec2 pos = glm::vec2(elem.left + TEXT_INPUT_PADDING, elem.top + TEXT_INPUT_PADDING);
+            glm::vec2 pos = glm::vec2(left + TEXT_INPUT_PADDING, top + TEXT_INPUT_PADDING);
 
             string text;
             text.reserve(elem.text.length());
@@ -6352,13 +6371,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             switch (tid->alignment) {
                 case TextInputAlignment::Center:
-                    pos.x = elem.left + (elem.width - rRes.width)/2;
-                    pos.y = elem.top + TEXT_INPUT_PADDING;
+                    pos.x = left + (elem.width - rRes.width)/2;
+                    pos.y = top + TEXT_INPUT_PADDING;
                     break;
 
                 case TextInputAlignment::Right:
-                    pos.x = elem.left + elem.width - rRes.width;
-                    pos.y = elem.top + TEXT_INPUT_PADDING;
+                    pos.x = left + elem.width - rRes.width;
+                    pos.y = top + TEXT_INPUT_PADDING;
                     break;
             }
 
@@ -6379,8 +6398,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             );
 
             uint32_t currentIndex = 0;
-            float x = elem.left + TEXT_INPUT_PADDING;
-            float y = elem.top + TEXT_INPUT_PADDING;
+            float x = left + TEXT_INPUT_PADDING;
+            float y = top + TEXT_INPUT_PADDING;
 
             float cursorX = -1;
             float cursorY = -1;
@@ -6458,6 +6477,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 }
+            }
+
+            if (
+                elem.positioning == UIPositioning::Relative_sibling
+                && elem.parent != nullptr
+            ) {
+                elem.top = top;
+                yPrev = top + elem.height;
             }
 
             elem.reDraw = false;
@@ -7018,94 +7045,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         }
 
         default: break;
-    }
-}
-
-void destroyElement(UIElement& elem) {
-    if (elem.vao != 0) {
-        glDeleteVertexArrays(1, &elem.vao);
-        elem.vao = 0;
-    }
-
-    if (elem.vbo != 0) {
-        glDeleteBuffers(1, &elem.vbo);
-        elem.vbo = 0;
-    }
-
-    if (elem.textVAO != 0) {
-        glDeleteVertexArrays(1, &elem.textVAO);
-        elem.textVAO = 0;
-    }
-
-    if (elem.textVBO != 0) {
-        glDeleteBuffers(1, &elem.textVBO);
-        elem.textVBO = 0;
-    }
-
-    if (elem.preferences != nullptr) {
-        delete elem.preferences;
-        elem.preferences = nullptr;
-    }
-
-    if (elem.textInputData != nullptr) {
-        glDeleteVertexArrays(1, &elem.textInputData->cursorVAO);
-        glDeleteBuffers(1, &elem.textInputData->cursorVBO);
-        glDeleteVertexArrays(1, &elem.textInputData->textSelectVAO);
-        glDeleteBuffers(1, &elem.textInputData->textSelectVBO);
-
-        elem.textInputData->cursorVAO = 0;
-        elem.textInputData->cursorVBO = 0;
-        elem.textInputData->textSelectVAO = 0;
-        elem.textInputData->textSelectVBO = 0;
-
-        delete elem.textInputData;
-        elem.textInputData = nullptr;
-    }
-
-    if (elem.scrollData != nullptr) {
-        glDeleteVertexArrays(1, &elem.scrollData->verticalScrollBarVAO);
-        glDeleteBuffers(1, &elem.scrollData->verticalScrollBarVBO);
-        glDeleteVertexArrays(1, &elem.scrollData->verticalScrollThumbVAO);
-        glDeleteBuffers(1, &elem.scrollData->verticalScrollThumbVBO);
-        glDeleteVertexArrays(1, &elem.scrollData->horizontalScrollBarVAO);
-        glDeleteBuffers(1, &elem.scrollData->horizontalScrollBarVBO);
-        glDeleteVertexArrays(1, &elem.scrollData->horizontalScrollThumbVAO);
-        glDeleteBuffers(1, &elem.scrollData->horizontalScrollThumbVBO);
-
-        elem.scrollData->verticalScrollBarVAO = 0;
-        elem.scrollData->verticalScrollBarVBO = 0;
-        elem.scrollData->verticalScrollThumbVAO = 0;
-        elem.scrollData->verticalScrollThumbVBO = 0;
-        elem.scrollData->horizontalScrollBarVAO = 0;
-        elem.scrollData->horizontalScrollBarVBO = 0;
-        elem.scrollData->horizontalScrollThumbVAO = 0;
-        elem.scrollData->horizontalScrollThumbVBO = 0;
-
-        delete elem.scrollData;
-        elem.scrollData = nullptr;
-    }
-
-    elem.parent = nullptr;
-
-    destroyElementChildren(elem);
-}
-
-void destroyElementChildren(UIElement& elem) {
-    if (elem.totalChildren) {
-        UIElement** toDelete = new UIElement*[elem.totalChildren];
-
-        for (int i=0; i<elem.totalChildren; ++i) {
-            destroyElementChildren((*elem.children[i]));
-            destroyElement((*elem.children[i]));
-
-            delete elem.children[i];
-        }
-
-        delete [] elem.children;
-
-        elem.children = nullptr;
-        elem.totalChildren = 0;
-        elem.capacity = 0;
     }
 }
 
@@ -7891,35 +7830,6 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
                 return elem;
             }
 
-            if (
-                elem->type == UIElementType::Container
-                && elem->totalChildren
-                && elem->children[0]->positioning == UIPositioning::Relative_sibling
-            ) {
-                float yPrev = elem->top;
-
-                for (uint8_t i=0; i<elem->totalChildren; ++i) {
-                    UIElement* e = elem->children[(int)i];
-
-                    float top = yPrev;
-
-                    if (i > 0) {
-                        top += elem->children[i - 1]->height;
-                    }
-
-                    top += e->top;
-
-                    if (
-                        x > e->left && x < e->left + e->width
-                        && y > top && y < top + e->height
-                    ) {
-                        return e;
-                    }
-
-                    yPrev = top;
-                }
-            }
-
             if (elem->type == UIElementType::ScrollArea) {
                 scrollElem = elem;
             }
@@ -7938,7 +7848,9 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
         }
     }
 
-    if (scrollElem != nullptr) { return scrollElem; }
+    if (scrollElem != nullptr) {
+        return scrollElem;
+    }
 
     return nullptr;
     #undef IS_CURSOR_WITHIN_BOUNDS

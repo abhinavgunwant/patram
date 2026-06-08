@@ -139,6 +139,8 @@
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
 
+#define DEFAULT_ELEM_LENGTH     16
+
 #define ROOT_CONTAINER          elements[0]
 #define WELCOME_SCREEN          elements[1]
 #define TAB_BAR                 elements[2]
@@ -162,7 +164,7 @@ struct ContentTab;
 struct ContentTabDisplay;
 struct UIElement;
 
-extern UIElement elements[16];
+extern UIElement elements[DEFAULT_ELEM_LENGTH];
 
 extern float iconButtonVertices[16];
 extern bool darkTheme;
@@ -382,6 +384,8 @@ struct ContentBlock;
 struct UIElement {
     UIElementType type;
 
+    uint8_t marginTop;
+
     uint16_t id;
 
     float top;
@@ -394,14 +398,7 @@ struct UIElement {
     bool show;
     bool reDraw;
 
-    // void (*onClick)(UIElement*);
-    // void (*onMouseDown)(UIElement*, float, float, glm::vec2);
-    // void (*onMouseDrag)(UIElement*, float, float, glm::vec2);
-    // void (*onMouseUp)(UIElement*, float, float, glm::vec2);
-
     string text;
-
-    // Rope* rope;
 
     UIElement* parent;
 
