@@ -288,9 +288,9 @@ inline void drawTextBuffers(
 
     glBindVertexArray(vao);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     if (redraw && bufferSize > 0) {
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
 
         numVertices = vertices.size();
@@ -317,10 +317,6 @@ inline void drawTextBuffers(
     }
 
     glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 RopeRenderResult renderContentRope(
@@ -483,46 +479,48 @@ RopeRenderResult renderTextCached(
 
     float glyphHeight, glyphWidth, bearingTop, bearingLeft;
 
-    for (char c: str) {
-        if (!getCharParams(
-            characters[(int)c],
-            pos,
-            xpos,
-            ypos,
-            yNet,
-            xpos_plus_w,
-            ypos_plus_h,
-            result.height,
-            texX1,
-            texX2,
-            texY1,
-            texY2,
-            glyphHeight,
-            glyphWidth,
-            bearingTop,
-            bearingLeft,
-            advance,
-            parentLeft + parentWidth,
-            result.rows,
-            fontSize,
-            result.renderNextContentBlock,
-            lineBreak
-        )) {
-            break;
-        }
+    if (redraw) {
+        for (char c: str) {
+            if (!getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                xpos_plus_w,
+                ypos_plus_h,
+                result.height,
+                texX1,
+                texX2,
+                texY1,
+                texY2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
+                advance,
+                parentLeft + parentWidth,
+                result.rows,
+                fontSize,
+                result.renderNextContentBlock,
+                lineBreak
+            )) {
+                break;
+            }
 
-        if (redraw && c != ' ') {
-            vertices.insert(vertices.end(), {
-                xpos,           ypos_plus_h,    texX1, texY1,
-                xpos,           ypos,           texX1, texY2,
-                xpos_plus_w,    ypos,           texX2, texY2,
-                xpos,           ypos_plus_h,    texX1, texY1,
-                xpos_plus_w,    ypos,           texX2, texY2,
-                xpos_plus_w,    ypos_plus_h,    texX2, texY1
-            });
-        }
+            if (redraw && c != ' ') {
+                vertices.insert(vertices.end(), {
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos,           ypos,           texX1, texY2,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
+                });
+            }
 
-        xpos += advance;
+            xpos += advance;
+        }
     }
 
     drawTextBuffers(vao, vbo, bufferSize, _numVertices, res, vertices, color, redraw);
