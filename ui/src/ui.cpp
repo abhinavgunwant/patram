@@ -595,6 +595,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;
                         case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); return;
                         case NEW_NOTE_BUTTON_ID: newNote(); return;
+                        case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); return;
                         case SWITCH_VAULT_OPTION_ID: {
                             setSelectedVault(elem->text);
                             onVaultBackClicked();
@@ -1408,6 +1409,7 @@ void setupWelcomeScreen() {
         line1->fontSize = 24;
 
         line2->id = NEW_NOTE_BUTTON_ID;
+        line5->id = TOGGLE_EXPLORER_BUTTON_ID;
         switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
     } else {
         line1->text = "Welcome to patram - your lightweight notes manager!";
