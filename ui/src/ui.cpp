@@ -9151,6 +9151,16 @@ void destroyFloatingUI() {
 }
 
 void showExplorerContextMenu(float x, float y) {
+    #define BUTTON(x, name, _id, margin) do {\
+        x->text = name;\
+        x->id = _id;\
+        x->fontSize = 14;\
+        x->marginTop = margin;\
+        x->positioning = UIPositioning::Relative_sibling;\
+        x->preferences->widthPreference = UISizePreference::Full;\
+        x->preferences->heightPreference = UISizePreference::Grow;\
+    } while (false)
+
     if (FLOATING_CONTAINER.totalChildren) {
         hideExplorerContextMenu();
     }
@@ -9186,42 +9196,18 @@ void showExplorerContextMenu(float x, float y) {
     contextContainer->preferences->horizontalAlign = UIAlignment::None;
     contextContainer->preferences->verticalAlign = UIAlignment::None;
 
-    renameButton->text = "Rename";
-    renameButton->id = EXPLORER_MENU_RENAME_ID;
-    renameButton->fontSize = 14;
-    renameButton->positioning = UIPositioning::Relative_sibling;
-    renameButton->preferences->widthPreference = UISizePreference::Full;
-    renameButton->preferences->heightPreference = UISizePreference::Grow;
-
-    deleteButton->text = "Delete";
-    deleteButton->fontSize = 14;
-    deleteButton->id = EXPLORER_MENU_DELETE_ID;
-    deleteButton->positioning = UIPositioning::Relative_sibling;
-    deleteButton->marginTop = 2;
-    deleteButton->preferences->widthPreference = UISizePreference::Full;
-    deleteButton->preferences->heightPreference = UISizePreference::Grow;
-
-    newNoteButton->text = "New Note";
-    newNoteButton->fontSize = 14;
-    newNoteButton->id = EXPLORER_MENU_NEW_NOTE_ID;
-    newNoteButton->positioning = UIPositioning::Relative_sibling;
-    newNoteButton->marginTop = 8;
-    newNoteButton->preferences->widthPreference = UISizePreference::Full;
-    newNoteButton->preferences->heightPreference = UISizePreference::Grow;
-
-    newFolderButton->text = "New Folder";
-    newFolderButton->fontSize = 14;
-    newFolderButton->id = EXPLORER_MENU_NEW_FOLDER_ID;
-    newFolderButton->positioning = UIPositioning::Relative_sibling;
-    newFolderButton->marginTop = 2;
-    newFolderButton->preferences->widthPreference = UISizePreference::Full;
-    newFolderButton->preferences->heightPreference = UISizePreference::Grow;
+    BUTTON(renameButton, "Rename", EXPLORER_MENU_RENAME_ID, 0);
+    BUTTON(deleteButton, "Delete", EXPLORER_MENU_DELETE_ID, 2);
+    BUTTON(newNoteButton, "New Note", EXPLORER_MENU_DELETE_ID, 8);
+    BUTTON(newFolderButton, "New Folder", EXPLORER_MENU_DELETE_ID, 2);
 
     addChild(contextContainer, renameButton, &floatingArena);
     addChild(contextContainer, deleteButton, &floatingArena);
     addChild(contextContainer, newNoteButton, &floatingArena);
     addChild(contextContainer, newFolderButton, &floatingArena);
     addChild(&FLOATING_CONTAINER, contextContainer);
+
+    #undef BUTTON
 }
 
 void deleteElementBuffers(UIElement* elem) {
