@@ -119,9 +119,15 @@
 #define EXPLORER_MENU_DELETE_ID                     23
 #define EXPLORER_MENU_NEW_NOTE_ID                   24
 #define EXPLORER_MENU_NEW_FOLDER_ID                 25
+#define RENAME_DIALOG_OK_BUTTON_ID                  26
+#define RENAME_DIALOG_CANCEL_BUTTON_ID              27
+#define RENAME_DIALOG_INPUT_ID                      28
 #define OPEN_BUTTON_ID                              100
 
 #define EXPLORER_PANE_ID                            200
+#define DIALOG_OVERLAY_ID                           201
+#define DIALOG_CONTAINER_ID                         202
+#define HORIZONTAL_BUTTON_ROW_ID                    203
 
 #define BUTTON_PADDING                              8
 #define EXPLORER_CONTEXT_MENU_BUTTON_PADDING        4
@@ -647,8 +653,6 @@ void recalculateContentWidth();
 void recalculateCBCursor();
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
-void destroyElement(UIElement& elem);
-void destroyElementChildren(UIElement& elem);
 glm::vec2 getActiveContentDimensions();
 bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
@@ -726,8 +730,8 @@ string elementType(UIElement* elem);
 void initFloatingUI();
 void destroyFloatingUI();
 void showExplorerContextMenu(float x, float y);
-void hideExplorerContextMenu();
-void showDialog();
+void showRenameDialog();
+void hideContextMenus();
 
 #ifdef DEBUG_TEXT_SELECTION
 void printTextSelectionVertices(vector<float> &fvec);

@@ -107,6 +107,8 @@ GLFWcursor* hResizeCursor;
 
 UIElement elements[DEFAULT_ELEM_LENGTH];
 Arena floatingArena;
+float lastFloatingUIShown = 0;
+bool dialogOpen = false;
 
 float mouseX = 25000;
 float mouseY = 25000;
@@ -603,6 +605,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             // TODO: mark this node active
                             // TODO: rename it
                             cout << "\nRename clicked!";
+                            showRenameDialog();
                             break;
                         }
                         case EXPLORER_MENU_DELETE_ID: {
@@ -621,9 +624,18 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             cout << "\nNew Folder clicked!";
                             break;
                         }
+
+                        case RENAME_DIALOG_OK_BUTTON_ID:
+                            // TODO: rename the thing here...
+                            cout << "\nTOOD: implement the rename";
+                            destroyFloatingUI();
+                            break;
+
+                        case RENAME_DIALOG_CANCEL_BUTTON_ID:
+                            destroyFloatingUI();
+                            break;
                     }
 
-                    hideExplorerContextMenu();
                     return;
                 }
 
@@ -688,8 +700,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
                         break;
                 }
-
-                // elem->onMouseDown(elem, mouseX, mouseY, resolution);
             } else if (activeElement != nullptr) {
                 activeElement->active = false;
                 activeElement = nullptr;
@@ -747,7 +757,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
         }
 
-        hideExplorerContextMenu();
+        if (!dialogOpen) {
+            destroyFloatingUI();
+        }
     } else if (button == GLFW_MOUSE_BUTTON_2) {
         if (action == GLFW_PRESS) {
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
@@ -755,10 +767,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             if (elem != nullptr) {
                 switch (elem->id) {
                     case EXPLORER_PANE_ID: showExplorerContextMenu(mouseX, mouseY); return;
+                    case EXPLORER_MENU_RENAME_ID: return;
                 }
             }
 
-            hideExplorerContextMenu();
+            destroyFloatingUI();
         }
     }
 }
@@ -839,7 +852,11 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
 
-    hideExplorerContextMenu();
+    hideContextMenus();
+
+    if (FLOATING_CONTAINER.totalChildren) {
+        FLOATING_CONTAINER.reDraw = true;
+    }
 
     glfwSwapBuffers(window);
 }
@@ -1142,7 +1159,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
 }
 
 void windowPosCallback(GLFWwindow* window, int x, int y) {
-    hideExplorerContextMenu();
+    hideContextMenus();
 }
 
 void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
@@ -1668,6 +1685,7 @@ void setupUI(bool isDarkTheme) {
 
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
+    FLOATING_CONTAINER.show = false;
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
@@ -1745,8 +1763,8 @@ void setupUI(bool isDarkTheme) {
 
     FLOATING_CONTAINER.text = "FLOATING_CONT";
     FLOATING_CONTAINER.positioning = UIPositioning::Absolute;
-    FLOATING_CONTAINER.preferences->widthPreference = UISizePreference::Fixed;
-    FLOATING_CONTAINER.preferences->heightPreference = UISizePreference::Fixed;
+    FLOATING_CONTAINER.preferences->widthPreference = UISizePreference::Full;
+    FLOATING_CONTAINER.preferences->heightPreference = UISizePreference::Full;
     FLOATING_CONTAINER.preferences->verticalAlign = UIAlignment::None;
     FLOATING_CONTAINER.preferences->horizontalAlign = UIAlignment::None;
 
@@ -5545,7 +5563,16 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {
     switch (elem.type) {
-        case UIElementType::Container: { if (!elem.show) { break; }
+        case UIElementType::Container: {
+            if (!elem.show) { break; }
+
+            if (elem.parent != nullptr && elem.id == HORIZONTAL_BUTTON_ROW_ID) {
+                if (childIndex > 0) {
+                    elem.top = elem.parent->children[childIndex - 1]->top
+                        + elem.parent->children[childIndex-1]->height
+                        + elem.marginTop;
+                }
+            }
 
             if (elem.reDraw) {
                 updateElementDimensionsAccordingToPreferences(&elem);
@@ -5555,6 +5582,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 &elem == &ROOT_CONTAINER
                 || &elem == &WELCOME_SCREEN
                 || elem.id == EXPLORER_CONTEXT_MENU_ID
+                || elem.id == DIALOG_OVERLAY_ID
+                || elem.id == DIALOG_CONTAINER_ID
             ) {
                 if (elem.reDraw) {
                     #ifdef DEBUG_RENDER
@@ -5579,7 +5608,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 glBindVertexArray(elem.vao);
 
-                if (elem.id == EXPLORER_CONTEXT_MENU_ID) {
+                if (elem.id == EXPLORER_CONTEXT_MENU_ID || elem.id == DIALOG_CONTAINER_ID) {
                     glUseProgram(shaders[SHADER_BUTTON].programId);
 
                     glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
@@ -5602,6 +5631,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
                     } else if (&elem == &WELCOME_SCREEN) {
                         bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                    } else if (elem.id == DIALOG_OVERLAY_ID) {
+                        bg = glm::vec4(0.0f, 0.0f, 0.0f, 0.8f);
                     }
 
                     glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
@@ -5615,9 +5646,24 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             if (elem.totalChildren) {
                 float yp = 0.0f;
 
-                for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    if (elem.children[i]->show) {
-                        renderElement(*elem.children[i], resolution, cursor, i, yp);
+                if (elem.id == HORIZONTAL_BUTTON_ROW_ID) {
+                    float left = elem.left;
+
+                    for (uint32_t i=0; i<elem.totalChildren; ++i) {
+                        if (elem.children[i]->show) {
+                            elem.children[i]->left = left;
+                            elem.children[i]->top = elem.top + elem.children[i]->marginTop;
+
+                            renderElement(*elem.children[i], resolution, cursor, i, yp);
+
+                            left += elem.children[i]->width + 8.0f;
+                        }
+                    }
+                } else {
+                    for (uint32_t i=0; i<elem.totalChildren; ++i) {
+                        if (elem.children[i]->show) {
+                            renderElement(*elem.children[i], resolution, cursor, i, yp);
+                        }
                     }
                 }
 
@@ -5847,6 +5893,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             if (
+                elem.positioning == UIPositioning::Relative && elem.parent != nullptr
+            ) {
+                top = elem.parent->top + elem.marginTop;
+            }
+
+            if (
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
@@ -5858,7 +5910,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                             + elem.parent->children[childIndex - 1]->left
                             + elem.parent->children[childIndex - 1]->width
                             + elem.left;
-                        top = elem.parent->top;
+                        top = elem.parent->top + elem.marginTop;
                     } else {
                         top = yPrev + elem.marginTop;
                     }
@@ -6402,6 +6454,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 cursorY = y;
             }
 
+            if (
+                elem.textInputData->textSelected
+                && elem.textInputData->textSelectStartCol == 0
+                && elem.textInputData->textSelectEndCol == elem.text.length()
+            ) {
+                selectStartX = pos.x + rRes.x;
+                selectEndX = selectStartX + rRes.width;
+            }
+
             // When text input is active, draw the cursor.
             if (elem.active) {
                 float vertices[] = {
@@ -6412,7 +6473,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 };
 
                 if (tid->cursorVAO == 0) {
-                    SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
+                    SETUP_BUFFERS_DYNAMIC(tid->cursorVAO, tid->cursorVBO, vertices);
                 } else {
                     glBindVertexArray(tid->cursorVAO);
                     glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
@@ -6442,7 +6503,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         };
 
                         if (tid->textSelectVAO == 0) {
-                            SETUP_BUFFERS(tid->textSelectVAO, tid->textSelectVBO, vertices);
+                            SETUP_BUFFERS_DYNAMIC(tid->textSelectVAO, tid->textSelectVBO, vertices);
                         } else {
                             glBindVertexArray(tid->textSelectVAO);
                             glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
@@ -7745,6 +7806,7 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
 
     UIElement* elem = nullptr;
     UIElement* scrollElem = nullptr;
+    UIElement* container = nullptr;
 
     while (!elemStack.empty()) {
         elem = elemStack.top();
@@ -7773,6 +7835,10 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
                 return elem;
             }
 
+            if (elem->type == UIElementType::Container && elem->id == DIALOG_OVERLAY_ID) {
+                container = elem;
+            }
+
             if (elem->type == UIElementType::ScrollArea) {
                 scrollElem = elem;
             }
@@ -7793,6 +7859,8 @@ UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
 
     if (scrollElem != nullptr) {
         return scrollElem;
+    } else if (container != nullptr) {
+        return container;
     }
 
     return nullptr;
@@ -9164,14 +9232,38 @@ string elementType(UIElement *elem) {
 void initFloatingUI() {
     initArena(floatingArena, FLOATING_ARENA_CAPACITY);
     initializeCapacity(&FLOATING_CONTAINER, 8, &floatingArena);
+
+    FLOATING_CONTAINER.show = true;
+    FLOATING_CONTAINER.reDraw = true;
+}
+
+void deleteElementBuffers(UIElement* elem) {
+    if (elem->vao != 0) {
+        glDeleteVertexArrays(1, &elem->vao);
+        glDeleteBuffers(1, &elem->vbo);
+    }
+
+    if (elem->totalChildren) {
+        for (int i=0; i<elem->totalChildren; ++i) {
+            deleteElementBuffers(elem->children[i]);
+        }
+    }
 }
 
 void destroyFloatingUI() {
+    for (int i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
+        deleteElementBuffers(FLOATING_CONTAINER.children[i]);
+    }
+
     destroyArena(floatingArena);
 
     FLOATING_CONTAINER.totalChildren = 0;
     FLOATING_CONTAINER.capacity = 0;
     FLOATING_CONTAINER.children = nullptr;
+    FLOATING_CONTAINER.show = false;
+    FLOATING_CONTAINER.reDraw = false;
+
+    dialogOpen = false;
 }
 
 void showExplorerContextMenu(float x, float y) {
@@ -9185,10 +9277,7 @@ void showExplorerContextMenu(float x, float y) {
         x->preferences->heightPreference = UISizePreference::Grow;\
     } while (false)
 
-    if (FLOATING_CONTAINER.totalChildren) {
-        hideExplorerContextMenu();
-    }
-
+    destroyFloatingUI();
     initFloatingUI();
 
     UIElement* contextContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
@@ -9234,25 +9323,136 @@ void showExplorerContextMenu(float x, float y) {
     #undef BUTTON
 }
 
-void deleteElementBuffers(UIElement* elem) {
-    if (elem->vao != 0) {
-        glDeleteVertexArrays(1, &elem->vao);
-        glDeleteBuffers(1, &elem->vbo);
-    }
+void showRenameDialog() {
+    destroyFloatingUI();
+    initFloatingUI();
 
-    if (elem->totalChildren) {
-        for (int i=0; i<elem->totalChildren; ++i) {
-            deleteElementBuffers(elem->children[i]);
-        }
-    }
+    UIElement* overlayContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* dialogContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* titleLabel = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* messageLabel = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* input = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* buttonContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* okButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* cancelButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+
+    float dialogWidth = 300;
+    float dialogHeight = 160;
+    float top = static_cast<float>(windowHeight)/2 - dialogHeight/2;
+    float left = static_cast<float>(windowWidth)/2 - dialogWidth/2;
+
+    initElement(*overlayContainer, UIElementType::Container, 0, 0, windowWidth, windowHeight);
+    initElement(*dialogContainer, UIElementType::Container, top, left, dialogWidth, dialogHeight);
+    initElement(*titleLabel, UIElementType::Label, 0, 0, 200, 50);
+    initElement(*input, UIElementType::TextInput, 0, 0, 200, 32);
+    initElement(*buttonContainer, UIElementType::Container, 0, 0, 130, 50);
+    initElement(*okButton, UIElementType::Button, 50, 0, 50, 40);
+    initElement(*cancelButton, UIElementType::Button, 50, 0, 75, 40);
+
+    float vertices[8] = { 0 };
+
+    SETUP_BUFFERS(dialogContainer->vao, dialogContainer->vbo, vertices);
+    SETUP_BUFFERS(overlayContainer->vao, overlayContainer->vbo, vertices);
+    SETUP_BUFFERS(titleLabel->vao, titleLabel->vbo, vertices);
+    SETUP_BUFFERS(input->vao, input->vbo, vertices);
+    SETUP_BUFFERS(buttonContainer->vao, buttonContainer->vbo, vertices);
+    SETUP_BUFFERS(okButton->vao, okButton->vbo, vertices);
+    SETUP_BUFFERS(cancelButton->vao, cancelButton->vbo, vertices);
+
+    overlayContainer->id = DIALOG_OVERLAY_ID;
+    overlayContainer->text = "OVERLAY";
+    overlayContainer->positioning = UIPositioning::Absolute;
+    overlayContainer->preferences->widthPreference = UISizePreference::Full;
+    overlayContainer->preferences->heightPreference = UISizePreference::Full;
+    overlayContainer->preferences->horizontalAlign = UIAlignment::Center;
+    overlayContainer->preferences->verticalAlign = UIAlignment::Center;
+
+    dialogContainer->id = DIALOG_CONTAINER_ID;
+    dialogContainer->text = "DIALOG";
+    dialogContainer->positioning = UIPositioning::Absolute;
+    dialogContainer->preferences->direction = false;
+    dialogContainer->borderRadius = 5;
+    dialogContainer->preferences->widthPreference = UISizePreference::Fixed;
+    dialogContainer->preferences->heightPreference = UISizePreference::Fixed;
+    dialogContainer->preferences->horizontalAlign = UIAlignment::Center;
+    dialogContainer->preferences->verticalAlign = UIAlignment::Center;
+
+    buttonContainer->text = "BTN_CONT";
+    buttonContainer->id = HORIZONTAL_BUTTON_ROW_ID;
+    buttonContainer->positioning = UIPositioning::Relative_sibling;
+    buttonContainer->preferences->direction = true;
+    buttonContainer->marginTop = 16;
+    buttonContainer->preferences->horizontalAlign = UIAlignment::Center;
+    buttonContainer->preferences->verticalAlign = UIAlignment::Center;
+    buttonContainer->preferences->widthPreference = UISizePreference::Fixed;
+    buttonContainer->preferences->heightPreference = UISizePreference::Fixed;
+
+    titleLabel->text = "Rename";
+    titleLabel->fontSize = 20;
+    titleLabel->marginTop = 16;
+    titleLabel->positioning = UIPositioning::Relative_sibling;
+    titleLabel->preferences->widthPreference = UISizePreference::Grow;
+    titleLabel->preferences->heightPreference = UISizePreference::Fixed;
+    titleLabel->preferences->horizontalAlign = UIAlignment::Center;
+    titleLabel->preferences->verticalAlign = UIAlignment::Start;
+
+    input->text = "Note name";
+    input->marginTop = 16;
+    input->positioning = UIPositioning::Relative_sibling;
+    input->preferences->widthPreference = UISizePreference::Grow;
+    input->preferences->heightPreference = UISizePreference::Fixed;
+    input->preferences->horizontalAlign = UIAlignment::Center;
+    input->preferences->verticalAlign = UIAlignment::Center;
+    input->textInputData->alignment = TextInputAlignment::Center;
+    input->textInputData->textSelected = true;
+    input->textInputData->textSelectStartCol = 0;
+    input->textInputData->textSelectEndCol = okButton->text.length() - 1;
+    input->textInputData->cursorPosition = okButton->text.length();
+    input->textInputData->textSelectStartRow = 0;
+    input->textInputData->textSelectEndRow = 0;
+    input->textInputData->textSelectUpdated = true;
+
+    okButton->text = "Ok";
+    okButton->id = RENAME_DIALOG_OK_BUTTON_ID;
+    okButton->positioning = UIPositioning::Absolute;
+    okButton->preferences->widthPreference = UISizePreference::Grow;
+    okButton->preferences->heightPreference = UISizePreference::Grow;
+    okButton->preferences->horizontalAlign = UIAlignment::Center;
+    okButton->preferences->verticalAlign = UIAlignment::Center;
+
+    cancelButton->text = "Cancel";
+    cancelButton->id = RENAME_DIALOG_CANCEL_BUTTON_ID;
+    cancelButton->positioning = UIPositioning::Absolute;
+    cancelButton->preferences->widthPreference = UISizePreference::Grow;
+    cancelButton->preferences->heightPreference = UISizePreference::Grow;
+    cancelButton->preferences->horizontalAlign = UIAlignment::Start;
+    cancelButton->preferences->verticalAlign = UIAlignment::Center;
+
+    addChild(buttonContainer, okButton, &floatingArena);
+    addChild(buttonContainer, cancelButton, &floatingArena);
+
+    addChild(dialogContainer, titleLabel, &floatingArena);
+    addChild(dialogContainer, input, &floatingArena);
+    addChild(dialogContainer, buttonContainer, &floatingArena);
+
+    addChild(overlayContainer, dialogContainer, &floatingArena);
+
+    addChild(&FLOATING_CONTAINER, overlayContainer, &floatingArena);
+    lastFloatingUIShown = glfwGetTime();
+    dialogOpen = true;
+    activeElement = input;
+    input->active = true;
 }
 
-void hideExplorerContextMenu() {
-    for (int i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
-        deleteElementBuffers(FLOATING_CONTAINER.children[i]);
+void hideContextMenus() {
+    if (FLOATING_CONTAINER.totalChildren) {
+        for (int i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
+            if (FLOATING_CONTAINER.children[i]->id == EXPLORER_CONTEXT_MENU_ID) {
+                destroyFloatingUI();
+                return;
+            }
+        }
     }
-
-    destroyFloatingUI();
 }
 
 #ifdef DEBUG_TEXT_SELECTION
