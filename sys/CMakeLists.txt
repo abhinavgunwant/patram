@@ -4,6 +4,7 @@ project(sys)
 add_library(sys
     src/utils.cpp
     src/files.cpp
+    src/arena.cpp
 )
 
 target_include_directories(sys
