@@ -86,7 +86,6 @@ ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
 vector<ContentTab> tabs;
 ContentTabDisplay tabsDisplay[100];
 uint8_t activeTabIndex;
-// UIElement* contentContainer;
 UIElement* activeElement = nullptr;
 uint16_t windowHeight;
 uint16_t windowWidth;
@@ -106,7 +105,8 @@ GLFWcursor* textCursor;
 GLFWcursor* pointerCursor;
 GLFWcursor* hResizeCursor;
 
-UIElement elements[16];
+UIElement elements[DEFAULT_ELEM_LENGTH];
+Arena floatingArena;
 
 float mouseX = 25000;
 float mouseY = 25000;
@@ -155,14 +155,13 @@ void showWindow() {
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetFramebufferSizeCallback(window, resizeCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetWindowPosCallback(window, windowPosCallback);
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetWindowIconifyCallback(window, minimizedCallback);
     glfwSetWindowMaximizeCallback(window, maximizedCallback);
     glfwSetWindowFocusCallback(window, windowFocusCallback);
 
     glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
-
-    glClearColor(0, 0, 0, 1.0);
 }
 
 void updateCursorShape(CursorShape shape) {
@@ -302,14 +301,14 @@ void onCreateANewVaultClicked() {
 
     destroyWelcomeScreen();
 
-    UIElement* title                = &elements[7];
-    UIElement* vaultSetup           = &elements[8];
-    UIElement* vaultNameLabel       = &elements[9];
-    UIElement* vaultNameInput       = &elements[10];
-    UIElement* vaultPasswordLabel   = &elements[11];
-    UIElement* vaultPasswordInput   = &elements[12];
-    UIElement* createVaultButton    = &elements[13];
-    UIElement* backButton           = &elements[14];
+    UIElement* title                = &elements[8];
+    UIElement* vaultSetup           = &elements[9];
+    UIElement* vaultNameLabel       = &elements[10];
+    UIElement* vaultNameInput       = &elements[11];
+    UIElement* vaultPasswordLabel   = &elements[12];
+    UIElement* vaultPasswordInput   = &elements[13];
+    UIElement* createVaultButton    = &elements[14];
+    UIElement* backButton           = &elements[15];
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*vaultSetup, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -325,7 +324,7 @@ void onCreateANewVaultClicked() {
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
     SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
 
-    for (int i=7; i<15; ++i) {
+    for (int i=8; i<16; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
         elements[i].preferences->widthPreference = UISizePreference::Grow;
         elements[i].positioning = UIPositioning::Relative_sibling;
@@ -378,10 +377,10 @@ void onSwitchVaultClicked() {
 
     destroyWelcomeScreen();
 
-    UIElement* title        = &elements[7];
-    UIElement* switchVault  = &elements[8];
-    UIElement* vaultList    = &elements[9];
-    UIElement* backButton   = &elements[10];
+    UIElement* title        = &elements[8];
+    UIElement* switchVault  = &elements[9];
+    UIElement* vaultList    = &elements[10];
+    UIElement* backButton   = &elements[11];
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*switchVault, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -396,7 +395,7 @@ void onSwitchVaultClicked() {
     SETUP_BUFFERS(vaultList->scrollData->verticalScrollThumbVAO, vaultList->scrollData->verticalScrollThumbVBO, vertices);
     SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
 
-    for (int i=7; i<11; ++i) {
+    for (int i=8; i<12; ++i) {
         elements[i].positioning = UIPositioning::Relative_sibling;
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
         elements[i].preferences->widthPreference = UISizePreference::Grow;
@@ -589,18 +588,43 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
                 if (elem->id > 0 && elem->type == UIElementType::Button) {
                     switch(elem->id) {
-                        case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); return;
-                        case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); return;
-                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); return;
-                        case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); return;
-                        case NEW_NOTE_BUTTON_ID: newNote(); return;
-                        case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); return;
+                        case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); break;
+                        case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); break;
+                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); break;
+                        case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); break;
+                        case NEW_NOTE_BUTTON_ID: newNote(); break;
+                        case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); break;
                         case SWITCH_VAULT_OPTION_ID: {
                             setSelectedVault(elem->text);
                             onVaultBackClicked();
-                            return;
+                            break;
                         };
+                        case EXPLORER_MENU_RENAME_ID: {
+                            // TODO: mark this node active
+                            // TODO: rename it
+                            cout << "\nRename clicked!";
+                            break;
+                        }
+                        case EXPLORER_MENU_DELETE_ID: {
+                            // TODO: mark this node active
+                            // TODO: delete it
+                            cout << "\nDelete clicked!";
+                            break;
+                        }
+                        case EXPLORER_MENU_NEW_NOTE_ID: {
+                            // TODO: new untitled note
+                            cout << "\nNew Note clicked!";
+                            break;
+                        }
+                        case EXPLORER_MENU_NEW_FOLDER_ID: {
+                            // TODO: new untitled folder
+                            cout << "\nNew Folder clicked!";
+                            break;
+                        }
                     }
+
+                    hideExplorerContextMenu();
+                    return;
                 }
 
                 UIElement* prevActiveElement = activeElement;
@@ -720,11 +744,21 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
                         break;
                 }
-
-                // if (mouseDownX == mouseX && mouseDownY == mouseY) {
-                //     elem->onClick(elem);
-                // }
             }
+        }
+
+        hideExplorerContextMenu();
+    } else if (button == GLFW_MOUSE_BUTTON_2) {
+        if (action == GLFW_PRESS) {
+            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                switch (elem->id) {
+                    case EXPLORER_PANE_ID: showExplorerContextMenu(mouseX, mouseY); return;
+                }
+            }
+
+            hideExplorerContextMenu();
         }
     }
 }
@@ -804,6 +838,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     float _ = 0.0f;
 
     renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+
+    hideExplorerContextMenu();
 
     glfwSwapBuffers(window);
 }
@@ -1106,6 +1142,10 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     updateCursorShape(cShape);
 }
 
+void windowPosCallback(GLFWwindow* window, int x, int y) {
+    hideExplorerContextMenu();
+}
+
 void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
     #define Y_OFFSET elem->scrollData->yOffset
     #define X_OFFSET elem->scrollData->xOffset
@@ -1337,15 +1377,15 @@ void populateExplorerFromContent() {
 void setupWelcomeScreen() {
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    UIElement* title = &elements[7];
-    UIElement* version = &elements[8];
-    UIElement* line1 = &elements[9];
-    UIElement* line2 = &elements[10];
-    UIElement* line3 = &elements[11];
-    UIElement* line4 = &elements[12];
-    UIElement* line5 = &elements[13];
-    UIElement* createVaultButton = &elements[14];
-    UIElement* switchVaultButton = &elements[15];
+    UIElement* title = &elements[8];
+    UIElement* version = &elements[9];
+    UIElement* line1 = &elements[10];
+    UIElement* line2 = &elements[11];
+    UIElement* line3 = &elements[12];
+    UIElement* line4 = &elements[13];
+    UIElement* line5 = &elements[14];
+    UIElement* createVaultButton = &elements[15];
+    UIElement* switchVaultButton = &elements[16];
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -1374,7 +1414,7 @@ void setupWelcomeScreen() {
     SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
     SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
 
-    for (uint32_t i=7; i<16; ++i) {
+    for (uint32_t i=8; i<17; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
         elements[i].preferences->widthPreference = UISizePreference::Grow;
         elements[i].positioning = UIPositioning::Relative_sibling;
@@ -1387,7 +1427,7 @@ void setupWelcomeScreen() {
     line1->marginTop = 8;
 
     if (vaultSelected) {
-        for (uint32_t i=9; i<16; ++i) {
+        for (uint32_t i=9; i<17; ++i) {
             elements[i].preferences->heightPreference = UISizePreference::Grow;
             elements[i].marginTop = 8;
         }
@@ -1432,7 +1472,7 @@ void setupWelcomeScreen() {
 }
 
 void destroyWelcomeScreen() {
-    for (int i=7; i<16; ++i) {
+    for (int i=8; i<17; ++i) {
         if (elements[i].vao != 0) {
             glDeleteVertexArrays(1, &elements[i].vao);
             elements[i].vao = 0;
@@ -1625,6 +1665,7 @@ void setupUI(bool isDarkTheme) {
     initElement(MAIN_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(WELCOME_MAIN_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(EXPLORER, UIElementType::Explorer, TAB_BAR_HEIGHT, 0.0f, 200.0f, WINDOW_HEIGHT - TAB_BAR_HEIGHT);
+    initElement(FLOATING_CONTAINER, UIElementType::Container, 0.0f, 0.0f, 0.0f, 0.0f);
 
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
@@ -1660,16 +1701,7 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_DYNAMIC(explorer.verticalScrollVao, explorer.verticalScrollVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.horizontalScrollVao, explorer.horizontalScrollVao, vertices);
 
-    for (int i=0; i<100; ++i) {
-        tabsDisplay[i].vao = 0;
-        tabsDisplay[i].vbo = 0;
-        tabsDisplay[i].activeBgVao = 0;
-        tabsDisplay[i].activeBgVbo = 0;
-        tabsDisplay[i].vbo = 0;
-        tabsDisplay[i].bytes = 0;
-        tabsDisplay[i].numVertices = 0;
-        tabsDisplay[i].width = 0.0f;
-    }
+    memset(tabsDisplay, 0, sizeof(tabsDisplay));
 
     ROOT_CONTAINER.text = "Root Container";
     ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
@@ -1689,6 +1721,7 @@ void setupUI(bool isDarkTheme) {
 
     EXPLORER.text = "EXPLORER";
     EXPLORER.show = false;
+    EXPLORER.id = EXPLORER_PANE_ID;
 
     CONTENT_CONTAINER.text = "CONT_CONTAINER";
     CONTENT_CONTAINER.scrollData->width = WINDOW_WIDTH;
@@ -1710,6 +1743,13 @@ void setupUI(bool isDarkTheme) {
     WELCOME_MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Grow;
     WELCOME_MAIN_CONTAINER.preferences->direction = false;
     WELCOME_MAIN_CONTAINER.text = "WEL_MAIN_CONT";
+
+    FLOATING_CONTAINER.text = "FLOATING_CONT";
+    FLOATING_CONTAINER.positioning = UIPositioning::Absolute;
+    FLOATING_CONTAINER.preferences->widthPreference = UISizePreference::Fixed;
+    FLOATING_CONTAINER.preferences->heightPreference = UISizePreference::Fixed;
+    FLOATING_CONTAINER.preferences->verticalAlign = UIAlignment::None;
+    FLOATING_CONTAINER.preferences->horizontalAlign = UIAlignment::None;
 
     #ifdef DEBUG_TEST_NOTE_TAB
     newTab("Test note title");
@@ -1752,6 +1792,7 @@ void setupUI(bool isDarkTheme) {
 
     addChild(&ROOT_CONTAINER, &TAB_BAR);
     addChild(&ROOT_CONTAINER, &MAIN_CONTAINER);
+    addChild(&ROOT_CONTAINER, &FLOATING_CONTAINER);
 
     initFontTexture(getFontAtlasPath(0).string());
     initIconTexture();
@@ -1768,7 +1809,13 @@ void enterRenderLoop() {
     uint16_t fps = 0;
     uint16_t newFps = 0;
 
+    glm::vec4 color = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+
+    glClearColor(color.r, color.g, color.b, 1.0);
+
     while (!glfwWindowShouldClose(window)) {
+        glClear(GL_COLOR_BUFFER_BIT);
+
         if (minimized) {
             glfwWaitEventsTimeout(4000.0f);
         }
@@ -4898,40 +4945,52 @@ UIPreferences* initPreferences() {
     return pref;
 }
 
-void initializeCapacity(UIElement* parent, int capacity) {
+void initializeCapacity(UIElement* parent, int capacity, Arena* arena) {
     if (parent->children == nullptr) {
-        parent->children = new UIElement*[capacity];
+        if (arena == nullptr) {
+            parent->children = new UIElement*[capacity];
+        } else {
+            parent->children = (UIElement**)arenaAllocate(*arena, sizeof(UIElement*) * capacity);
+        }
         parent->capacity = capacity;
     }
 }
 
-void growCapacity(UIElement* parent) {
+void growCapacity(UIElement* parent, Arena* arena) {
     if (parent->capacity > GROWTH_THRESHOLD) {
         parent->capacity += INCR_POST_GROWTH_THRESHOLD;
     } else {
         parent->capacity *= GROWTH_FACTOR;
     }
 
-    UIElement** newlist = new UIElement*[parent->capacity];
+    UIElement** newlist;
+
+    if (arena == nullptr) {
+        newlist = new UIElement*[parent->capacity];
+    } else {
+        newlist = (UIElement**) arenaAllocate(*arena, sizeof(UIElement*) * parent->capacity);
+    }
 
     for (uint32_t i=0; i<parent->totalChildren; ++i) {
         newlist[i] = parent->children[i];
     }
 
-    delete [] parent->children;
+    if (arena == nullptr) {
+        delete [] parent->children;
+    }
 
     parent->children = newlist;
 }
 
-void addChild(UIElement* parent, UIElement * child) {
+void addChild(UIElement* parent, UIElement * child, Arena* arena) {
     if (child->parent != nullptr) {
         cerr << "\nError: child already has a parent";
     }
 
     if (parent->capacity == 0) {
-        initializeCapacity(parent, INITIAL_PARENT_CAPACITY);
+        initializeCapacity(parent, INITIAL_PARENT_CAPACITY, arena);
     } else if (parent->totalChildren + 1 > parent->capacity) {
-        growCapacity(parent);
+        growCapacity(parent, arena);
     }
 
     parent->children[parent->totalChildren] = child;
@@ -5487,14 +5546,13 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {
     switch (elem.type) {
-        case UIElementType::Container: {
-            if (!elem.show) { break; }
+        case UIElementType::Container: { if (!elem.show) { break; }
 
             if (elem.reDraw) {
                 updateElementDimensionsAccordingToPreferences(&elem);
             }
 
-            if (&elem == &ROOT_CONTAINER || &elem == &WELCOME_SCREEN) {
+            if (&elem == &ROOT_CONTAINER || &elem == &WELCOME_SCREEN || elem.id == EXPLORER_CONTEXT_MENU_ID) {
                 if (elem.reDraw) {
                     #ifdef DEBUG_RENDER
                         cout << "\nRe-drawing Container";
@@ -5525,6 +5583,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 if (&elem == &ROOT_CONTAINER) {
                     bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
                 } else if (&elem == &WELCOME_SCREEN) {
+                    bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                } else if (elem.id == EXPLORER_CONTEXT_MENU_ID) {
                     bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
                 }
 
@@ -5690,7 +5750,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         left = elem.parent->left
                             + elem.parent->children[childIndex - 1]->left
                             + elem.parent->children[childIndex - 1]->width;
-                        top = elem.top;
+                        top = elem.parent->top;
                     } else {
                         top = yPrev + elem.marginTop;
                         left = elem.left;
@@ -5776,6 +5836,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                             + elem.parent->children[childIndex - 1]->left
                             + elem.parent->children[childIndex - 1]->width
                             + elem.left;
+                        top = elem.parent->top;
                     } else {
                         top = yPrev + elem.marginTop;
                     }
@@ -5829,6 +5890,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         elem.left = left;
                     } else {
                         left = elem.left;
+
+                        if (elem.parent->id == EXPLORER_CONTEXT_MENU_ID) {
+                            left += EXPLORER_CONTEXT_MENU_PADDING;
+
+                            if (childIndex == 0) {
+                                top += EXPLORER_CONTEXT_MENU_PADDING;
+                            }
+
+                            elem.width = elem.parent->width - 2 * EXPLORER_CONTEXT_MENU_PADDING;
+                        }
                     }
                 }
 
@@ -5849,6 +5920,27 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glBindVertexArray(elem.vao);
                 glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            } else {
+                if (
+                    elem.positioning == UIPositioning::Relative_sibling
+                    && elem.parent != nullptr
+                ) {
+                    if (elem.parent->preferences->direction) {
+                        elem.left = left;
+                    } else {
+                        left = elem.left;
+
+                        if (elem.parent->id == EXPLORER_CONTEXT_MENU_ID) {
+                            left += EXPLORER_CONTEXT_MENU_PADDING;
+
+                            if (childIndex == 0) {
+                                top += EXPLORER_CONTEXT_MENU_PADDING;
+                            }
+
+                            elem.width = elem.parent->width - 2 * EXPLORER_CONTEXT_MENU_PADDING;
+                        }
+                    }
+                }
             }
 
             glBindVertexArray(elem.vao);
@@ -9043,6 +9135,114 @@ string elementType(UIElement *elem) {
     }
 
     return "UI Element Type: Unknown";
+}
+
+void initFloatingUI() {
+    initArena(floatingArena, FLOATING_ARENA_CAPACITY);
+    initializeCapacity(&FLOATING_CONTAINER, 8, &floatingArena);
+}
+
+void destroyFloatingUI() {
+    destroyArena(floatingArena);
+
+    FLOATING_CONTAINER.totalChildren = 0;
+    FLOATING_CONTAINER.capacity = 0;
+    FLOATING_CONTAINER.children = nullptr;
+}
+
+void showExplorerContextMenu(float x, float y) {
+    if (FLOATING_CONTAINER.totalChildren) {
+        hideExplorerContextMenu();
+    }
+
+    initFloatingUI();
+
+    UIElement* contextContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* renameButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* deleteButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* newNoteButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    UIElement* newFolderButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+
+    initElement(*contextContainer, UIElementType::Container, y, x, 200, 160);
+    initElement(*renameButton, UIElementType::Button, 0, 0, 200, 50);
+    initElement(*deleteButton, UIElementType::Button, 0, 0, 200, 50);
+    initElement(*newNoteButton, UIElementType::Button, 0, 0, 200, 50);
+    initElement(*newFolderButton, UIElementType::Button, 0, 0, 200, 50);
+
+    float vertices[8] = { 0 };
+
+    SETUP_BUFFERS(contextContainer->vao, contextContainer->vbo, vertices);
+    SETUP_BUFFERS(renameButton->vao, renameButton->vbo, vertices);
+    SETUP_BUFFERS(deleteButton->vao, deleteButton->vbo, vertices);
+    SETUP_BUFFERS(newNoteButton->vao, newNoteButton->vbo, vertices);
+    SETUP_BUFFERS(newFolderButton->vao, newFolderButton->vbo, vertices);
+
+    contextContainer->id = EXPLORER_CONTEXT_MENU_ID;
+    contextContainer->positioning = UIPositioning::Relative_sibling;
+    contextContainer->preferences->direction = false;
+    contextContainer->borderRadius = 5;
+    contextContainer->preferences->widthPreference = UISizePreference::Fixed;
+    contextContainer->preferences->heightPreference = UISizePreference::Fixed;
+    contextContainer->preferences->horizontalAlign = UIAlignment::None;
+    contextContainer->preferences->verticalAlign = UIAlignment::None;
+
+    renameButton->text = "Rename";
+    renameButton->id = EXPLORER_MENU_RENAME_ID;
+    renameButton->fontSize = 14;
+    renameButton->positioning = UIPositioning::Relative_sibling;
+    renameButton->preferences->widthPreference = UISizePreference::Full;
+    renameButton->preferences->heightPreference = UISizePreference::Grow;
+
+    deleteButton->text = "Delete";
+    deleteButton->fontSize = 14;
+    deleteButton->id = EXPLORER_MENU_DELETE_ID;
+    deleteButton->positioning = UIPositioning::Relative_sibling;
+    deleteButton->marginTop = 2;
+    deleteButton->preferences->widthPreference = UISizePreference::Full;
+    deleteButton->preferences->heightPreference = UISizePreference::Grow;
+
+    newNoteButton->text = "New Note";
+    newNoteButton->fontSize = 14;
+    newNoteButton->id = EXPLORER_MENU_NEW_NOTE_ID;
+    newNoteButton->positioning = UIPositioning::Relative_sibling;
+    newNoteButton->marginTop = 8;
+    newNoteButton->preferences->widthPreference = UISizePreference::Full;
+    newNoteButton->preferences->heightPreference = UISizePreference::Grow;
+
+    newFolderButton->text = "New Folder";
+    newFolderButton->fontSize = 14;
+    newFolderButton->id = EXPLORER_MENU_NEW_FOLDER_ID;
+    newFolderButton->positioning = UIPositioning::Relative_sibling;
+    newFolderButton->marginTop = 2;
+    newFolderButton->preferences->widthPreference = UISizePreference::Full;
+    newFolderButton->preferences->heightPreference = UISizePreference::Grow;
+
+    addChild(contextContainer, renameButton, &floatingArena);
+    addChild(contextContainer, deleteButton, &floatingArena);
+    addChild(contextContainer, newNoteButton, &floatingArena);
+    addChild(contextContainer, newFolderButton, &floatingArena);
+    addChild(&FLOATING_CONTAINER, contextContainer);
+}
+
+void deleteElementBuffers(UIElement* elem) {
+    if (elem->vao != 0) {
+        glDeleteVertexArrays(1, &elem->vao);
+        glDeleteBuffers(1, &elem->vbo);
+    }
+
+    if (elem->totalChildren) {
+        for (int i=0; i<elem->totalChildren; ++i) {
+            deleteElementBuffers(elem->children[i]);
+        }
+    }
+}
+
+void hideExplorerContextMenu() {
+    for (int i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
+        deleteElementBuffers(FLOATING_CONTAINER.children[i]);
+    }
+
+    destroyFloatingUI();
 }
 
 #ifdef DEBUG_TEXT_SELECTION

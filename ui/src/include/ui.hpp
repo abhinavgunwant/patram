@@ -13,6 +13,7 @@
 
 #include "command.hpp"
 #include "rope.hpp"
+#include "arena.hpp"
 
 #define WINDOW_WIDTH 550
 #define WINDOW_HEIGHT 600
@@ -96,19 +97,30 @@
 #define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.15f, 0.15f, 0.15f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
 
+#define EXPLORER_CONTEXT_MENU_PADDING               4
+
+//Floating Container IDs
+#define EXPLORER_CONTEXT_MENU_ID                    1
+
 // Button IDs
-#define CREATE_VAULT_BUTTON_ID                      1
-#define SWITCH_VAULT_BUTTON_ID                      2
-#define VAULT_SETUP_CREATE_VAULT_BUTTON_ID          3
-#define VAULT_BACK_BUTTON_ID                        4
-#define NEW_NOTE_BUTTON_ID                          5
-#define NEW_FOLDER_BUTTON_ID                        6
-#define SAVE_NOTE_BUTTON_ID                         7
-#define TOGGLE_EXPLORER_BUTTON_ID                   8
-#define VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID        9
-#define VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID    10
-#define SWITCH_VAULT_OPTION_ID                      11
-#define OPEN_BUTTON_ID                              1000
+#define CREATE_VAULT_BUTTON_ID                      11
+#define SWITCH_VAULT_BUTTON_ID                      12
+#define VAULT_SETUP_CREATE_VAULT_BUTTON_ID          13
+#define VAULT_BACK_BUTTON_ID                        14
+#define NEW_NOTE_BUTTON_ID                          15
+#define NEW_FOLDER_BUTTON_ID                        16
+#define SAVE_NOTE_BUTTON_ID                         17
+#define TOGGLE_EXPLORER_BUTTON_ID                   18
+#define VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID        19
+#define VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID    20
+#define SWITCH_VAULT_OPTION_ID                      21
+#define EXPLORER_MENU_RENAME_ID                     22
+#define EXPLORER_MENU_DELETE_ID                     23
+#define EXPLORER_MENU_NEW_NOTE_ID                   24
+#define EXPLORER_MENU_NEW_FOLDER_ID                 25
+#define OPEN_BUTTON_ID                              100
+
+#define EXPLORER_PANE_ID                            200
 
 #define BUTTON_PADDING              8
 #define TEXT_INPUT_PADDING          4
@@ -139,7 +151,8 @@
 #define MENU_BAR 0
 #define SCROLL_AMOUNT 72
 
-#define DEFAULT_ELEM_LENGTH     16
+#define DEFAULT_ELEM_LENGTH     17
+#define FLOATING_ARENA_CAPACITY 8192
 
 #define ROOT_CONTAINER          elements[0]
 #define WELCOME_SCREEN          elements[1]
@@ -148,6 +161,7 @@
 #define EXPLORER                elements[4]
 #define CONTENT_CONTAINER       elements[5]
 #define WELCOME_MAIN_CONTAINER  elements[6]
+#define FLOATING_CONTAINER      elements[7]
 
 #define EXPLORER_ELEMENT_HEIGHT 32.0f
 #define EXPLORER_FLAG_EXPANDED  0b00000001
@@ -187,6 +201,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
 void cursorPosCallback(GLFWwindow * window, double xpos, double ypos);
+void windowPosCallback(GLFWwindow* window, int x, int y);
 void scrollCallback(GLFWwindow * window, double xoffset, double yoffset);
 void minimizedCallback(GLFWwindow* window, int minimized);
 void maximizedCallback(GLFWwindow* window, int maximized);
@@ -239,6 +254,7 @@ enum class ContentBlockType: uint8_t {
 };
 
 enum class UIAlignment : uint8_t {
+    None,
     Start,
     End,
     Center,
@@ -618,9 +634,9 @@ void newTab(filesystem::path tabPath);
 void closeCurrentTab();
 string getSelectedTextFromCurrentTab();
 UIPreferences* initPreferences();
-void initializeCapacity(UIElement* parent, int capacity);
-void growCapacity(UIElement* parent);
-void addChild(UIElement* parent, UIElement* child);
+void initializeCapacity(UIElement* parent, int capacity, Arena* arena = nullptr);
+void growCapacity(UIElement* parent, Arena* arena = nullptr);
+void addChild(UIElement* parent, UIElement* child, Arena* arena = nullptr);
 
 void toggleExplorer();
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem);
@@ -704,6 +720,12 @@ void updateWindowTitle();
 
 /** Returns string representation of the element type. */
 string elementType(UIElement* elem);
+
+void initFloatingUI();
+void destroyFloatingUI();
+void showExplorerContextMenu(float x, float y);
+void hideExplorerContextMenu();
+void showDialog();
 
 #ifdef DEBUG_TEXT_SELECTION
 void printTextSelectionVertices(vector<float> &fvec);
