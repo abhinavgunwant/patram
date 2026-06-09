@@ -1084,61 +1084,60 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         }
     }
 
-    if (EXPLORER.show && MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
-        if (!explorer.lineHover) {
-            explorer.lineHover = true;
-            explorer.redrawLine = true;
-        }
-        cShape = CursorShape::HorizontalResize;
-        updateCursorShape(cShape);
-        return;
-    } else {
-        explorer.lineHover = false;
-    }
-
     UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
 
-    if (
-        elem != nullptr
-        && elem->type == UIElementType::Explorer
-        && elem->show
-        && mouseX < elem->width
-        && (TAB_BAR.show && mouseY > TAB_BAR.height || !TAB_BAR.show)
-    ) {
-        if (
-            elem->scrollData->showVerticalScrollbar
-            && mouseX > elem->width - SCROLL_BAR_THICKNESS
-        ) {
-            if (elem->scrollData->mouseDown) {
-                float oldOffset = elem->scrollData->yOffset;
-                elem->scrollData->yOffset += mouseY - elem->scrollData->mouseDownY;
-
-                if (elem->scrollData->yOffset < 0) {
-                    elem->scrollData->yOffset = 0;
-                } else if (elem->scrollData->yOffset + elem->height > elem->scrollData->height) {
-                    elem->scrollData->yOffset = elem->scrollData->height - elem->height;
+    if (elem != nullptr) {
+        switch (elem->type) {
+            case UIElementType::Explorer: {
+                if (MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
+                    if (!explorer.lineHover) {
+                        explorer.lineHover = true;
+                        explorer.redrawLine = true;
+                    }
+                    cShape = CursorShape::HorizontalResize;
+                    updateCursorShape(cShape);
+                    return;
+                } else {
+                    explorer.lineHover = false;
                 }
 
-                if (elem->scrollData->yOffset != oldOffset) {
-                    elem->reDraw = true;
-                    elem->scrollData->renderedUpdate = false;
-                    cout << "\nScroll offset: " << elem->scrollData->yOffset;
+                if (
+                    elem->scrollData->showVerticalScrollbar
+                    && mouseX > elem->width - SCROLL_BAR_THICKNESS
+                ) {
+                    if (elem->scrollData->mouseDown) {
+                        float oldOffset = elem->scrollData->yOffset;
+                        elem->scrollData->yOffset += mouseY - elem->scrollData->mouseDownY;
+
+                        if (elem->scrollData->yOffset < 0) {
+                            elem->scrollData->yOffset = 0;
+                        } else if (elem->scrollData->yOffset + elem->height > elem->scrollData->height) {
+                            elem->scrollData->yOffset = elem->scrollData->height - elem->height;
+                        }
+
+                        if (elem->scrollData->yOffset != oldOffset) {
+                            elem->reDraw = true;
+                            elem->scrollData->renderedUpdate = false;
+                            cout << "\nScroll offset: " << elem->scrollData->yOffset;
+                        }
+                        elem->scrollData->mouseDownY = mouseY;
+                    }
+                    updateCursorShape(CursorShape::Default);
+                } else {
+                    float y = EXPLORER.top + elem->scrollData->yOffset;
+
+                    setExplorerTreeFlag(explorer.nodes, y, mouseY, elem->scrollData->yOffset, EXPLORER_FLAG_HOVER);
+                    cShape = CursorShape::Default;
                 }
-                elem->scrollData->mouseDownY = mouseY;
             }
-            updateCursorShape(CursorShape::Default);
-            return;
-        } else {
-            float y = EXPLORER.top + elem->scrollData->yOffset;
-
-            setExplorerTreeFlag(explorer.nodes, y, mouseY, elem->scrollData->yOffset, EXPLORER_FLAG_HOVER);
-            cShape = CursorShape::Default;
+            break;
         }
     } else if (explorer.elementHover) {
         unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_HOVER);
         explorer.elementHover = false;
     }
 
+    explorer.lineHover = false;
     updateCursorShape(cShape);
 }
 
@@ -5552,7 +5551,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 updateElementDimensionsAccordingToPreferences(&elem);
             }
 
-            if (&elem == &ROOT_CONTAINER || &elem == &WELCOME_SCREEN || elem.id == EXPLORER_CONTEXT_MENU_ID) {
+            if (
+                &elem == &ROOT_CONTAINER
+                || &elem == &WELCOME_SCREEN
+                || elem.id == EXPLORER_CONTEXT_MENU_ID
+            ) {
                 if (elem.reDraw) {
                     #ifdef DEBUG_RENDER
                         cout << "\nRe-drawing Container";
@@ -5575,20 +5578,34 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 }
 
                 glBindVertexArray(elem.vao);
-                glUseProgram(shaders[SHADER_DEFAULT].programId);
 
-                glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-                glm::vec4 bg = TRANSPARENT_COLOR;
+                if (elem.id == EXPLORER_CONTEXT_MENU_ID) {
+                    glUseProgram(shaders[SHADER_BUTTON].programId);
 
-                if (&elem == &ROOT_CONTAINER) {
-                    bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
-                } else if (&elem == &WELCOME_SCREEN) {
-                    bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
-                } else if (elem.id == EXPLORER_CONTEXT_MENU_ID) {
-                    bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                    glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                    glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.x, bg.y, bg.z, bg.w);
+                    glUniform4f(uniforms[U_BUTTON_HOV_COLOR], bg.x, bg.y, bg.z, bg.w);
+                    glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(5.0f));
+                    glUniform2f(uniforms[U_BUTTON_CURSOR], mouseX, mouseY);
+                    glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
+                    glUniform2f(uniforms[U_BUTTON_CURSOR], -5, -5);
+                    glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
+                    glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
+                } else {
+                    glUseProgram(shaders[SHADER_DEFAULT].programId);
+
+                    glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
+
+                    glm::vec4 bg = TRANSPARENT_COLOR;
+
+                    if (&elem == &ROOT_CONTAINER) {
+                        bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+                    } else if (&elem == &WELCOME_SCREEN) {
+                        bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                    }
+
+                    glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
                 }
-
-                glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
