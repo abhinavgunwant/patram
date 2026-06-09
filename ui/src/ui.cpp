@@ -5823,6 +5823,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             float top = elem.top;
             float left = elem.left;
+            float padding = BUTTON_PADDING;
+
+            if (elem.parent->id == EXPLORER_CONTEXT_MENU_ID) {
+                padding = EXPLORER_CONTEXT_MENU_BUTTON_PADDING;
+            }
 
             if (
                 elem.positioning == UIPositioning::Relative_sibling
@@ -5864,7 +5869,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.preferences->widthPreference == UISizePreference::Grow
                     || elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
-                    glm::vec2 pos = glm::vec2(elem.left + BUTTON_PADDING, top + BUTTON_PADDING);
+                    glm::vec2 pos = glm::vec2(elem.left + padding, top + padding);
 
                     RopeRenderResult rRes = getTextDimensions(
                         elem.text, pos, resolution, elem.fontSize,
@@ -5872,11 +5877,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     );
 
                     if (elem.preferences->widthPreference == UISizePreference::Grow) {
-                        elem.width = BUTTON_PADDING + rRes.width + BUTTON_PADDING;
+                        elem.width = padding + rRes.width + padding;
                     }
 
                     if (elem.preferences->heightPreference == UISizePreference::Grow) {
-                        elem.height = BUTTON_PADDING + rRes.height + BUTTON_PADDING;
+                        elem.height = padding + rRes.height + padding;
                     }
                 }
 
@@ -5953,6 +5958,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (elem.id == SWITCH_VAULT_OPTION_ID) {
                 bg = TRANSPARENT_COLOR;
+            } else if (elem.id == EXPLORER_MENU_DELETE_ID) {
+                hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
             }
 
             glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
@@ -5965,7 +5972,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glm::vec2 pos = glm::vec2(left + BUTTON_PADDING, top + BUTTON_PADDING);
+            glm::vec2 pos = glm::vec2(left + padding, top + padding);
 
             renderTextCached(
                 elem.text,
@@ -9173,7 +9180,7 @@ void showExplorerContextMenu(float x, float y) {
     UIElement* newNoteButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
     UIElement* newFolderButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
 
-    initElement(*contextContainer, UIElementType::Container, y, x, 200, 160);
+    initElement(*contextContainer, UIElementType::Container, y, x, 160, 130);
     initElement(*renameButton, UIElementType::Button, 0, 0, 200, 50);
     initElement(*deleteButton, UIElementType::Button, 0, 0, 200, 50);
     initElement(*newNoteButton, UIElementType::Button, 0, 0, 200, 50);
@@ -9198,8 +9205,8 @@ void showExplorerContextMenu(float x, float y) {
 
     BUTTON(renameButton, "Rename", EXPLORER_MENU_RENAME_ID, 0);
     BUTTON(deleteButton, "Delete", EXPLORER_MENU_DELETE_ID, 2);
-    BUTTON(newNoteButton, "New Note", EXPLORER_MENU_DELETE_ID, 8);
-    BUTTON(newFolderButton, "New Folder", EXPLORER_MENU_DELETE_ID, 2);
+    BUTTON(newNoteButton, "New Note", EXPLORER_MENU_NEW_NOTE_ID, 8);
+    BUTTON(newFolderButton, "New Folder", EXPLORER_MENU_NEW_FOLDER_ID, 2);
 
     addChild(contextContainer, renameButton, &floatingArena);
     addChild(contextContainer, deleteButton, &floatingArena);
