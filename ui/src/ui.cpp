@@ -91,7 +91,9 @@ uint16_t windowHeight;
 uint16_t windowWidth;
 glm::vec2 resolution;
 GLFWwindow* window;
+GLFWmonitor* primaryMonitor;
 bool minimized = false;
+bool fullScreen = false;
 bool focused = true;
 bool mouse1Down = false;
 bool showFps = false;
@@ -136,6 +138,7 @@ void showWindow() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+    primaryMonitor = glfwGetPrimaryMonitor();
     window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "patram", NULL, NULL);
 
     if (window == NULL) {
@@ -164,6 +167,21 @@ void showWindow() {
     glfwSetWindowFocusCallback(window, windowFocusCallback);
 
     glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
+}
+
+void toggleFullscreen() {
+    if (primaryMonitor != nullptr) {
+        if (fullScreen) {
+            glfwSetWindowMonitor(window, NULL, 100, 100, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+            fullScreen = false;
+        } else {
+            int x, y, width, height;
+            const GLFWvidmode* vMode = glfwGetVideoMode(primaryMonitor);
+            glfwGetMonitorWorkarea(primaryMonitor, &x, &y, &width, &height);
+            glfwSetWindowMonitor(window, primaryMonitor, 0, 0, width, height, vMode->refreshRate);
+            fullScreen = true;
+        }
+    }
 }
 
 void updateCursorShape(CursorShape shape) {
@@ -1920,6 +1938,8 @@ void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                 break;
             }
+
+            case GLFW_KEY_F11: toggleFullscreen(); break;
         }
     }
 }
@@ -2928,6 +2948,7 @@ void cbKeyCallback(int key, int action, int mod) {
             case GLFW_KEY_KP_ADD: TYPE("+"); break;
             case GLFW_KEY_KP_EQUAL: TYPE("="); break;
             case GLFW_KEY_SPACE: TYPE(" "); break;
+            case GLFW_KEY_F11: toggleFullscreen(); break;
 
             default: {
                 // Nothing!
@@ -3460,7 +3481,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             case GLFW_KEY_SPACE:
                 TYPE(" "); INCR_CURSOR();
                 break;
-                
+
+            case GLFW_KEY_F11: toggleFullscreen(); break;
 
             default: {
                 // Nothing!

@@ -216,6 +216,7 @@ void maximizedCallback(GLFWwindow* window, int maximized);
 void windowFocusCallback(GLFWwindow *window, int focused);
 
 void showWindow();
+void toggleFullscreen();
 void setupExplorer();
 void setupUI(bool darkTheme);
 void enterRenderLoop();
