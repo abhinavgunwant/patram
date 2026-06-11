@@ -665,6 +665,31 @@ void renameFile(filesystem::path oldPath, filesystem::path newPath) {
     filesystem::rename(oldPath, newPath);
 }
 
+void deleteNode(filesystem::path p) {
+    try {
+        if (filesystem::is_directory(p)) {
+            filesystem::remove_all(p);
+        } else {
+            filesystem::remove(p);
+        }
+    } catch (const filesystem::filesystem_error e) {
+        cout << "\nERROR: " << e.what();
+    }
+}
+
+void createNote(filesystem::path p) {
+    ofstream fout(p);
+    fout.close();
+}
+
+void createFolder(filesystem::path p) {
+    try {
+        filesystem::create_directory(p);
+    } catch (const filesystem::filesystem_error e) {
+        cout << "\nERROR: " << e.what();
+    }
+}
+
 bool processFontInfoFile(Character* characters, float& ascender, float& descender) {
     uint8_t magic[4];
     uint16_t ver;

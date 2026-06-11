@@ -116,6 +116,9 @@ void createVaultInfoFile(string vaultName, string password);
 void createVaultIndexFile(string vaultName, string password);
 
 void renameFile(filesystem::path oldPath, filesystem::path newPath);
+void deleteNode(filesystem::path p);
+void createNote(filesystem::path p);
+void createFolder(filesystem::path p);
 
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 

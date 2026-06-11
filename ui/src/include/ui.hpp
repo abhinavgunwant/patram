@@ -122,6 +122,14 @@
 #define RENAME_DIALOG_OK_BUTTON_ID                  26
 #define RENAME_DIALOG_CANCEL_BUTTON_ID              27
 #define RENAME_DIALOG_INPUT_ID                      28
+#define DELETE_DIALOG_DELETE_BUTTON_ID              29
+#define DELETE_DIALOG_CANCEL_BUTTON_ID              30
+#define NEW_NOTE_DIALOG_CREATE_BUTTON_ID            31
+#define NEW_NOTE_DIALOG_CANCEL_BUTTON_ID            32
+#define NEW_NOTE_DIALOG_INPUT_ID                    33
+#define NEW_FOLDER_DIALOG_CREATE_BUTTON_ID          34
+#define NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID          35
+#define NEW_FOLDER_DIALOG_INPUT_ID                  36
 #define OPEN_BUTTON_ID                              100
 
 #define EXPLORER_PANE_ID                            200
@@ -218,7 +226,10 @@ void windowFocusCallback(GLFWwindow *window, int focused);
 void showWindow();
 void toggleFullscreen();
 void setupExplorer();
-void renameActiveExplorerNode(string newName);
+void renameActiveExplorerNode();
+void deleteActiveExplorerNode();
+void createNoteInActiveExplorerNode();
+void createFolderInActiveExplorerNode();
 void setupUI(bool darkTheme);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
@@ -725,7 +736,7 @@ vector<ContentBlock>::iterator getLastVisibleCB(ContentTab* tab);
 
 void openFile(bool openDialog, filesystem::path p = "");
 void saveFile();
-void newNote();
+void newNote(filesystem::path p = "");
 void updateWindowTitle();
 
 /** Returns string representation of the element type. */
@@ -735,6 +746,9 @@ void initFloatingUI();
 void destroyFloatingUI();
 void showExplorerContextMenu(float x, float y);
 void showRenameDialog();
+void showDeleteDialog();
+void showNewFolderDialog();
+void showNewNoteDialog();
 void hideContextMenus();
 
 #ifdef DEBUG_TEXT_SELECTION

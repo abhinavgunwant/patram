@@ -466,25 +466,28 @@ void onSwitchVaultClicked() {
     #undef ELEM_COUNT
 }
 
-filesystem::path getActiveExplorerNodePath(vector<ExplorerNode>& nodes) {
+tuple<ExplorerNodeType, filesystem::path> getActiveExplorerNodePath(vector<ExplorerNode>& nodes) {
+    ExplorerNodeType ent;
     filesystem::path p;
 
     for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
-            return (*itr).name;
+            return make_tuple((*itr).type, (*itr).name);
         }
 
         if ((*itr).type == ExplorerNodeType::Folder && GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)) {
-            filesystem::path _p = getActiveExplorerNodePath((*itr).children);
+            tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath((*itr).children);
+            filesystem::path _p = get<1>(tup);
 
             if (!_p.empty()) {
+                ent = get<0>(tup);
                 p /= (*itr).name / _p;
                 break;
             }
         }
     }
 
-    return p;
+    return make_tuple(ent, p);
 }
 
 tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
@@ -646,33 +649,17 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             break;
                         };
                         case EXPLORER_MENU_RENAME_ID: showRenameDialog(); break;
-                        case EXPLORER_MENU_DELETE_ID: {
-                            // TODO: mark this node active
-                            // TODO: delete it
-                            cout << "\nDelete clicked!";
-                            break;
-                        }
-                        case EXPLORER_MENU_NEW_NOTE_ID: {
-                            // TODO: new untitled note
-                            cout << "\nNew Note clicked!";
-                            break;
-                        }
-                        case EXPLORER_MENU_NEW_FOLDER_ID: {
-                            // TODO: new untitled folder
-                            cout << "\nNew Folder clicked!";
-                            break;
-                        }
-
-                        case RENAME_DIALOG_OK_BUTTON_ID: {
-                            UIElement* okButton = getElementById(&FLOATING_CONTAINER, RENAME_DIALOG_INPUT_ID);
-
-                            if (okButton != nullptr) {
-                                renameActiveExplorerNode(activeElement->text);
-                            }
-                            break;
-                        }
+                        case EXPLORER_MENU_DELETE_ID: showDeleteDialog(); break;
+                        case EXPLORER_MENU_NEW_NOTE_ID: showNewNoteDialog(); break;
+                        case EXPLORER_MENU_NEW_FOLDER_ID: showNewFolderDialog(); break;
+                        case RENAME_DIALOG_OK_BUTTON_ID: renameActiveExplorerNode(); break;
+                        case DELETE_DIALOG_DELETE_BUTTON_ID: deleteActiveExplorerNode(); break;
+                        case NEW_NOTE_DIALOG_CREATE_BUTTON_ID: createNoteInActiveExplorerNode(); break;
+                        case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID: createFolderInActiveExplorerNode(); break;
 
                         case RENAME_DIALOG_CANCEL_BUTTON_ID:
+                        case DELETE_DIALOG_CANCEL_BUTTON_ID:
+                        case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
                             unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                             destroyFloatingUI();
                             EXPLORER.reDraw = true;
@@ -1726,8 +1713,14 @@ void setupExplorer() {
     explorer.iconsVertices = iVertices.size();
 }
 
-void renameActiveExplorerNode(string newName) {
-    filesystem::path p = getActiveExplorerNodePath(explorer.nodes);
+void renameActiveExplorerNode() {
+    UIElement* okButton = getElementById(&FLOATING_CONTAINER, RENAME_DIALOG_INPUT_ID);
+
+    if (okButton == nullptr) { return; }
+
+    string newName = okButton->text;
+
+    filesystem::path p = get<1>(getActiveExplorerNodePath(explorer.nodes));
 
     if (p.empty()) {
         // TODO: show some error like "Some error occured, please retry".
@@ -1751,6 +1744,7 @@ void renameActiveExplorerNode(string newName) {
     }
 
     thread explorerLoadThread(populateExplorerFromContent);
+    unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
 
     destroyFloatingUI();
 
@@ -1762,6 +1756,96 @@ void renameActiveExplorerNode(string newName) {
             break;
         }
     }
+
+    explorerLoadThread.join();
+}
+
+void deleteActiveExplorerNode() {
+    filesystem::path p = getVaultPath(selectedVault)
+        / get<1>(getActiveExplorerNodePath(explorer.nodes));
+
+    if (!p.empty()) {
+        cout << "\nDEBUG: deleting" << p;
+        deleteNode(p);
+    } else {
+        cout << "\nDEBUG: path is empty";
+    }
+
+    thread explorerLoadThread(populateExplorerFromContent);
+
+    unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+    destroyFloatingUI();
+    EXPLORER.reDraw = true;
+
+    for (auto itr=tabs.begin(); itr != tabs.end(); ++itr) {
+        if ((*itr).filePath == p) {
+            uint32_t dist = distance(tabs.begin(), itr);
+            tabs.erase(itr);
+            TAB_BAR.reDraw = true;
+
+            if (activeTabIndex >= dist) {
+                --activeTabIndex;
+            }
+            break;
+        }
+    }
+
+    explorerLoadThread.join();
+}
+
+void createNoteInActiveExplorerNode() {
+    UIElement* elem = getElementById(&FLOATING_CONTAINER, NEW_NOTE_DIALOG_INPUT_ID);
+
+    if (elem == nullptr) { return; }
+
+    tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath(explorer.nodes);
+    ExplorerNodeType ent = get<0>(tup);
+    filesystem::path p = get<1>(tup);
+
+    if (p.empty()) { return; }
+
+    if (ent == ExplorerNodeType::Note) {
+        p = p.parent_path();
+    }
+
+    p = getVaultPath(selectedVault) / p / elem->text;
+
+    createNote(p);
+    newNote(p);
+
+    thread explorerLoadThread(populateExplorerFromContent);
+
+    unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+    destroyFloatingUI();
+    EXPLORER.reDraw = true;
+
+    explorerLoadThread.join();
+}
+
+void createFolderInActiveExplorerNode() {
+    UIElement* elem = getElementById(&FLOATING_CONTAINER, NEW_FOLDER_DIALOG_INPUT_ID);
+
+    if (elem == nullptr) { return; }
+
+    tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath(explorer.nodes);
+    ExplorerNodeType ent = get<0>(tup);
+    filesystem::path p = get<1>(tup);
+
+    if (p.empty()) { return; }
+
+    if (ent == ExplorerNodeType::Note) {
+        p = p.parent_path();
+    }
+
+    p = getVaultPath(selectedVault) / p / elem->text;
+
+    createFolder(p);
+
+    thread explorerLoadThread(populateExplorerFromContent);
+
+    unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+    destroyFloatingUI();
+    EXPLORER.reDraw = true;
 
     explorerLoadThread.join();
 }
@@ -3185,9 +3269,10 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     cout << "\nEnter pressed";
                 #endif
 
-                if (elem->id == RENAME_DIALOG_INPUT_ID) {
-                    renameActiveExplorerNode(elem->text);
-                    break;
+                switch (elem->id) {
+                    case RENAME_DIALOG_INPUT_ID: renameActiveExplorerNode(); break;
+                    case NEW_NOTE_DIALOG_INPUT_ID: createNoteInActiveExplorerNode(); break;
+                    case NEW_FOLDER_DIALOG_INPUT_ID: createFolderInActiveExplorerNode(); break;
                 }
 
                 if (shift && elem->type == UIElementType::TextArea) {
@@ -4206,29 +4291,32 @@ void openFile(bool openDialog, filesystem::path p) {
     }
 
     if (checkFile(path) == OpenedFileType::TextFile) {
-        newTab(path);
-
-        ContentTab* tab = &tabs[activeTabIndex];
-
-        tab->contentBlocks.erase(tab->contentBlocks.begin());
-        tab->filePath = path;
-
         vector<string> lines = readFileText(path);
 
-        for (string line: lines) {
-            tab->contentBlocks.emplace_back(ContentBlock {
-                ContentBlockType::Paragraph,
-                CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
-            });
+        if (lines.empty()) {
+            newNote(path);
+        } else {
+            newTab(path);
+
+            ContentTab* tab = &tabs[activeTabIndex];
+
+            tab->filePath = path;
+
+            for (string line: lines) {
+                tab->contentBlocks.emplace_back(ContentBlock {
+                    ContentBlockType::Paragraph,
+                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                    0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
+                });
+            }
+
+            #ifdef DEBUG_CONTENT_BLOCKS
+                cout << "\nRead following content from file ("
+                    << tab->contentBlocks.size() << "): ";
+
+                printContentBlocksFromVector(tab->contentBlocks);
+            #endif
         }
-
-        #ifdef DEBUG_CONTENT_BLOCKS
-            cout << "\nRead following content from file ("
-                << tab->contentBlocks.size() << "): ";
-
-            printContentBlocksFromVector(tab->contentBlocks);
-        #endif
 
         updateWindowTitle();
 
@@ -4255,8 +4343,8 @@ void saveFile() {
 
     ofstream fout(tab->filePath);
 
-    for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
-        if (itr != tab->contentBlocks.begin()) {
+    for (auto itr = tab->contentBlocks.begin() + 1; itr != tab->contentBlocks.end(); ++itr) {
+        if (itr != tab->contentBlocks.begin() + 1) {
             fout << "\n";
         }
 
@@ -4264,24 +4352,21 @@ void saveFile() {
     }
 }
 
-void newNote() {
-    string title = "Untitled Note";
+void newNote(filesystem::path p) {
+    if (p.empty()) {
+        string title;
 
-    if (untitledNotes > 0) {
-        title += " " + to_string(untitledNotes);
+        if (untitledNotes > 0) {
+            title = "Untitled Note " + to_string(untitledNotes);
+        } else {
+            title = "Untitled Note";
+        }
+
+        ++untitledNotes;
+        newTab(getVaultPath(selectedVault) / title);
+    } else {
+        newTab(p);
     }
-
-    ++untitledNotes;
-
-    string separator = string(1, filesystem::path::preferred_separator);
-
-    newTab(
-        getVaultsDirectory()
-        + separator
-        + selectedVault
-        + separator
-        + title
-    );
 
     updateWindowTitle();
 
@@ -4903,7 +4988,7 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     #endif
 }
 
-void newTab(filesystem::path path = "Untitled Note") {
+void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note") {
     vector<ContentBlock> content;
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
@@ -5691,8 +5776,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (elem.parent != nullptr && elem.id == HORIZONTAL_BUTTON_ROW_ID) {
                 if (childIndex > 0) {
-                    elem.top = elem.parent->children[childIndex - 1]->top
-                        + elem.parent->children[childIndex-1]->height
+                    UIElement* lastVisibleSibling = nullptr;
+
+                    int8_t i = childIndex - 1;
+
+                    while (i > -1) {
+                        if (elem.parent->children[i]->show) {
+                            lastVisibleSibling = elem.parent->children[i];
+                            break;
+                        }
+                        --i;
+                    }
+
+                    elem.top = lastVisibleSibling->top
+                        + lastVisibleSibling->height
                         + elem.marginTop;
                 }
             }
@@ -6150,7 +6247,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (elem.id == SWITCH_VAULT_OPTION_ID) {
                 bg = TRANSPARENT_COLOR;
-            } else if (elem.id == EXPLORER_MENU_DELETE_ID) {
+            } else if (
+                elem.id == EXPLORER_MENU_DELETE_ID
+                || elem.id == DELETE_DIALOG_DELETE_BUTTON_ID
+            ) {
                 hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
             }
 
@@ -9476,133 +9576,217 @@ void showExplorerContextMenu(float x, float y) {
     #undef BUTTON
 }
 
-void showRenameDialog() {
+vector<UIElement*> initBasicDialog(
+    float dialogWidth,
+    float dialogHeight,
+    string title,
+    string message,
+    string button1Text,
+    uint16_t button1ID,
+    string button2Text,
+    uint16_t button2ID,
+    string inputText,
+    uint16_t inputID
+) {
     destroyFloatingUI();
     initFloatingUI();
 
-    UIElement* overlayContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* dialogContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* titleLabel = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* messageLabel = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* input = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* buttonContainer = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* okButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
-    UIElement* cancelButton = (UIElement*) arenaAllocate(floatingArena, sizeof(UIElement));
+    vector<UIElement*> list;
 
-    float dialogWidth = 300;
-    float dialogHeight = 160;
+    UIElement* elems = (UIElement*) arenaAllocate(floatingArena, 8*sizeof(UIElement));
+
     float top = static_cast<float>(windowHeight)/2 - dialogHeight/2;
     float left = static_cast<float>(windowWidth)/2 - dialogWidth/2;
 
-    initElement(*overlayContainer, UIElementType::Container, 0, 0, windowWidth, windowHeight);
-    initElement(*dialogContainer, UIElementType::Container, top, left, dialogWidth, dialogHeight);
-    initElement(*titleLabel, UIElementType::Label, 0, 0, 200, 50);
-    initElement(*input, UIElementType::TextInput, 0, 0, 200, 32);
-    initElement(*buttonContainer, UIElementType::Container, 0, 0, 130, 50);
-    initElement(*okButton, UIElementType::Button, 50, 0, 50, 40);
-    initElement(*cancelButton, UIElementType::Button, 50, 0, 75, 40);
+    initElement(elems[0], UIElementType::Container, 0, 0, windowWidth, windowHeight);
+    initElement(elems[1], UIElementType::Container, top, left, dialogWidth, dialogHeight);
+    initElement(elems[2], UIElementType::Label, 0, 0, 200, 50);
+    initElement(elems[3], UIElementType::Label, 0, 0, dialogWidth - 50, 50);
+    initElement(elems[4], UIElementType::TextInput, 0, 0, 200, 32);
+    initElement(elems[5], UIElementType::Container, 0, 0, 140, 50);
+    initElement(elems[6], UIElementType::Button, 50, 0, 60, 40);
+    initElement(elems[7], UIElementType::Button, 50, 0, 75, 40);
 
     float vertices[8] = { 0 };
 
-    SETUP_BUFFERS(dialogContainer->vao, dialogContainer->vbo, vertices);
-    SETUP_BUFFERS(overlayContainer->vao, overlayContainer->vbo, vertices);
-    SETUP_BUFFERS(titleLabel->vao, titleLabel->vbo, vertices);
-    SETUP_BUFFERS(input->vao, input->vbo, vertices);
-    SETUP_BUFFERS(buttonContainer->vao, buttonContainer->vbo, vertices);
-    SETUP_BUFFERS(okButton->vao, okButton->vbo, vertices);
-    SETUP_BUFFERS(cancelButton->vao, cancelButton->vbo, vertices);
+    for (int i=0; i<8; ++i) {
+        SETUP_BUFFERS(elems[i].vao, elems[i].vbo, vertices);
+        elems[i].positioning = UIPositioning::Absolute;
 
-    overlayContainer->id = DIALOG_OVERLAY_ID;
-    overlayContainer->text = "OVERLAY";
-    overlayContainer->positioning = UIPositioning::Absolute;
-    overlayContainer->preferences->widthPreference = UISizePreference::Full;
-    overlayContainer->preferences->heightPreference = UISizePreference::Full;
-    overlayContainer->preferences->horizontalAlign = UIAlignment::Center;
-    overlayContainer->preferences->verticalAlign = UIAlignment::Center;
+        if (elems[i].preferences != nullptr) {
+            elems[i].preferences->horizontalAlign = UIAlignment::Center;
+            elems[i].preferences->verticalAlign = UIAlignment::Center;
+            elems[i].preferences->widthPreference = UISizePreference::Grow;
+            elems[i].preferences->heightPreference = UISizePreference::Grow;
+        }
 
-    dialogContainer->id = DIALOG_CONTAINER_ID;
-    dialogContainer->text = "DIALOG";
-    dialogContainer->positioning = UIPositioning::Absolute;
-    dialogContainer->preferences->direction = false;
-    dialogContainer->borderRadius = 5;
-    dialogContainer->preferences->widthPreference = UISizePreference::Fixed;
-    dialogContainer->preferences->heightPreference = UISizePreference::Fixed;
-    dialogContainer->preferences->horizontalAlign = UIAlignment::Center;
-    dialogContainer->preferences->verticalAlign = UIAlignment::Center;
-
-    buttonContainer->text = "BTN_CONT";
-    buttonContainer->id = HORIZONTAL_BUTTON_ROW_ID;
-    buttonContainer->positioning = UIPositioning::Relative_sibling;
-    buttonContainer->preferences->direction = true;
-    buttonContainer->marginTop = 16;
-    buttonContainer->preferences->horizontalAlign = UIAlignment::Center;
-    buttonContainer->preferences->verticalAlign = UIAlignment::Center;
-    buttonContainer->preferences->widthPreference = UISizePreference::Fixed;
-    buttonContainer->preferences->heightPreference = UISizePreference::Fixed;
-
-    titleLabel->text = "Rename";
-    titleLabel->fontSize = 20;
-    titleLabel->marginTop = 16;
-    titleLabel->positioning = UIPositioning::Relative_sibling;
-    titleLabel->preferences->widthPreference = UISizePreference::Grow;
-    titleLabel->preferences->heightPreference = UISizePreference::Fixed;
-    titleLabel->preferences->horizontalAlign = UIAlignment::Center;
-    titleLabel->preferences->verticalAlign = UIAlignment::Start;
-
-    filesystem::path p = getActiveExplorerNodePath(explorer.nodes);
-
-    if (!p.empty()) {
-        input->text = p.filename().string();
-    } else {
-        input->text = "";
+        list.push_back(&elems[i]);
     }
 
-    input->marginTop = 16;
-    input->id = RENAME_DIALOG_INPUT_ID;
-    input->positioning = UIPositioning::Relative_sibling;
-    input->preferences->widthPreference = UISizePreference::Grow;
-    input->preferences->heightPreference = UISizePreference::Fixed;
-    input->preferences->horizontalAlign = UIAlignment::Center;
-    input->preferences->verticalAlign = UIAlignment::Center;
-    input->textInputData->alignment = TextInputAlignment::Center;
-    input->textInputData->textSelected = true;
-    input->textInputData->textSelectStartCol = 0;
-    input->textInputData->textSelectEndCol = okButton->text.length() - 1;
-    input->textInputData->cursorPosition = okButton->text.length();
-    input->textInputData->textSelectStartRow = 0;
-    input->textInputData->textSelectEndRow = 0;
-    input->textInputData->textSelectUpdated = true;
+    elems[0].id = DIALOG_OVERLAY_ID;
+    elems[0].text = "OVERLAY";
+    elems[0].preferences->widthPreference = UISizePreference::Full;
+    elems[0].preferences->heightPreference = UISizePreference::Full;
 
-    okButton->text = "Ok";
-    okButton->id = RENAME_DIALOG_OK_BUTTON_ID;
-    okButton->positioning = UIPositioning::Absolute;
-    okButton->preferences->widthPreference = UISizePreference::Grow;
-    okButton->preferences->heightPreference = UISizePreference::Grow;
-    okButton->preferences->horizontalAlign = UIAlignment::Center;
-    okButton->preferences->verticalAlign = UIAlignment::Center;
+    elems[1].id = DIALOG_CONTAINER_ID;
+    elems[1].text = "DIALOG";
+    elems[1].preferences->direction = false;
+    elems[1].borderRadius = 5;
+    elems[1].preferences->widthPreference = UISizePreference::Fixed;
+    elems[1].preferences->heightPreference = UISizePreference::Fixed;
 
-    cancelButton->text = "Cancel";
-    cancelButton->id = RENAME_DIALOG_CANCEL_BUTTON_ID;
-    cancelButton->positioning = UIPositioning::Absolute;
-    cancelButton->preferences->widthPreference = UISizePreference::Grow;
-    cancelButton->preferences->heightPreference = UISizePreference::Grow;
-    cancelButton->preferences->horizontalAlign = UIAlignment::Start;
-    cancelButton->preferences->verticalAlign = UIAlignment::Center;
+    elems[2].text = title;
+    elems[2].fontSize = 20;
+    elems[2].marginTop = 16;
+    elems[2].positioning = UIPositioning::Relative_sibling;
+    elems[2].preferences->heightPreference = UISizePreference::Fixed;
+    elems[2].preferences->verticalAlign = UIAlignment::Start;
 
-    addChild(buttonContainer, okButton, &floatingArena);
-    addChild(buttonContainer, cancelButton, &floatingArena);
+    if (!message.empty()) {
+        elems[3].text = message;
+        elems[3].marginTop = 16;
+        elems[3].positioning = UIPositioning::Relative_sibling;
+        elems[3].preferences->heightPreference = UISizePreference::Fixed;
+        elems[3].preferences->verticalAlign = UIAlignment::Start;
+    } else {
+        elems[3].show = false;
+    }
 
-    addChild(dialogContainer, titleLabel, &floatingArena);
-    addChild(dialogContainer, input, &floatingArena);
-    addChild(dialogContainer, buttonContainer, &floatingArena);
+    if (!inputText.empty()) {
+        elems[4].text = inputText;
+        elems[4].marginTop = 16;
+        elems[4].id = inputID;
+        elems[4].positioning = UIPositioning::Relative_sibling;
+        elems[4].preferences->heightPreference = UISizePreference::Fixed;
+        elems[4].textInputData->alignment = TextInputAlignment::Center;
+        elems[4].textInputData->textSelected = true;
+        elems[4].textInputData->textSelectStartCol = 0;
+        elems[4].textInputData->textSelectEndCol = inputText.length();
+        elems[4].textInputData->cursorPosition = inputText.length();
+        elems[4].textInputData->textSelectStartRow = 0;
+        elems[4].textInputData->textSelectEndRow = 0;
+        elems[4].textInputData->textSelectUpdated = true;
+    } else {
+        elems[4].show = false;
+    }
 
-    addChild(overlayContainer, dialogContainer, &floatingArena);
+    elems[5].text = "BTN_CONT";
+    elems[5].id = HORIZONTAL_BUTTON_ROW_ID;
+    elems[5].positioning = UIPositioning::Relative_sibling;
+    elems[5].preferences->direction = true;
+    elems[5].marginTop = 16;
+    elems[5].preferences->widthPreference = UISizePreference::Fixed;
+    elems[5].preferences->heightPreference = UISizePreference::Fixed;
 
-    addChild(&FLOATING_CONTAINER, overlayContainer, &floatingArena);
+    if (!button1Text.empty()) {
+        elems[6].text = button1Text;
+        elems[6].id = button1ID;
+    } else {
+        elems[6].show = false;
+    }
+
+    if (!button2Text.empty()) {
+        elems[7].text = button2Text;
+        elems[7].id = button2ID;
+    } else {
+        elems[7].show = false;
+    }
+
+    addChild(&elems[5], &elems[6], &floatingArena);
+    addChild(&elems[5], &elems[7], &floatingArena);
+
+    addChild(&elems[1], &elems[2], &floatingArena);
+    addChild(&elems[1], &elems[3], &floatingArena);
+    addChild(&elems[1], &elems[4], &floatingArena);
+    addChild(&elems[1], &elems[5], &floatingArena);
+
+    addChild(&elems[0], &elems[1], &floatingArena);
+
+    addChild(&FLOATING_CONTAINER, &elems[0], &floatingArena);
     lastFloatingUIShown = glfwGetTime();
     dialogOpen = true;
-    activeElement = input;
-    input->active = true;
+    activeElement = &elems[4];
+    elems[4].active = true;
+
+    return list;
+}
+
+void showRenameDialog() {
+    filesystem::path p = get<1>(getActiveExplorerNodePath(explorer.nodes));
+
+    if (p.empty()) { return; }
+
+    initBasicDialog(
+        300,
+        160,
+        "Rename",
+        "",
+        "Ok",
+        RENAME_DIALOG_OK_BUTTON_ID,
+        "Cancel",
+        RENAME_DIALOG_CANCEL_BUTTON_ID,
+        p.filename().string(),
+        RENAME_DIALOG_INPUT_ID
+    );
+}
+
+void showDeleteDialog() {
+    tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath(explorer.nodes);
+    ExplorerNodeType ent = get<0>(tup);
+    filesystem::path p = get<1>(tup);
+
+    if (p.empty()) { return; }
+
+    initBasicDialog(
+        300,
+        160,
+        "Delete " + string(ent == ExplorerNodeType::Note ? "note" : "folder"),
+        "Delete \"" + p.filename().string() + "\"?" ,
+        "Delete",
+        DELETE_DIALOG_DELETE_BUTTON_ID,
+        "Cancel",
+        DELETE_DIALOG_CANCEL_BUTTON_ID,
+        "",
+        0
+    );
+}
+
+void showNewNoteDialog() {
+    string newNoteName = "Untitled Note";
+
+    if (untitledNotes > 0) {
+        newNoteName += " " + to_string(untitledNotes);
+    }
+
+    ++untitledNotes;
+
+    initBasicDialog(
+        300,
+        160,
+        "New Note",
+        "",
+        "Create",
+        NEW_NOTE_DIALOG_CREATE_BUTTON_ID,
+        "Cancel",
+        NEW_NOTE_DIALOG_CANCEL_BUTTON_ID,
+        newNoteName,
+        NEW_NOTE_DIALOG_INPUT_ID
+    );
+}
+
+void showNewFolderDialog() {
+    initBasicDialog(
+        300,
+        160,
+        "New Folder",
+        "",
+        "Create",
+        NEW_FOLDER_DIALOG_CREATE_BUTTON_ID,
+        "Cancel",
+        NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID,
+        "Untitled Folder",
+        NEW_FOLDER_DIALOG_INPUT_ID
+    );
 }
 
 void hideContextMenus() {
