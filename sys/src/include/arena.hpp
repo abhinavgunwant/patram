@@ -3,10 +3,15 @@
 
 #include <cstdint>
 
-struct Arena {
-    uint8_t* pointer;
+struct ArenaBlock {
     uint32_t length;
     uint32_t capacity;
+    uint8_t* pointer;
+    ArenaBlock* next;
+};
+
+struct Arena {
+    ArenaBlock* rootBlock;
 };
 
 void initArena(Arena&, uint32_t capacity);
