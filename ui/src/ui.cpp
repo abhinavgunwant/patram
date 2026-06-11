@@ -100,6 +100,7 @@ bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
 CursorShape currentCursorShape = CursorShape::Default;
+ExplorerNode* targetNode = nullptr;
 
 string selectedVault = "";
 
@@ -121,7 +122,7 @@ uint32_t untitledNotes = 0;
 
 Explorer explorer = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    false, false, false, false,
+    false, false, false, false, false,
     vector<ExplorerNode>()
 };
 
@@ -465,6 +466,27 @@ void onSwitchVaultClicked() {
     #undef ELEM_COUNT
 }
 
+filesystem::path getActiveExplorerNodePath(vector<ExplorerNode>& nodes) {
+    filesystem::path p;
+
+    for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
+        if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
+            return (*itr).name;
+        }
+
+        if ((*itr).type == ExplorerNodeType::Folder && GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)) {
+            filesystem::path _p = getActiveExplorerNodePath((*itr).children);
+
+            if (!_p.empty()) {
+                p /= (*itr).name / _p;
+                break;
+            }
+        }
+    }
+
+    return p;
+}
+
 tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
     vector<ExplorerNode>& nodes,
     float& y,
@@ -480,18 +502,22 @@ tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
             if (ent == ExplorerNodeType::Folder) {
                 if (GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)) {
                     UNSET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
+                    UNSET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE);
                     #ifdef DEBUG_EXPLORER
                     cout << "\nDEBUG: explorer flag " << (int)((*itr).flags) << " unset for "
                         << (*itr).name << ", vertices:\n";
                     #endif
                 } else {
                     SET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED);
+                    SET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE);
                     #ifdef DEBUG_EXPLORER
                     cout << "\nDEBUG: explorer flag " << (int)((*itr).flags) << " set for "
                         << (*itr).name << ", vertices:\n";
                     #endif
                 }
                 EXPLORER.reDraw = true;
+            } else {
+                SET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE);
             }
 
             return make_tuple(ent, (*itr).name);
@@ -619,13 +645,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             onVaultBackClicked();
                             break;
                         };
-                        case EXPLORER_MENU_RENAME_ID: {
-                            // TODO: mark this node active
-                            // TODO: rename it
-                            cout << "\nRename clicked!";
-                            showRenameDialog();
-                            break;
-                        }
+                        case EXPLORER_MENU_RENAME_ID: showRenameDialog(); break;
                         case EXPLORER_MENU_DELETE_ID: {
                             // TODO: mark this node active
                             // TODO: delete it
@@ -643,14 +663,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             break;
                         }
 
-                        case RENAME_DIALOG_OK_BUTTON_ID:
-                            // TODO: rename the thing here...
-                            cout << "\nTOOD: implement the rename";
-                            destroyFloatingUI();
+                        case RENAME_DIALOG_OK_BUTTON_ID: {
+                            UIElement* okButton = getElementById(&FLOATING_CONTAINER, RENAME_DIALOG_INPUT_ID);
+
+                            if (okButton != nullptr) {
+                                renameActiveExplorerNode(activeElement->text);
+                            }
                             break;
+                        }
 
                         case RENAME_DIALOG_CANCEL_BUTTON_ID:
+                            unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                             destroyFloatingUI();
+                            EXPLORER.reDraw = true;
                             break;
                     }
 
@@ -689,6 +714,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
                         break;
                     case UIElementType::Explorer:
+                        unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                         float y = EXPLORER.top + elem->scrollData->yOffset;
                         float time = glfwGetTime();
 
@@ -716,6 +742,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                                 explorer.lastClickedTime = time;
                             }
                         }
+
+                        EXPLORER.reDraw = true;
                         break;
                 }
             } else if (activeElement != nullptr) {
@@ -784,7 +812,20 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
             if (elem != nullptr) {
                 switch (elem->id) {
-                    case EXPLORER_PANE_ID: showExplorerContextMenu(mouseX, mouseY); return;
+                    case EXPLORER_PANE_ID: {
+                        unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+                        float y = EXPLORER.top + elem->scrollData->yOffset;
+
+                        tuple<ExplorerNodeType, filesystem::path> _tuple =
+                            getClickedExplorerNodePath(
+                                explorer.nodes, y, mouseY
+                            );
+
+                        EXPLORER.reDraw = true;
+                        showExplorerContextMenu(mouseX, mouseY);
+                        return;
+                    }
+
                     case EXPLORER_MENU_RENAME_ID: return;
                 }
             }
@@ -1590,6 +1631,19 @@ inline void appendTextVerticesForExplorerNode(
         appendTextVertices(x, y, (*itr).name, vertices);
         (*itr).top = y;
 
+        if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
+            explorer.elementActive = true;
+            float vertices[8] = {
+                0, y - 4.0f,
+                0, y + EXPLORER_ELEMENT_HEIGHT - 4.0f,
+                EXPLORER.width, y - 4.0f,
+                EXPLORER.width, y + EXPLORER_ELEMENT_HEIGHT - 4.0f,
+            };
+            glBindVertexArray(explorer.activeBgVao);
+            glBindBuffer(GL_ARRAY_BUFFER, explorer.activeBgVbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        }
+
         if ((*itr).type == ExplorerNodeType::Folder) {
             if (
                 GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
@@ -1611,6 +1665,7 @@ inline void appendTextVerticesForExplorerNode(
 
 void setupExplorer() {
     if (explorer.nodes.empty()) { return; }
+    explorer.elementActive = false;
 
     const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
     float y = y0;
@@ -1669,6 +1724,46 @@ void setupExplorer() {
 
     explorer.textVertices = vertices.size();
     explorer.iconsVertices = iVertices.size();
+}
+
+void renameActiveExplorerNode(string newName) {
+    filesystem::path p = getActiveExplorerNodePath(explorer.nodes);
+
+    if (p.empty()) {
+        // TODO: show some error like "Some error occured, please retry".
+        return;
+    }
+
+    p = getVaultPath(selectedVault) / p;
+
+    filesystem::path pNew(p);
+    pNew.replace_filename(newName);
+
+    #ifdef DEBUG_EXPLORER
+        cout << "\nRenaming path: " << p << " to: " << pNew;
+    #endif
+
+    try {
+        renameFile(p, pNew);
+    } catch (const filesystem::filesystem_error e) {
+        // TODO: show some error dialog to user
+        cout << "\nERROR: " << e.what();
+    }
+
+    thread explorerLoadThread(populateExplorerFromContent);
+
+    destroyFloatingUI();
+
+    for (ContentTab &tab : tabs) {
+        if (tab.filePath == p) {
+            tab.filePath = pNew;
+            cout << "\nDEBUG: Assigned new tab path";
+            TAB_BAR.reDraw = true;
+            break;
+        }
+    }
+
+    explorerLoadThread.join();
 }
 
 void setupUI(bool isDarkTheme) {
@@ -3084,10 +3179,16 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
             case GLFW_KEY_DOWN:
                 break;
 
+            case GLFW_KEY_KP_ENTER:
             case GLFW_KEY_ENTER:
                 #ifdef DEBUG_TEXT_INPUT
                     cout << "\nEnter pressed";
                 #endif
+
+                if (elem->id == RENAME_DIALOG_INPUT_ID) {
+                    renameActiveExplorerNode(elem->text);
+                    break;
+                }
 
                 if (shift && elem->type == UIElementType::TextArea) {
                     TYPE("\n");
@@ -6996,12 +7097,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 setupExplorer();
             }
 
-            glm::vec4 hv = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
-            glBindVertexArray(explorer.activeBgVao);
-            glUseProgram(shaders[SHADER_DEFAULT].programId);
-            glUniform4f(uniforms[U_DEFAULT_COLOR], hv.r, hv.g, hv.b, hv.a);
-            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            if (explorer.elementActive) {
+                bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
+                glBindVertexArray(explorer.activeBgVao);
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
+                glUniform2f(uniforms[U_DEFAULT_RESOLUTION], windowWidth, windowHeight);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
 
             if (explorer.elementHover) {
                 bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
@@ -7807,6 +7910,34 @@ void processUndo(UIElement* element) {
             break;
     }
     #undef CUR_POS
+}
+
+UIElement* getElementById(UIElement * root, uint16_t id) {
+    stack<UIElement*> elemStack;
+
+    for (uint8_t i=0; i<root->totalChildren; ++i) {
+        UIElement* e = root->children[(int)i];
+        elemStack.push(e);
+    }
+
+    while (!elemStack.empty()) {
+        UIElement* elem = elemStack.top();
+
+        if (elem->id == id) {
+            return elem;
+        }
+
+        elemStack.pop();
+
+        if (elem->totalChildren) {
+            for (uint8_t i=0; i<elem->totalChildren; ++i) {
+                UIElement* e = elem->children[(int)i];
+                elemStack.push(e);
+            }
+        }
+    }
+
+    return nullptr;
 }
 
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y) {
@@ -9289,14 +9420,14 @@ void destroyFloatingUI() {
 }
 
 void showExplorerContextMenu(float x, float y) {
-    #define BUTTON(x, name, _id, margin) do {\
-        x->text = name;\
-        x->id = _id;\
-        x->fontSize = 14;\
-        x->marginTop = margin;\
-        x->positioning = UIPositioning::Relative_sibling;\
-        x->preferences->widthPreference = UISizePreference::Full;\
-        x->preferences->heightPreference = UISizePreference::Grow;\
+    #define BUTTON(e, name, _id, margin) do {\
+        e->text = name;\
+        e->id = _id;\
+        e->fontSize = 14;\
+        e->marginTop = margin;\
+        e->positioning = UIPositioning::Relative_sibling;\
+        e->preferences->widthPreference = UISizePreference::Full;\
+        e->preferences->heightPreference = UISizePreference::Grow;\
     } while (false)
 
     destroyFloatingUI();
@@ -9418,8 +9549,16 @@ void showRenameDialog() {
     titleLabel->preferences->horizontalAlign = UIAlignment::Center;
     titleLabel->preferences->verticalAlign = UIAlignment::Start;
 
-    input->text = "Note name";
+    filesystem::path p = getActiveExplorerNodePath(explorer.nodes);
+
+    if (!p.empty()) {
+        input->text = p.filename().string();
+    } else {
+        input->text = "";
+    }
+
     input->marginTop = 16;
+    input->id = RENAME_DIALOG_INPUT_ID;
     input->positioning = UIPositioning::Relative_sibling;
     input->preferences->widthPreference = UISizePreference::Grow;
     input->preferences->heightPreference = UISizePreference::Fixed;

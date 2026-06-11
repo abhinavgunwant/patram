@@ -661,6 +661,10 @@ void createVaultIndexFile(string vaultName, string password) {
     f.close();
 }
 
+void renameFile(filesystem::path oldPath, filesystem::path newPath) {
+    filesystem::rename(oldPath, newPath);
+}
+
 bool processFontInfoFile(Character* characters, float& ascender, float& descender) {
     uint8_t magic[4];
     uint16_t ver;

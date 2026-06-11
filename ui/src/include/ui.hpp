@@ -218,6 +218,7 @@ void windowFocusCallback(GLFWwindow *window, int focused);
 void showWindow();
 void toggleFullscreen();
 void setupExplorer();
+void renameActiveExplorerNode(string newName);
 void setupUI(bool darkTheme);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
@@ -609,6 +610,7 @@ struct Explorer {
     float lastClickedTime;
 
     bool elementHover;
+    bool elementActive;
     bool lineHover;
     bool lineMouseDown;
     bool redrawLine;
@@ -687,6 +689,7 @@ void deleteCBsToDeletedBlocks(
     ContentCommandExt* extCmd
 );
 
+UIElement* getElementById(UIElement * root, uint16_t id);
 UIElement* getElementFromScreenCoords(UIElement * root, float x, float y);
 void cbKeypressType(ContentTab* tab, string text);
 ContentDeletionType deleteSelectedCBText(ContentTab* tab, ContentCommand* cmd, ContentCommandExt* cbExt);

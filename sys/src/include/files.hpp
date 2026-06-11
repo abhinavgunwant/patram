@@ -115,6 +115,8 @@ void createFontAtlasFile(uint8_t index, Character* characters);
 void createVaultInfoFile(string vaultName, string password);
 void createVaultIndexFile(string vaultName, string password);
 
+void renameFile(filesystem::path oldPath, filesystem::path newPath);
+
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
 FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode);
