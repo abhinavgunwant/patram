@@ -4291,6 +4291,16 @@ void openFile(bool openDialog, filesystem::path p) {
     }
 
     if (checkFile(path) == OpenedFileType::TextFile) {
+        uint32_t i = 0;
+
+        for (auto itr = tabs.begin(); itr != tabs.end(); ++itr, ++i) {
+            if ((*itr).filePath == path) {
+                activeTabIndex = i;
+                TAB_BAR.reDraw = true;
+                CONTENT_CONTAINER.reDraw = true;
+                return;
+            }
+        }
         vector<string> lines = readFileText(path);
 
         if (lines.empty()) {
