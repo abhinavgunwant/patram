@@ -9500,22 +9500,24 @@ void initFloatingUI() {
     FLOATING_CONTAINER.reDraw = true;
 }
 
-void deleteElementBuffers(UIElement* elem) {
+void deleteElementBuffersAndStrings(UIElement* elem) {
     if (elem->vao != 0) {
         glDeleteVertexArrays(1, &elem->vao);
         glDeleteBuffers(1, &elem->vbo);
     }
 
+    elem->text.~string();
+
     if (elem->totalChildren) {
         for (int i=0; i<elem->totalChildren; ++i) {
-            deleteElementBuffers(elem->children[i]);
+            deleteElementBuffersAndStrings(elem->children[i]);
         }
     }
 }
 
 void destroyFloatingUI() {
     for (int i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
-        deleteElementBuffers(FLOATING_CONTAINER.children[i]);
+        deleteElementBuffersAndStrings(FLOATING_CONTAINER.children[i]);
     }
 
     destroyArena(floatingArena);
