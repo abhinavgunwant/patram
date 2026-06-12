@@ -130,6 +130,7 @@
 #define NEW_FOLDER_DIALOG_CREATE_BUTTON_ID          34
 #define NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID          35
 #define NEW_FOLDER_DIALOG_INPUT_ID                  36
+#define ERROR_DIALOG_OK_BUTTON_ID                   37
 #define OPEN_BUTTON_ID                              100
 
 #define EXPLORER_PANE_ID                            200
@@ -519,6 +520,7 @@ struct ContentTab {
     bool scrollbarUpdated;
     bool updateCursorX;
     bool cbTextMouseDown;
+    bool updated;
 
     float lastCursorTime;
     float lastScrolled;
@@ -653,6 +655,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
 void newTab(filesystem::path tabPath);
+void closeTab(uint32_t index);
 void closeCurrentTab();
 string getSelectedTextFromCurrentTab();
 UIPreferences* initPreferences();
@@ -749,6 +752,7 @@ void showRenameDialog();
 void showDeleteDialog();
 void showNewFolderDialog();
 void showNewNoteDialog();
+void showErrorDialog(string title, string message);
 void hideContextMenus();
 
 #ifdef DEBUG_TEXT_SELECTION

@@ -119,6 +119,7 @@ float mouseDownX = 25000;
 float mouseDownY = 25000;
 
 uint32_t untitledNotes = 0;
+uint32_t untitledFolders = 0;
 
 Explorer explorer = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -479,11 +480,9 @@ tuple<ExplorerNodeType, filesystem::path> getActiveExplorerNodePath(vector<Explo
             tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath((*itr).children);
             filesystem::path _p = get<1>(tup);
 
-            if (!_p.empty()) {
-                ent = get<0>(tup);
-                p /= (*itr).name / _p;
-                break;
-            }
+            ent = get<0>(tup);
+            p /= (*itr).name / _p;
+            break;
         }
     }
 
@@ -642,6 +641,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); break;
                         case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); break;
                         case NEW_NOTE_BUTTON_ID: newNote(); break;
+                        case NEW_FOLDER_BUTTON_ID: showNewFolderDialog(); break;
                         case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); break;
                         case SWITCH_VAULT_OPTION_ID: {
                             setSelectedVault(elem->text);
@@ -656,13 +656,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         case DELETE_DIALOG_DELETE_BUTTON_ID: deleteActiveExplorerNode(); break;
                         case NEW_NOTE_DIALOG_CREATE_BUTTON_ID: createNoteInActiveExplorerNode(); break;
                         case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID: createFolderInActiveExplorerNode(); break;
-
                         case RENAME_DIALOG_CANCEL_BUTTON_ID:
                         case DELETE_DIALOG_CANCEL_BUTTON_ID:
                         case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
+                            EXPLORER.reDraw = true; // no break intentional
+                        case ERROR_DIALOG_OK_BUTTON_ID:
                             unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                             destroyFloatingUI();
-                            EXPLORER.reDraw = true;
                             break;
                     }
 
@@ -1504,6 +1504,7 @@ void setupWelcomeScreen() {
         line1->fontSize = 24;
 
         line2->id = NEW_NOTE_BUTTON_ID;
+        line3->id = NEW_FOLDER_BUTTON_ID;
         line5->id = TOGGLE_EXPLORER_BUTTON_ID;
         switchVaultButton->id = SWITCH_VAULT_BUTTON_ID;
     } else {
@@ -1692,10 +1693,12 @@ void setupExplorer() {
     glBindBuffer(GL_ARRAY_BUFFER, explorer.iconsVBO);
 
     if (iVertices.size() <= explorer.iconsVerCap) {
-        vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
-        move(zeros.begin(), zeros.end(), back_inserter(vertices));
+        if (!iVertices.empty()) {
+            vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
+            move(zeros.begin(), zeros.end(), back_inserter(vertices));
 
-        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
+        }
     } else {
         uint32_t currISize = iVertices.size();
         while (currISize > explorer.iconsVerCap) { explorer.iconsVerCap *= 1.5; }
@@ -1761,34 +1764,103 @@ void renameActiveExplorerNode() {
 }
 
 void deleteActiveExplorerNode() {
-    filesystem::path p = getVaultPath(selectedVault)
-        / get<1>(getActiveExplorerNodePath(explorer.nodes));
+    tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath(explorer.nodes);
+    ExplorerNodeType ent = get<0>(tup);
+    filesystem::path p = get<1>(tup);
 
-    if (!p.empty()) {
-        cout << "\nDEBUG: deleting" << p;
-        deleteNode(p);
-    } else {
+    filesystem::path vaultPath = getVaultPath(selectedVault);
+
+    if (p.empty()) {
+        #ifdef DEBUG_EXPLORER
         cout << "\nDEBUG: path is empty";
+        #endif
+        return;
     }
+
+    p = vaultPath / p;
+
+    #ifdef DEBUG_EXPLORER
+    cout << "\nDEBUG: deleting" << p;
+    #endif
+
+    uint32_t i = 0;
+    error_code e;
+    bool error = false;
+    string errorTitle;
+    string errorMessage;
+
+    for (auto itr=tabs.begin(); itr != tabs.end();) {
+        bool shouldClose = false;
+
+        if (ent == ExplorerNodeType::Folder) {
+            filesystem::path parentPath = (*itr).filePath.parent_path();
+
+            while (parentPath != vaultPath) {
+                filesystem::path rel = filesystem::relative(parentPath, p);
+
+                if (!error && rel == ".") {
+                    if ((*itr).updated) {
+                        errorTitle = "Cannot delete folder!";
+                        errorMessage = "Some notes contained in this folder have unsaved changes. Save/discard all unsaved work on these notes before deleting.";
+                        activeTabIndex = i;
+                        error = true;
+                    } else {
+                        shouldClose = true;
+                    }
+                    break;
+                }
+
+                parentPath = parentPath.parent_path();
+            }
+        } else if ((*itr).filePath == p) {
+            if (!error && (*itr).updated) {
+                activeTabIndex = i;
+
+                if (ent == ExplorerNodeType::Folder) {
+                    errorTitle = "Cannot delete folder!";
+                    errorMessage = "Some notes contained in this folder have unsaved changes. Save/discard all unsaved work on these notes before deleting.";
+                } else {
+                    errorTitle = "Cannot delete note!";
+                    errorMessage = "Save/discard all unsaved work in this note before deleting.";
+                }
+            } else {
+                shouldClose = true;
+            }
+        }
+
+        if (shouldClose) {
+            closeTab(i);
+
+            if (tabs.empty()) {
+                break;
+            }
+
+            itr = tabs.begin() + i;
+            continue;
+        }
+
+        ++itr;
+        ++i;
+    }
+
+    if (error) {
+        showErrorDialog(errorTitle, errorMessage);
+        return;
+    }
+
+    if (!tabs.empty() && activeTabIndex > 0 && activeTabIndex >= tabs.size()) {
+        activeTabIndex = tabs.size() - 1;
+    }
+
+    deleteNode(p);
+
+    EXPLORER.reDraw = true;
 
     thread explorerLoadThread(populateExplorerFromContent);
 
     unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+
     destroyFloatingUI();
-    EXPLORER.reDraw = true;
-
-    for (auto itr=tabs.begin(); itr != tabs.end(); ++itr) {
-        if ((*itr).filePath == p) {
-            uint32_t dist = distance(tabs.begin(), itr);
-            tabs.erase(itr);
-            TAB_BAR.reDraw = true;
-
-            if (activeTabIndex >= dist) {
-                --activeTabIndex;
-            }
-            break;
-        }
-    }
 
     explorerLoadThread.join();
 }
@@ -1825,19 +1897,29 @@ void createNoteInActiveExplorerNode() {
 void createFolderInActiveExplorerNode() {
     UIElement* elem = getElementById(&FLOATING_CONTAINER, NEW_FOLDER_DIALOG_INPUT_ID);
 
-    if (elem == nullptr) { return; }
-
     tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath(explorer.nodes);
     ExplorerNodeType ent = get<0>(tup);
     filesystem::path p = get<1>(tup);
 
-    if (p.empty()) { return; }
+    if (p.empty()) {
+        if (elem == nullptr) {
+            if (untitledFolders == 0) {
+                p = getVaultPath(selectedVault) / "Untitled Folder";
+            } else {
+                p = getVaultPath(selectedVault) / ("Untitled Folder " + to_string(untitledFolders));
+            }
 
-    if (ent == ExplorerNodeType::Note) {
-        p = p.parent_path();
+            ++untitledFolders;
+        } else {
+            p = getVaultPath(selectedVault) / elem->text;
+        }
+    } else {
+        if (ent == ExplorerNodeType::Note) {
+            p = p.parent_path();
+        }
+
+        p = getVaultPath(selectedVault) / p / elem->text;
     }
-
-    p = getVaultPath(selectedVault) / p / elem->text;
 
     createFolder(p);
 
@@ -4360,6 +4442,10 @@ void saveFile() {
 
         fout << (*itr).rope->getString();
     }
+
+    fout.close();
+
+    tab->updated = false;
 }
 
 void newNote(filesystem::path p) {
@@ -4387,6 +4473,7 @@ void newNote(filesystem::path p) {
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
     });
+    tab->updated = true;
 
     TAB_BAR.show = true;
     CONTENT_CONTAINER.show = true;
@@ -5027,7 +5114,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
     commands.push_back(ContentCommand { CommandType::None, false, 0, 0, 0, "", });
 
     tabs.push_back(ContentTab {
-        true, true, false, false, false, false, false, false,
+        true, true, false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
@@ -5044,7 +5131,11 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
 }
 
 void closeCurrentTab() {
-    ContentTab* tab = &tabs[activeTabIndex];
+    closeTab(activeTabIndex);
+}
+
+void closeTab(uint32_t index) {
+    ContentTab* tab = &tabs[index];
 
     for (auto itr = tab->extCommands.begin(); itr != tab->extCommands.end(); ++itr) {
         for (auto ibItr = (*itr).insertedBlocks.begin(); ibItr != (*itr).insertedBlocks.end(); ++ibItr) {
@@ -5101,7 +5192,7 @@ void closeCurrentTab() {
         glDeleteBuffers(1, &tab->scrollThumbVBO);
     }
 
-    tabs.erase(tabs.begin() + activeTabIndex);
+    tabs.erase(tabs.begin() + index);
 
     if (activeTabIndex >= tabs.size() && activeTabIndex > 0) {
         activeTabIndex = tabs.size() - 1;
@@ -8754,6 +8845,8 @@ void processCBCommand(ContentCommand cmd) {
     }
 
     if (append) {
+        tab->updated = true;
+
         if (tab->currentCommand < tab->commands.size() - 1) {
             auto cmdIter = tab->commands.end() - 1;
 
@@ -9529,6 +9622,12 @@ void destroyFloatingUI() {
     FLOATING_CONTAINER.reDraw = false;
 
     dialogOpen = false;
+
+    if (CONTENT_CONTAINER.show) {
+        activeElement = &CONTENT_CONTAINER;
+    } else {
+        activeElement = nullptr;
+    }
 }
 
 void showExplorerContextMenu(float x, float y) {
@@ -9798,6 +9897,12 @@ void showNewFolderDialog() {
         NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID,
         "Untitled Folder",
         NEW_FOLDER_DIALOG_INPUT_ID
+    );
+}
+
+void showErrorDialog(string title, string message) {
+    initBasicDialog(
+        300, 160, title, message, "Ok", ERROR_DIALOG_OK_BUTTON_ID, "", 0, "", 0
     );
 }
 
