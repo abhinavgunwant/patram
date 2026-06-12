@@ -4736,7 +4736,6 @@ void textInputMouseUpCallback(
     }
 }
 
-// TODO: reimpl for content block
 void textInputUnselect(TextInputData * tid, string token) {
     if (tid == nullptr) { return; }
 
@@ -4748,8 +4747,8 @@ void textInputUnselect(TextInputData * tid, string token) {
     #endif
 
     tid->textSelected = false;
-    // tid->cursorPosition = tid->textSelectStartCol;
-    // tid->textSelectStartCol = tid->textSelectStartCol;
+    tid->cursorPosition = tid->textSelectStartCol;
+    tid->textSelectStartCol = tid->textSelectStartCol;
     tid->textSelectEndCol = tid->textSelectStartCol;
     tid->initialCursorPosition = tid->textSelectStartCol;
     tid->textSelectEndRow = tid->textSelectStartRow;
