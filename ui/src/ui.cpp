@@ -255,7 +255,6 @@ void inputClickCallback(UIElement* elem) {
 
     if (elem->textInputData != nullptr) {
         elem->textInputData->lastActiveTime = glfwGetTime();
-        // selectTextWithMouse(elem, mouseX, mouseY, mouseDownX, mouseDownY, true, resolution);
     }
 }
 
@@ -4066,8 +4065,8 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
         tab->cursorRow,
         0,
         tab->cursorCBIndex,
-        tab->cursorX,
-        tab->cursorY,
+        static_cast<float>(tab->cursorX),
+        static_cast<float>(tab->cursorY),
         0,
         SelectionCBPosition::Current,
     };
@@ -4833,49 +4832,6 @@ void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, gl
     }
 
     scrollAreaMouseDownCallback(elem, mouseX, mouseY, res);
-}
-
-// TODO: delete
-void selectTextWithMouse(
-    UIElement* elem,
-    float mouseX,
-    float mouseY,
-    float mouseDownX,
-    float mouseDownY,
-    bool mouseUp,
-    glm::vec2& res
-) {
-    if (elem->textInputData == nullptr) { return; }
-
-    TextInputData * tid = elem->textInputData;
-
-    if (!tid->textSelected && mouseUp) {
-        uint32_t currentIndex = 0;
-        float x = elem->left + BUTTON_PADDING;
-        float y = elem->top + BUTTON_PADDING;
-
-        // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
-
-        for (const char c: elem->text) {
-            GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
-
-            // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
-            //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
-            //     << ", topY: " << gd.topY << "\nx: " << x;
-
-            uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
-
-            if (static_cast<float>(x) + static_cast<float>(net_advance)/2 > mouseX) {
-                break;
-            }
-
-            x += net_advance;
-
-            ++currentIndex;
-        }
-
-        tid->cursorPosition = currentIndex;
-    }
 }
 
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
