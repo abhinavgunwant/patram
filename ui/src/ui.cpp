@@ -4077,10 +4077,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
         sd.row = cb->rows - 1;
     }
 
-    if (
-        UP_AND_TOP_ROW && tab->activeCBIndex < 2
-        || DOWN_AND_BOTTOM_ROW && tab->cursorCBIndex == tab->contentBlocks.size() - 1
-    ) {
+    if (DOWN_AND_BOTTOM_ROW && tab->cursorCBIndex == tab->contentBlocks.size() - 1) {
         return sd;
     }
 
@@ -4274,6 +4271,10 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
         }
     }
 
+    if (cb->rope->length() == 0) {
+        foundRow = true;
+    }
+
     if (foundRow) {
         uint32_t cursorCBIndex;
 
@@ -4397,7 +4398,7 @@ void openFile(bool openDialog, filesystem::path p) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
                     CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(line),
+                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(line),
                 });
             }
 
@@ -4470,7 +4471,7 @@ void newNote(filesystem::path p) {
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
+        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope()
     });
     tab->updated = true;
 
@@ -5053,7 +5054,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        0, 0, 0, 0,
+        1, 0, 0, 0,
         new Rope(path.filename().string()),
     });
 
@@ -8252,7 +8253,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
             CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope()
+            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
     }
@@ -8338,7 +8339,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(str)
+                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(str)
                 });
             }
 
@@ -8357,7 +8358,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, new Rope(str)
+                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(str)
             });
         }
     }
@@ -8371,6 +8372,10 @@ bool processCBTypeCommand(
     if (cmd->str != "") {
         cb->rope->insert(cmd->startCursorPos, cmd->str);
         reDrawCBsFrom(cmd->startCBIndex, 64);
+
+        if (cb->rows == 0) {
+            cb->rows = 1;
+        }
 
         if (
             newCmd && !tab->commands.empty()

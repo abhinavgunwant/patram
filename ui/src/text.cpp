@@ -428,9 +428,7 @@ RopeRenderResult renderContentRope(
 
     result.width = pos.x;
 
-    if (result.rows) {
-        ++result.rows;
-    }
+    ++result.rows;
 
     return result;
 }
