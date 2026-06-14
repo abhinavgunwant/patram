@@ -6103,7 +6103,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             glDisable(GL_SCISSOR_TEST);
 
-            renderCBScrollbar();
+            if (showScrollbar) {
+                renderCBScrollbar();
+            }
             break;
         }
 
