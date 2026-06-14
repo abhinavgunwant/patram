@@ -3054,8 +3054,8 @@ void cbKeyCallback(int key, int action, int mod) {
                     const uint32_t len = cb->rope->length();
                     tab->textSelected = true;
                     tab->initialCursorPosition = tab->cursorPosition;
-                    // tab->selStartCBIndex = 0;
-                    // tab->selEndCol = len;
+                    tab->selStartCBIndex = tab->cursorCBIndex;
+                    tab->selEndCBIndex = tab->cursorCBIndex;
                     tab->redrawSel = true;
                     tab->cursorPosition = len;
                 } else if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
