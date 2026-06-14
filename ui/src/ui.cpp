@@ -96,6 +96,7 @@ bool minimized = false;
 bool fullScreen = false;
 bool focused = true;
 bool mouse1Down = false;
+bool ignoreMouse1Up = false;
 bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
@@ -665,6 +666,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             break;
                     }
 
+                    ignoreMouse1Up = true;
+
                     return;
                 }
 
@@ -743,6 +746,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouse1Down = false;
             explorer.lineMouseDown = false;
             EXPLORER.scrollData->mouseDown = false;
+
+            if (ignoreMouse1Up) {
+                ignoreMouse1Up = false;
+                return;
+            }
 
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
                 cout << "\nHighlighted content block RELEASE target: ";
@@ -3945,7 +3953,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
     float y = (*cb).top - tab->scrollOffsetY;
 
     float xpos = x;
-    float ypos;
+    float ypos = -1.0f;
     float yNet = y;
     float xprev = x;
 
@@ -3955,15 +3963,25 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
     float h = fontSize * glyphDescender;
     float height = fontSize - fontSize * glyphDescender;
 
+    uint32_t prevRow = row;
+    uint32_t prevCol = col;
+    float yposPrev = ypos;
+    float glyphHeight, glyphWidth, bearingLeft, bearingTop = -1000000.0f;
+    float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
+    bool _;
+
     while (rt.hasNext()) {
         Rope* r = rt.next();
+        uint32_t len = r->text.length();
 
-        for (const char c : r->text) {
-            float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
-            float glyphHeight, glyphWidth, bearingTop, bearingLeft;
-            bool _;
+        for (uint32_t i=0; i<len; ++i) {
+            const char c = r->text[i];
 
             glm::vec2 pos = glm::vec2(x, y);
+
+            prevRow = row;
+            prevCol = col;
+            yposPrev = ypos;
 
             getCharParams(
                 characters[(int)c],
@@ -4039,6 +4057,26 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos,
                     .y = ypos + bearingTop - glyphHeight - h,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            } else if (!rt.hasNext() && i == len - 1 && mouseX > xpos_plus_w) {
+                return SelectionData {
+                    .cursorPosition = index + 1,
+                    .row = row,
+                    .col = col + 1,
+                    .cursorCBIndex = tab->activeCBIndex,
+                    .x = xpos_plus_w,
+                    .y = ypos + bearingTop - glyphHeight - h,
+                    .height = static_cast<uint16_t>(fontSize - h),
+                };
+            } else if (yNet > mouseY && xprev < mouseX) {
+                return SelectionData {
+                    .cursorPosition = index,
+                    .row = prevRow,
+                    .col = prevCol,
+                    .cursorCBIndex = tab->activeCBIndex,
+                    .x = xprev,
+                    .y = yposPrev + bearingTop - glyphHeight - h,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             }
