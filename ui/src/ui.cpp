@@ -2220,7 +2220,11 @@ void cbKeyCallback(int key, int action, int mod) {
     if (tabs.empty()) {
         return;
     }
+
     ContentTab* tab = &tabs[activeTabIndex];
+
+    if (tab->cursorCBIndex >= tab->contentBlocks.size()) { return; }
+
     ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
 
     bool alt = mod & GLFW_MOD_ALT;
@@ -2877,6 +2881,8 @@ void cbKeyCallback(int key, int action, int mod) {
                     CUR_POS <= cb->rope->length() && CUR_POS > 0
                     || tab->textSelected
                 ) {
+                    uint32_t ropeLen = cb->rope->length();
+
                     if (tab->textSelected){
                         tab->extCommands.push_back(ContentCommandExt {
                             ContentDeletionType::None,
@@ -2899,6 +2905,8 @@ void cbKeyCallback(int key, int action, int mod) {
                         tab->cursorCBIndex = tab->selStartCBIndex;
                         UNSELECT();
                     } else {
+                        uint32_t prevCursorPos = CUR_POS;
+
                         processCBCommand(ContentCommand {
                             CommandType::Backspace,
                             false,
@@ -2907,7 +2915,7 @@ void cbKeyCallback(int key, int action, int mod) {
                             string(1, (*cb->rope)[CUR_POS - 1])
                         });
 
-                        if (CUR_POS != 0) {
+                        if (CUR_POS != 0 && prevCursorPos != ropeLen) {
                             DECR_CURSOR();
                         }
                     }
@@ -3843,14 +3851,26 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
 
 SelectionData getCBTextCursor(glm::vec2 &resolution) {
     ContentTab* tab = &tabs[activeTabIndex];
-    ContentBlock* cb = &tab->contentBlocks[tab->cursorCBIndex];
+    uint32_t tempTabIndex = tab->cursorCBIndex;
+
+    if (tempTabIndex >= tab->contentBlocks.size()) {
+        tempTabIndex = tab->contentBlocks.size() - 1;
+    }
+
+    ContentBlock* cb = &tab->contentBlocks[tempTabIndex];
 
     RopeTraverser rt(cb->rope);
 
     uint8_t fontSize = getCBFontSize(cb->type);
 
     float x = contentLeft;
-    float y = (*cb).top - tab->scrollOffsetY;
+    float y = (*cb).top;
+
+    if (tempTabIndex > 0 && y == 0) {
+        ContentBlock* prev = &tab->contentBlocks[tempTabIndex - 1];
+        y = prev->top + getCBVerticalMargins(prev->type).y;
+    }
+
     float xpos = x;
     float ypos;
     float yNet = y;
@@ -3868,6 +3888,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             .cursorPosition = i,
             .row = 0,
             .col = 0,
+            .cursorCBIndex = tab->cursorCBIndex,
             .x = xpos,
             .y = yNet + static_cast<float>(fontSize) - h,
             .height = height,
@@ -3916,6 +3937,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
                     .cursorPosition = i,
                     .row = row,
                     .col = col,
+                    .cursorCBIndex = tab->cursorCBIndex,
                     .x = xpos,
                     .y = ypos + bearingTop - glyphHeight - h,
                     .height = height,
@@ -3927,18 +3949,15 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
         }
     }
 
-    if (tab->cursorPosition == cb->rope->length()) {
-        return SelectionData {
-            .cursorPosition = i,
-            .row = row,
-            .col = col,
-            .x = xpos,
-            .y = yNet + static_cast<float>(fontSize) - h,
-            .height = height,
-        };
-    }
-
-    return SelectionData { 0, 0, 0 };
+    return SelectionData {
+        .cursorPosition = i,
+        .row = row,
+        .col = col,
+        .cursorCBIndex = tab->cursorCBIndex,
+        .x = xpos,
+        .y = yNet + static_cast<float>(fontSize) - h,
+        .height = height,
+    };
 }
 
 SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::vec2 resolution) {
@@ -3966,7 +3985,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
     uint32_t prevRow = row;
     uint32_t prevCol = col;
     float yposPrev = ypos;
-    float glyphHeight, glyphWidth, bearingLeft, bearingTop = -1000000.0f;
+    float glyphHeight = -1000000.0f, glyphWidth, bearingLeft, bearingTop = -1000000.0f;
     float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
     bool _;
 
@@ -4009,7 +4028,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
 
             if (
                 xpos <= mouseX && xpos + (glyphWidth/2) >= mouseX
-                && ypos >= mouseY && ypos_plus_h <= mouseY
+                && ypos >= mouseY + tab->scrollOffsetY && ypos_plus_h <= mouseY + tab->scrollOffsetY
             ) {
                 #ifdef DEBUG_TEXT
                 cout << "\n2: xpos: " << xpos << ", ypos: " << ypos;
@@ -4025,12 +4044,12 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .col = col,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xprev,
-                    .y = ypos + bearingTop - glyphHeight - h,
+                    .y = ypos + bearingTop - glyphHeight - h + tab->scrollOffsetY,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             } else if (
                 xpos + (glyphWidth/2) <= mouseX && xpos_plus_w >= mouseX
-                && ypos >= mouseY && ypos_plus_h <= mouseY
+                && ypos >= mouseY + tab->scrollOffsetY && ypos_plus_h <= mouseY + tab->scrollOffsetY
             ) {
                 #ifdef DEBUG_TEXT
                 cout << "\n3: xpos: " << xpos << ", ypos: " << ypos;
@@ -4046,17 +4065,17 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .col = col + 1,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos_plus_w,
-                    .y = ypos + bearingTop - glyphHeight - h,
+                    .y = ypos + bearingTop - glyphHeight - h + tab->scrollOffsetY,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
-            } else if (xpos_plus_w >= mouseX && ypos >= mouseY && ypos_plus_h <= mouseY) {
+            } else if (xpos_plus_w >= mouseX && ypos >= mouseY + tab->scrollOffsetY && ypos_plus_h <= mouseY + tab->scrollOffsetY) {
                 return SelectionData {
                     .cursorPosition = index,
                     .row = row,
                     .col = col,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos,
-                    .y = ypos + bearingTop - glyphHeight - h,
+                    .y = ypos + bearingTop - glyphHeight - h + tab->scrollOffsetY,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             } else if (!rt.hasNext() && i == len - 1 && mouseX > xpos_plus_w) {
@@ -4066,17 +4085,17 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
                     .col = col + 1,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xpos_plus_w,
-                    .y = ypos + bearingTop - glyphHeight - h,
+                    .y = ypos + bearingTop - glyphHeight - h + tab->scrollOffsetY,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
-            } else if (yNet > mouseY && xprev < mouseX) {
+            } else if (yNet > mouseY + tab->scrollOffsetY && xprev < mouseX) {
                 return SelectionData {
-                    .cursorPosition = index,
+                    .cursorPosition = i!=0 && r->text[i-1] == ' ' ? index - 1 : index,
                     .row = prevRow,
                     .col = prevCol,
                     .cursorCBIndex = tab->activeCBIndex,
                     .x = xprev,
-                    .y = yposPrev + bearingTop - glyphHeight - h,
+                    .y = yposPrev + bearingTop - glyphHeight - h + tab->scrollOffsetY,
                     .height = static_cast<uint16_t>(fontSize - h),
                 };
             }
@@ -4090,7 +4109,14 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
     }
 
     return SelectionData {
-        tab->cursorPosition, 0, 0, tab->cursorCBIndex, 0.0f, 0.0f, 0, SelectionCBPosition::None
+        tab->cursorPosition,
+        prevRow,
+        prevCol,
+        tab->activeCBIndex,
+        xprev,
+        yposPrev + bearingTop - glyphHeight - h + tab->scrollOffsetY,
+        static_cast<uint16_t>(fontSize - h),
+        SelectionCBPosition::None
     };
 }
 
@@ -4141,7 +4167,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
     }
 
     float x = contentLeft;
-    float y = (*cb).top - tab->scrollOffsetY;
+    float y = (*cb).top;// - tab->scrollOffsetY;
 
     float xpos = x;
     float ypos;
@@ -5149,6 +5175,7 @@ void closeTab(uint32_t index) {
 
     for (auto itr = tab->contentBlocks.begin(); itr != tab->contentBlocks.end(); ++itr) {
         if ((*itr).rope != nullptr) {
+            Rope* r = (*itr).rope;
             delete (*itr).rope;
             (*itr).rope = nullptr;
         }
@@ -5809,59 +5836,46 @@ inline void recalculateCBCursor() {
 
 void updateCBCursor(ContentTab* tab, SelectionData sd) {
     tab->showCursor = true;
-    tab->redrawCursor = false;
-
-    if (
-        tab->cursorPosition == sd.cursorPosition
-        && tab->cursorRow == sd.row
-        && tab->cursorCBIndex == sd.cursorCBIndex
-    ) {
-        return;
-    }
-
-    if (tab->updateCursorX) {
-        tab->cursorX = static_cast<uint16_t>(sd.x);
-        tab->updateCursorX = false;
-    }
+    tab->redrawCursor = true;
 
     tab->cursorY = static_cast<uint16_t>(sd.y) + (static_cast<uint16_t>(sd.height) >> 1);
 
     if (sd.y - tab->scrollOffsetY > CONTENT_CONTAINER.height + CONTENT_CONTAINER.top) {
-        tab->scrollOffsetY += sd.y - CONTENT_CONTAINER.height - CONTENT_CONTAINER.top;
-        tab->redrawCursor = true;
+        tab->scrollOffsetY = sd.y - CONTENT_CONTAINER.height - CONTENT_CONTAINER.top;
         highlightedContentBlock.show = false;
-        tab->scrollbarUpdated = false;
-    } else if (sd.y - sd.height < CONTENT_CONTAINER.top && sd.y != 0 && sd.height != 0) {
-        tab->scrollOffsetY -= CONTENT_CONTAINER.top - sd.y + sd.height;
-        tab->redrawCursor = true;
-        tab->scrollbarUpdated = false;
+        tab->scrollbarUpdated = true;
+
+        uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
+
+        if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
+            reDrawCBsFrom(startIndex, 64);
+        } else {
+            reDrawCBsFrom(startIndex, 64);
+        }
+    } else if (sd.y - sd.height - tab->scrollOffsetY < CONTENT_CONTAINER.top && sd.y != 0 && sd.height != 0) {
+        tab->scrollOffsetY = sd.y - sd.height - CONTENT_CONTAINER.top;
+        if (tab->scrollOffsetY < 0) {
+            tab->scrollOffsetY = 0;
+        }
+        tab->scrollbarUpdated = true;
+
+        uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
+
+        if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
+            reDrawCBsFrom(startIndex, 64);
+        } else {
+            reDrawCBsFrom(startIndex, 64);
+        }
+    } else if (tab->cursorCBIndex == 0 && tab->scrollOffsetY != 0) {
+        tab->scrollOffsetY = 0;
+        tab->scrollbarUpdated = true;
+        reDrawCBsFrom(0, 64);
     }
 
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
     tab->cursorCBIndex = sd.cursorCBIndex;
-
-    glBindVertexArray(tab->cursorVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
-
-    float vertices[] = {
-        sd.x + 1.0f, sd.y - sd.height,
-        sd.x + 1.0f, sd.y,
-        sd.x - 1.0f, sd.y - sd.height,
-        sd.x - 1.0f, sd.y,
-    };
-
-    #ifdef DEBUG_TEXT
-    cout << "\nSetting cursor dimensions: " << sd.x + 1 << ", "
-        << sd.y - sd.height << "; " << sd.x + 1 << ", " << sd.y << "; " << sd.x
-        << ", " << sd.y - sd.height << "; " << sd.x << ", " << sd.y;
-    #endif
-
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {
@@ -6072,10 +6086,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 if (tab->showCursor && !tab->textSelected) {
                     float vertices[] = {
-                        sd.x + 1.0f, sd.y - sd.height,
-                        sd.x + 1.0f, sd.y,
-                        sd.x - 1.0f, sd.y - sd.height,
-                        sd.x - 1.0f, sd.y,
+                        sd.x + 1.0f, sd.y - sd.height - tab->scrollOffsetY,
+                        sd.x + 1.0f, sd.y - tab->scrollOffsetY,
+                        sd.x - 1.0f, sd.y - sd.height - tab->scrollOffsetY,
+                        sd.x - 1.0f, sd.y - tab->scrollOffsetY,
                     };
 
                     glBindVertexArray(tab->cursorVAO);
@@ -8457,6 +8471,10 @@ bool processCBPasteCommand(
             cb->rope->remove(cmd->startCursorPos, firstString.length() - cmd->startCursorPos);
             cb->rope->append(pastedBlocks.front().rope->getString());
 
+            for (auto pbItr = pastedBlocks.begin(); pbItr != pastedBlocks.end(); ++pbItr) {
+                pbItr->rope = Rope::deepCopy(pbItr->rope);
+            }
+
             tab->contentBlocks.insert(
                 tab->contentBlocks.begin() + tab->cursorCBIndex + 1,
                 pastedBlocks.begin() + 1,
@@ -8788,13 +8806,7 @@ bool processCBDeleteMergeCBCommand(
             tab->contentBlocks.begin() + cmd->startCBIndex + 2
         );
 
-        for (
-            auto cbIter = tab->contentBlocks.begin() + cmd->startCBIndex;
-            cbIter != tab->contentBlocks.end() && distance(tab->contentBlocks.begin(), cbIter) < 64;
-            ++cbIter
-        ) {
-            (*cbIter).flags |= CONTENT_BLOCK_REDRAW;
-        }
+        reDrawCBsFrom(cmd->startCBIndex, 64);
 
         return true;
     }
@@ -8843,6 +8855,8 @@ void processCBCommand(ContentCommand cmd) {
         case CommandType::Undo: processCBUndo(tab); break;
         case CommandType::Redo: processCBRedo(tab); break;
     }
+
+    updateCBCursor(tab, getCBTextCursor(resolution));
 
     if (append) {
         tab->updated = true;
