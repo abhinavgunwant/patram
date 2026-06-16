@@ -671,6 +671,7 @@ void recalculateCBCursor();
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 glm::vec2 getActiveContentDimensions();
+void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
 bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);

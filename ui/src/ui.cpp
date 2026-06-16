@@ -7405,7 +7405,35 @@ inline glm::vec2 getActiveContentDimensions() {
     }; // width, height
 }
 
-bool renderContentBlock(
+inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight) {
+    if (first) {
+        cb->top = CONTENT_CONTAINER.top + getCBVerticalMargins(cb->type)[0];
+        cb->left = CONTENT_CONTAINER.left;
+    } else {
+        auto prev = cb - 1;
+
+        glm::vec2 prevMargins = getCBVerticalMargins((*prev).type);
+        glm::vec2 currMargins = getCBVerticalMargins((*cb).type);
+
+        cb->top = prev->top + prev->height + prevMargins[1] + currMargins[0];
+        cb->left = prev->left;
+    }
+
+    if (calculateHeight) {
+        RopeRenderResult rRes = getTextDimensions(
+            cb->rope->getString(),
+            glm::vec2(contentLeft, cb->top),
+            resolution, getCBFontSize(cb->type),
+            contentLeft,
+            contentRight - contentLeft,
+            false
+        );
+
+        cb->height = rRes.height;
+    }
+}
+
+inline bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
@@ -7421,19 +7449,8 @@ bool renderContentBlock(
         return false;
     }
 
-    if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
-        if (cb > tabs[activeTabIndex].contentBlocks.begin()) {
-            auto prev = cb - 1;
-
-            glm::vec2 prevMargins = getCBVerticalMargins((*prev).type);
-            glm::vec2 currMargins = getCBVerticalMargins((*cb).type);
-
-            (*cb).top = (*prev).top + (*prev).height + prevMargins[1] + currMargins[0];
-            (*cb).left = (*prev).left;
-        } else {
-            (*cb).top = CONTENT_CONTAINER.top + getCBVerticalMargins((*cb).type)[0];
-            (*cb).left = CONTENT_CONTAINER.left;
-        }
+    if (GET_FLAG((*cb).flags, CONTENT_BLOCK_REDRAW)) {
+        setCBDimensions(cb, cb == tab->contentBlocks.begin(), false);
     }
 
     float top = (*cb).top - tab->scrollOffsetY;
@@ -8494,7 +8511,14 @@ bool processCBPasteCommand(
             tab->cursorPosition = pastedBlocks.back().rope->length();
         }
 
-        reDrawCBsFrom(cursorCBIndex, 64);
+        for (
+            auto itr=tab->contentBlocks.begin() + cursorCBIndex;
+            itr != tab->contentBlocks.end();
+            ++itr
+        ) {
+            SET_FLAG((*itr).flags, CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE);
+            setCBDimensions(itr, itr == tab->contentBlocks.begin(), true);
+        }
     }
 
     return true;
