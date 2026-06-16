@@ -8511,10 +8511,13 @@ bool processCBPasteCommand(
             tab->cursorPosition = pastedBlocks.back().rope->length();
         }
 
+        uint32_t pastedCount = 0;
+        const uint32_t pastedBlocksLen = pastedBlocks.size();
+
         for (
             auto itr=tab->contentBlocks.begin() + cursorCBIndex;
-            itr != tab->contentBlocks.end();
-            ++itr
+            itr != tab->contentBlocks.end() && pastedCount < pastedBlocksLen;
+            ++itr, ++pastedCount
         ) {
             SET_FLAG((*itr).flags, CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE);
             setCBDimensions(itr, itr == tab->contentBlocks.begin(), true);
