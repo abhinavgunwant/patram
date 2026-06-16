@@ -3070,6 +3070,8 @@ void cbKeyCallback(int key, int action, int mod) {
                     const uint32_t len = cb->rope->length();
                     tab->textSelected = true;
                     tab->initialCursorPosition = tab->cursorPosition;
+                    tab->selStartCursorPosition = 0;
+                    tab->selEndCursorPosition = len;
                     tab->selStartCBIndex = tab->cursorCBIndex;
                     tab->selEndCBIndex = tab->cursorCBIndex;
                     tab->redrawSel = true;
