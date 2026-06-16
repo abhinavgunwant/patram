@@ -4512,6 +4512,7 @@ void saveFile() {
     fout.close();
 
     tab->updated = false;
+    TAB_BAR.reDraw = true;
 }
 
 void newNote(filesystem::path p) {
@@ -7198,8 +7199,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     uint32_t bytes = static_cast<uint32_t>(tabsDisplay[i].bytes);
                     uint32_t verts = static_cast<uint32_t>(tabsDisplay[i].numVertices);
 
+                    string filename = tabs[i].filePath.filename().string();
+
+                    if (filename.length() > 24) {
+                        if (tabs[i].updated) {
+                            filename = filename.substr(0, 24);
+                            filename += "*...";
+                        } else {
+                            filename = filename.substr(0, 24) + "...";
+                        }
+                    } else if (tabs[i].updated) {
+                        filename += "*";
+                    }
+
                     RopeRenderResult rRes = renderTextCached(
-                        tabs[i].filePath.filename().string().substr(0, 16),
+                        filename,
                         { x, y },
                         resolution,
                         tabsDisplay[i].vao,
@@ -8450,6 +8464,12 @@ bool processCBTypeCommand(
             cb->rows = 1;
         }
 
+        if (!tab->updated) {
+            TAB_BAR.reDraw = true;
+        }
+
+        tab->updated = true;
+
         if (
             newCmd && !tab->commands.empty()
             && tab->currentCommand == tab->commands.size() - 1
@@ -8888,6 +8908,10 @@ void processCBCommand(ContentCommand cmd) {
     updateCBCursor(tab, getCBTextCursor(resolution));
 
     if (append) {
+        if (!tab->updated) {
+            TAB_BAR.reDraw = true;
+        }
+
         tab->updated = true;
 
         if (tab->currentCommand < tab->commands.size() - 1) {
