@@ -697,7 +697,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         break;
                     case UIElementType::TabBar:
                         if (!tabs.empty()) {
-                            tabBarMouseDownCallback(elem, mouseX, mouseY, resolution);
+                            tabBarMouseDownCallback(elem, mouseX, mouseY, resolution, GLFW_MOUSE_BUTTON_1);
                         } else {
                             activeElement = prevActiveElement;
                         }
@@ -825,6 +825,18 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
 
             destroyFloatingUI();
+        }
+    } else if (button == GLFW_MOUSE_BUTTON_3) {
+        if (action == GLFW_PRESS) {
+            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
+
+            if (elem != nullptr) {
+                switch (elem->type) {
+                    case UIElementType::TabBar:
+                        tabBarMouseDownCallback(elem, mouseX, mouseY, resolution, GLFW_MOUSE_BUTTON_3);
+                        break;
+                }
+            }
         }
     }
 }
@@ -4646,23 +4658,33 @@ void textInputMouseDownCallback(
     tid->lastActiveTime = TIME();
 }
 
-void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void tabBarMouseDownCallback(
+    UIElement* elem,
+    float mouseX,
+    float mouseY,
+    glm::vec2 res,
+    int glfwButton
+) {
     float x = 0;
 
     for (int i=0; i<tabs.size(); ++i) {
         x += TAB_HORIZONTAL_PADDING + tabsDisplay[i].width + TAB_HORIZONTAL_PADDING;
 
         if (mouseX <= x) {
-            activeTabIndex = i;
-            TAB_BAR.reDraw = true;
-            TAB_BAR.active = false;
-            activeElement = &CONTENT_CONTAINER;
+            if (glfwButton == GLFW_MOUSE_BUTTON_3) {
+                closeTab(i);
+            } else {
+                activeTabIndex = i;
+                TAB_BAR.reDraw = true;
+                TAB_BAR.active = false;
+                activeElement = &CONTENT_CONTAINER;
 
-            ContentTab* tab = CURRENT_TAB;
+                ContentTab* tab = CURRENT_TAB;
 
-            if (tab->scrollbarUpdated == false) {
-                tab->redrawCursor = true;
-                reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+                if (tab->scrollbarUpdated == false) {
+                    tab->redrawCursor = true;
+                    reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+                }
             }
 
             break;
