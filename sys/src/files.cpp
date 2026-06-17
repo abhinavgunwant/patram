@@ -78,6 +78,8 @@ inline filesystem::path getPatramDirectoryPath() {
     return filesystem::path(getPatramDirectory());
 }
 
+filesystem::path getLogPath() { return getPatramDirectoryPath() / "logs"; }
+
 string getCacheDirectory() {
     string home = getHomeDirectory();
 

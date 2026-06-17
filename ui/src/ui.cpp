@@ -1,3 +1,4 @@
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -21,6 +22,7 @@
 #include "include/text.hpp"
 #include "files.hpp"
 #include "utils.hpp"
+#include "logger.hpp"
 #include "../lib/stb_image.h"
 
 #define TIME() static_cast<float>(glfwGetTime())
@@ -1399,13 +1401,15 @@ void populateExplorerFromIndex() {
         auto t1 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
 
-        cout << "\nDEBUG: Time taken to get entries from index: " << duration.count() << " microseconds.";
+        debugv("Time taken to get entries from index: {} microseconds", duration.count());
 
-        cout << "\nDEBUG: VaultIndex Entries:";
+        stringstream ss;
 
         for (VaultIndexEntry entry : index) {
-            cout << "\n\t" << entry.title;
+            ss << "\"" << entry.title << "\", ";
         }
+
+        debugv("Index entries: {}", ss.str());
     #endif
 
     if (!index.empty()) {
@@ -1430,13 +1434,15 @@ void populateExplorerFromContent() {
             auto t2 = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-            cout << "\nDEBUG: Time taken to get entries from content: " << duration.count() << " microseconds.";
+            debugv("Time taken to get entries from content: {} microseconds", duration.count());
 
-            cout << "\nDEBUG: VaultIndex content Entries:";
+            stringstream ss;
 
             for (VaultIndexEntry entry : index) {
-                cout << "\n\t" << entry.title;
+                ss << "\"" << entry.title << "\", ";
             }
+
+            debugv("Content entries: {}", ss.str());
         #endif
 
         vector<ExplorerNode> newExplorerNodes = createExplorerNodesFromIndex(index);
@@ -1447,7 +1453,7 @@ void populateExplorerFromContent() {
             EXPLORER.reDraw = true;
 #ifdef DEBUG_EXPLORER
         } else {
-            cout << "\nDEBUG: entries in index and contents in vault are same. No changes made!";
+            debug("Entries in index and contents in vault are same. No changes made!");
 #endif
         }
 
@@ -1455,14 +1461,14 @@ void populateExplorerFromContent() {
             auto t3 = std::chrono::high_resolution_clock::now();
             duration = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
 
-            cout << "\nDEBUG: Time taken to get compare (and maybe also to assign) entries: " << duration.count();
+            debugv("Time taken to get, compare (and maybe also to assign) entries: {} microseconds", duration.count());
         #endif
     }
 
     #ifdef DEBUG_EXPLORER
         auto t4 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t1);
-        cout << "\nDEBUG: Total Time taken in " << __func__ << ": " << duration.count();
+        debugv("Total Time taken in {}: {} microseconds", __func__, duration.count());
     #endif
 }
 
@@ -1975,6 +1981,12 @@ void createFolderInActiveExplorerNode() {
 }
 
 void setupUI(bool isDarkTheme) {
+    if (darkTheme) {
+        info("Setting dark theme");
+    } else {
+        info("Setting light theme");
+    }
+
     windowHeight = WINDOW_HEIGHT;
     windowWidth = WINDOW_WIDTH;
     resolution = glm::vec2(windowWidth, windowHeight);
@@ -2146,6 +2158,8 @@ void enterRenderLoop() {
     glm::vec4 color = darkTheme ? ROOT_BG_DARK : ROOT_BG;
 
     glClearColor(color.r, color.g, color.b, 1.0);
+
+    info("Starting UI rendering.");
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);

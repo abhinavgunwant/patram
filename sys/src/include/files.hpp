@@ -75,6 +75,8 @@ string getHomeDirectory();
 filesystem::path getPatramDirectoryPath();
 string getPatramDirectory();
 
+filesystem::path getLogPath();
+
 filesystem::path getCacheDirectoryPath();
 string getCacheDirectory();
 

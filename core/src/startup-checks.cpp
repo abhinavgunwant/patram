@@ -9,6 +9,7 @@ using namespace std;
 #include "text.hpp"
 #include "utils.hpp"
 #include "files.hpp"
+#include "logger.hpp"
 
 bool initFonts(string fontPath, bool cache) {
     characters = new Character[MAX_CHARACTERS];
@@ -33,14 +34,14 @@ bool initFonts(string fontPath, bool cache) {
     FT_Library ft;
 
     if (FT_Init_FreeType(&ft)) {
-        std::cerr << "Error: FREETYPE: Could not init FreeType Library" << std::endl;
+        error("FREETYPE: Could not init FreeType Library");
         return false;
     }
 
     // load font as face
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-        std::cout << "Error: FREETYPE: Failed to load font" << std::endl;
+        error("FREETYPE: Failed to load font");
         return false;
     }
 
@@ -66,7 +67,7 @@ bool initFonts(string fontPath, bool cache) {
 
     while (id != 0) {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) {
-            std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
+            error("FREETYPE: Failed to load glyph");
             return false;
         }
         uint8_t width = face->glyph->bitmap.width;
