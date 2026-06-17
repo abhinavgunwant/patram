@@ -17,7 +17,7 @@
 #define ICONS_ATLAS_FILE            "assets/images/icons.png"
 
 #define MAX_CHARACTERS              65535
-#define MAX_ICONS                   5
+#define MAX_ICONS                   6
 #define DEFAULT_FONT_SIZE           48
 #define ATLAS_DIMENSION             1024
 // #define DEBUG_TEXT
@@ -44,6 +44,7 @@ extern bool debugTextFirstRenderPrint;
 #define ICON_FILE                   2
 #define ICON_SETTINGS               3
 #define ICON_SIDEBAR                4
+#define ICON_CLOSE                  5
 
 using namespace std;
 
@@ -155,14 +156,14 @@ RopeRenderResult getTextDimensions(
     float parentLeft, float parentWidth, bool breakLine = true
 );
 
-void appendCharVertices(
+float appendCharVertices(
     float x,
     float y,
     Character c,
     vector<float>& vertices
 );
 
-void appendTextVertices(
+float appendTextVertices(
     float x,
     float y,
     string text,

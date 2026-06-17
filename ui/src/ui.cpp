@@ -46,6 +46,17 @@
         glEnableVertexAttribArray(0);\
     } while (false)
 
+#define SETUP_BUFFERS_TEXT(vao, vbo, vertices) do {\
+        glGenVertexArrays(1, &vao);\
+        glBindVertexArray(vao);\
+        glGenBuffers(1, &vbo);\
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);\
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);\
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);\
+        glEnableVertexAttribArray(0);\
+    } while (false)
+
+
 #define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
@@ -84,7 +95,7 @@ HighlightedContentBlock highlightedContentBlock = {
 ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
 
 vector<ContentTab> tabs;
-ContentTabDisplay tabsDisplay[100];
+TabsDisplay tabsDisplay;
 uint8_t activeTabIndex;
 UIElement* activeElement = nullptr;
 uint16_t windowHeight;
@@ -1670,14 +1681,72 @@ inline void appendTextVerticesForExplorerNode(
     }
 }
 
-void setupExplorer() {
+void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
+    float x = 0.0f;
+    uint32_t i = 0;
+
+    for (ContentTab& tab: tabs) {
+        float prevX = x;
+        string tabtext = tab.filePath.filename().string();
+
+        if (tabtext.length() > 24) {
+            if (tab.updated) {
+                tabtext = tabtext.substr(0, 24);
+                tabtext += "*...";
+            } else {
+                tabtext = tabtext.substr(0, 24) + "...";
+            }
+        } else if (tab.updated) {
+            tabtext += "*";
+        }
+
+        tab.xOffset = static_cast<uint16_t>(x);
+
+        x += TAB_HORIZONTAL_PADDING;
+        x += appendTextVertices(x, TAB_VERTICAL_PADDING, tabtext, textVertices);
+        x += TAB_HORIZONTAL_PADDING;
+
+        tab.closeX = static_cast<uint16_t>(x - prevX);
+
+        x += appendCharVertices(x, 5, icons[ICON_CLOSE], xVertices);
+        x += TAB_HORIZONTAL_PADDING;
+
+        tab.width = static_cast<uint16_t>(x - prevX);
+
+        if (i == activeTabIndex) {
+            float vertices[8] = {
+                static_cast<float>(tab.xOffset), 0.0f,
+                static_cast<float>(tab.xOffset), TAB_BAR_HEIGHT,
+                static_cast<float>(tab.xOffset) + static_cast<float>(tab.width), 0.0f,
+                static_cast<float>(tab.xOffset) + static_cast<float>(tab.width), TAB_BAR_HEIGHT,
+            };
+
+            glBindVertexArray(tabsDisplay.activeBgVao);
+            glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay.activeBgVbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        }
+
+        ++i;
+    }
+
+    float vertices[8] = {
+        0, 0,
+        0, TAB_BAR_HEIGHT,
+        static_cast<float>(windowWidth), 0,
+        static_cast<float>(windowWidth), TAB_BAR_HEIGHT
+    };
+
+    glBindVertexArray(TAB_BAR.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, TAB_BAR.vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+}
+
+void setupExplorer(vector<float>& vertices, vector<float>& iVertices) {
     if (explorer.nodes.empty()) { return; }
     explorer.elementActive = false;
 
     const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
     float y = y0;
-    vector<float> vertices;
-    vector<float> iVertices;
 
     vertices.reserve(64000);
     iVertices.reserve(2400);
@@ -1687,52 +1756,6 @@ void setupExplorer() {
 
     EXPLORER.scrollData->height = scrollHeight;
     EXPLORER.scrollData->showVerticalScrollbar = scrollHeight > EXPLORER.height;
-
-    glBindVertexArray(explorer.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
-
-    uint32_t currentSize = vertices.size();
-
-    if (currentSize <= explorer.textVerCap) {
-        vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
-        move(zeros.begin(), zeros.end(), back_inserter(vertices));
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
-    } else {
-        while (currentSize > explorer.textVerCap) { explorer.textVerCap *= 1.5; }
-
-        vector<float> zeros(explorer.textVerCap - currentSize, 0);
-        move(zeros.begin(), zeros.end(), back_inserter(vertices));
-
-        glBufferData(GL_ARRAY_BUFFER, explorer.textVerCap * sizeof(float), &vertices[0], GL_DYNAMIC_DRAW);
-        explorer.textVerCap = vertices.size();
-    }
-
-    glBindVertexArray(explorer.iconsVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, explorer.iconsVBO);
-
-    if (iVertices.size() <= explorer.iconsVerCap) {
-        if (!iVertices.empty()) {
-            vector<float> zeros(explorer.textVerCap - vertices.size(), 0);
-            move(zeros.begin(), zeros.end(), back_inserter(vertices));
-
-            glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
-        }
-    } else {
-        uint32_t currISize = iVertices.size();
-        while (currISize > explorer.iconsVerCap) { explorer.iconsVerCap *= 1.5; }
-
-        vector<float> zeros(explorer.iconsVerCap - currISize, 0);
-        move(zeros.begin(), zeros.end(), back_inserter(iVertices));
-
-        glBufferData(GL_ARRAY_BUFFER, explorer.iconsVerCap * sizeof(float), &iVertices[0], GL_DYNAMIC_DRAW);
-        explorer.iconsVerCap = currISize;
-    }
-
-    vertices.reserve(0);
-
-    explorer.textVertices = vertices.size();
-    explorer.iconsVertices = iVertices.size();
 }
 
 void renameActiveExplorerNode() {
@@ -1992,31 +2015,27 @@ void setupUI(bool isDarkTheme) {
 
     float verts[2400];
     memset(verts, 0, sizeof(verts));
-    glGenVertexArrays(1, &explorer.vao);
-    glBindVertexArray(explorer.vao);
-    glGenBuffers(1, &explorer.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, explorer.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    explorer.textVerCap = 2400;
+    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, verts);
+    explorer.textVerCap = 2400 * sizeof(float);
+    explorer.textVertices = 600;
 
-    glGenVertexArrays(1, &explorer.iconsVAO);
-    glBindVertexArray(explorer.iconsVAO);
-    glGenBuffers(1, &explorer.iconsVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, explorer.iconsVBO);
-    glBufferData(GL_ARRAY_BUFFER, 1200 * sizeof(float), verts, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    explorer.iconsVerCap = 1200;
+    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, verts);
+    explorer.iconsVerCap = 1200 * sizeof(float);
+    explorer.iconsVertices = 300;
+
+    float xvertices[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, xvertices);
+    tabsDisplay.xBufferSize = 96;
+    tabsDisplay.xVertices = 24;
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.activeBgVao, explorer.activeBgVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.verticalScrollVao, explorer.verticalScrollVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.horizontalScrollVao, explorer.horizontalScrollVao, vertices);
+    SETUP_BUFFERS_DYNAMIC(tabsDisplay.activeBgVao, tabsDisplay.activeBgVbo, vertices);
 
-    memset(tabsDisplay, 0, sizeof(tabsDisplay));
+    // TODO: when restoring previous session reserve the previous tabs
 
     ROOT_CONTAINER.text = "Root Container";
     ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
@@ -2801,6 +2820,8 @@ void cbKeyCallback(int key, int action, int mod) {
                 } else if (ctrl) {
                     activeTabIndex = (activeTabIndex + 1) % tabs.size();
                 }
+
+                TAB_BAR.reDraw = true;
 
                 updateWindowTitle();
                 break;
@@ -4665,13 +4686,17 @@ void tabBarMouseDownCallback(
     glm::vec2 res,
     int glfwButton
 ) {
-    float x = 0;
-
     for (int i=0; i<tabs.size(); ++i) {
-        x += TAB_HORIZONTAL_PADDING + tabsDisplay[i].width + TAB_HORIZONTAL_PADDING;
+        float x = static_cast<float>(tabs[i].xOffset + tabs[i].width);
 
         if (mouseX <= x) {
-            if (glfwButton == GLFW_MOUSE_BUTTON_3) {
+            if (
+                glfwButton == GLFW_MOUSE_BUTTON_3
+                || (
+                    mouseX > static_cast<float>(tabs[i].xOffset + tabs[i].closeX - 5)
+                    && mouseX < x - 5
+                )
+            ) {
                 closeTab(i);
             } else {
                 activeTabIndex = i;
@@ -5162,13 +5187,12 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         true, true, false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
+        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
+         0, 0, 0, 0, 0, 0,
         commands, extCommands, content, path
     });
 
     activeTabIndex = tabs.size() - 1;
-
-    SETUP_BUFFERS(tabsDisplay[activeTabIndex].activeBgVao, tabsDisplay[activeTabIndex].activeBgVbo, vertices);
 
     TAB_BAR.reDraw = true;
     WELCOME_SCREEN.show = false;
@@ -7167,139 +7191,77 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
         case UIElementType::TabBar: {
             if (tabs.empty()) { return; }
-            bool drawCachedText = false;
-
-            if (elem.reDraw) {
-                #ifdef DEBUG_RENDER
-                    cout << "\nRe-drawing Container";
-                #endif
-
-                float right = elem.left + elem.width;
-                float bottom = elem.top + elem.height;
-
-                float vertices[] = {
-                    right, bottom,
-                    right, elem.top,
-                    elem.left, bottom,
-                    elem.left, elem.top,
-                };
-
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-            } else {
-                drawCachedText = true;
-            }
 
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_DEFAULT].programId);
-
             glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
             glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
             glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+            glBindVertexArray(tabsDisplay.activeBgVao);
+            glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay.activeBgVbo);
+            glUseProgram(shaders[SHADER_DEFAULT].programId);
+            bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
+            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
             if (elem.reDraw) {
-                float x = 0.0f;
-                float y = TAB_VERTICAL_PADDING;
+                vector<float> textVertices;
+                vector<float> xVertices;
 
-                for (int i=0; i<tabs.size(); ++i) {
-                    x += TAB_HORIZONTAL_PADDING;
+                textVertices.reserve(2000);
+                xVertices.reserve(1000);
 
-                    if (i == activeTabIndex) {
-                        glBindVertexArray(tabsDisplay[i].activeBgVao);
-                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
-                        glUseProgram(shaders[SHADER_DEFAULT].programId);
-                        glm::vec4 bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
-                        glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
-                        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-                        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-                    }
+                setupTabs(textVertices, xVertices);
 
-                    uint32_t bytes = static_cast<uint32_t>(tabsDisplay[i].bytes);
-                    uint32_t verts = static_cast<uint32_t>(tabsDisplay[i].numVertices);
+                drawTextBuffers(
+                    elem.textVAO,
+                    elem.textVBO,
+                    elem.textBufferSize, 
+                    elem.textVerticesCount,
+                    resolution,
+                    textVertices,
+                    darkTheme ? WHITE : BLACK,
+                    true
+                );
 
-                    string filename = tabs[i].filePath.filename().string();
-
-                    if (filename.length() > 24) {
-                        if (tabs[i].updated) {
-                            filename = filename.substr(0, 24);
-                            filename += "*...";
-                        } else {
-                            filename = filename.substr(0, 24) + "...";
-                        }
-                    } else if (tabs[i].updated) {
-                        filename += "*";
-                    }
-
-                    RopeRenderResult rRes = renderTextCached(
-                        filename,
-                        { x, y },
-                        resolution,
-                        tabsDisplay[i].vao,
-                        tabsDisplay[i].vbo,
-                        verts,
-                        bytes,
-                        elem.left,
-                        elem.width,
-                        darkTheme ? WHITE : BLACK,
-                        16,
-                        true
-                    );
-
-                    if (i == activeTabIndex) {
-                        float vertices[8] = {
-                            x + rRes.width + TAB_HORIZONTAL_PADDING, 0.0f,
-                            x + rRes.width + TAB_HORIZONTAL_PADDING, TAB_BAR_HEIGHT,
-                            x - TAB_HORIZONTAL_PADDING, 0.0f,
-                            x - TAB_HORIZONTAL_PADDING, TAB_BAR_HEIGHT,
-                        };
-
-                        glBindVertexArray(tabsDisplay[i].activeBgVao);
-                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
-
-                        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-                    }
-
-                    x += rRes.width + TAB_HORIZONTAL_PADDING;
-
-                    tabsDisplay[i].width = rRes.width;
-                    tabsDisplay[i].bytes = bytes;
-                    tabsDisplay[i].numVertices = verts;
-                }
+                drawTextBuffers(
+                    tabsDisplay.xVao,
+                    tabsDisplay.xVbo,
+                    tabsDisplay.xBufferSize, 
+                    tabsDisplay.xVertices,
+                    resolution,
+                    xVertices,
+                    darkTheme ? WHITE : BLACK,
+                    true,
+                    iconTextureID
+                );
             } else {
-                vector<float> v;
-                uint32_t bytes;
-                uint32_t verts;
+                vector<float> _;
 
-                for (int i=0; i<tabs.size(); ++i) {
-                    bytes = static_cast<uint32_t>(tabsDisplay[i].bytes);
-                    verts = static_cast<uint32_t>(tabsDisplay[i].numVertices);
+                drawTextBuffers(
+                    elem.textVAO,
+                    elem.textVBO,
+                    elem.textBufferSize, 
+                    elem.textVerticesCount,
+                    resolution,
+                    _,
+                    darkTheme ? WHITE : BLACK
+                );
 
-                    if (i == activeTabIndex) {
-                        glBindVertexArray(tabsDisplay[i].activeBgVao);
-                        glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay[i].activeBgVbo);
-                        glUseProgram(shaders[SHADER_DEFAULT].programId);
-                        glm::vec4 bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
-
-                        glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
-                        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-                        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-                    }
-
-                    drawTextBuffers(
-                        tabsDisplay[i].vao,
-                        tabsDisplay[i].vbo,
-                        bytes,
-                        verts,
-                        resolution,
-                        v,
-                        darkTheme ? WHITE : BLACK,
-                        false
-                    );
-                }
+                drawTextBuffers(
+                    tabsDisplay.xVao,
+                    tabsDisplay.xVbo,
+                    tabsDisplay.xBufferSize, 
+                    tabsDisplay.xVertices,
+                    resolution,
+                    _,
+                    darkTheme ? WHITE : BLACK,
+                    false,
+                    iconTextureID
+                );
             }
 
             elem.reDraw = false;
@@ -7342,10 +7304,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glScissor(0, 0, elem.width, elem.height);
             glEnable(GL_SCISSOR_TEST);
 
-            if (elem.reDraw) {
-                setupExplorer();
-            }
-
             if (explorer.elementActive) {
                 bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
                 glBindVertexArray(explorer.activeBgVao);
@@ -7364,32 +7322,62 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
 
-            glm::vec2 ___;
-            vector<float> _;
-            uint32_t __ = 0;
+            if (elem.reDraw) {
+                vector<float> vertices;
+                vector<float> iVertices;
 
-            drawTextBuffers(
-                explorer.vao,
-                explorer.vbo,
-                __,
-                explorer.textVertices,
-                ___,
-                _,
-                darkTheme ? WHITE : BLACK,
-                false
-            );
+                setupExplorer(vertices, iVertices);
 
-            drawTextBuffers(
-                explorer.iconsVAO,
-                explorer.iconsVBO,
-                __,
-                explorer.iconsVertices,
-                ___,
-                _,
-                darkTheme ? WHITE : BLACK,
-                false,
-                iconTextureID
-            );
+                drawTextBuffers(
+                    explorer.vao,
+                    explorer.vbo,
+                    explorer.textVerCap,
+                    explorer.textVertices,
+                    resolution,
+                    vertices,
+                    darkTheme ? WHITE : BLACK,
+                    true
+                );
+
+                drawTextBuffers(
+                    explorer.iconsVAO,
+                    explorer.iconsVBO,
+                    explorer.iconsVerCap,
+                    explorer.iconsVertices,
+                    resolution,
+                    iVertices,
+                    darkTheme ? WHITE : BLACK,
+                    true,
+                    iconTextureID
+                );
+            } else {
+                glm::vec2 ___;
+                vector<float> _;
+                uint32_t __ = 0;
+
+                drawTextBuffers(
+                    explorer.vao,
+                    explorer.vbo,
+                    __,
+                    explorer.textVertices,
+                    resolution,
+                    _,
+                    darkTheme ? WHITE : BLACK,
+                    false
+                );
+
+                drawTextBuffers(
+                    explorer.iconsVAO,
+                    explorer.iconsVBO,
+                    __,
+                    explorer.iconsVertices,
+                    resolution,
+                    _,
+                    darkTheme ? WHITE : BLACK,
+                    false,
+                    iconTextureID
+                );
+            }
 
             glDisable(GL_SCISSOR_TEST);
 

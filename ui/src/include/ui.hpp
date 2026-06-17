@@ -27,7 +27,7 @@
 
 #define TAB_BAR_HEIGHT              48.0f
 #define TAB_VERTICAL_PADDING        13.165f
-#define TAB_HORIZONTAL_PADDING      13.165f
+#define TAB_HORIZONTAL_PADDING      16.0f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f
 #define CONTENT_BREAKPOINT          800
@@ -192,7 +192,6 @@
 using namespace std;
 
 struct ContentTab;
-struct ContentTabDisplay;
 struct UIElement;
 
 extern UIElement elements[DEFAULT_ELEM_LENGTH];
@@ -226,7 +225,8 @@ void windowFocusCallback(GLFWwindow *window, int focused);
 
 void showWindow();
 void toggleFullscreen();
-void setupExplorer();
+void setupTabs(vector<float>& textVertices, vector<float>& xVertices);
+void setupExplorer(vector<float>& vertices, vector<float>& iVertices);
 void renameActiveExplorerNode();
 void deleteActiveExplorerNode();
 void createNoteInActiveExplorerNode();
@@ -234,7 +234,6 @@ void createFolderInActiveExplorerNode();
 void setupUI(bool darkTheme);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
-extern ContentTabDisplay tabsDisplay[100];
 extern uint8_t activeTabIndex;
 // extern UIElement* contentContainer;
 extern UIElement* activeElement;
@@ -556,21 +555,27 @@ struct ContentTab {
     uint32_t firstVisibleCBIndex;
     uint32_t visibleCBLength;
 
+    uint16_t xOffset;
+    uint16_t width;
+    uint16_t closeX;
+    uint16_t closeY;
+
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
     filesystem::path filePath;
 };
 
-struct ContentTabDisplay {
-    uint32_t vao;
-    uint32_t vbo;
+struct TabsDisplay {
+    uint32_t xVao;
+    uint32_t xVbo;
+    uint32_t xBufferSize;
+    uint32_t xVertices;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
-    uint16_t bytes;
-    uint16_t numVertices;
-    float width;
 };
+
+extern TabsDisplay tabsDisplay;
 
 enum class ExplorerNodeType: uint8_t {
     Folder          = 0b00000010,

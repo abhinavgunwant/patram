@@ -74,32 +74,38 @@ void initIconTexture() {
 
     icons[ICON_CHEVRON_DOWN] = {
         32, 15, 0, 0, 27,
-        0.0111, 0.3407,
-        0.1670, 0.6614
+        0.0095, 0.3407,
+        0.1432, 0.6614
     };
 
     icons[ICON_CHEVRON_RIGHT] = {
         15, 32, 0, 0, 32,
-        0.1781, 0.2204,
-        0.2672, 0.7816
+        0.1527, 0.2204,
+        0.2291, 0.7816
     };
 
     icons[ICON_FILE] = {
         35, 42, 0, 0, 35,
-        0.2779, 0.0601,
-        0.4783, 0.9419
+        0.2382, 0.0601,
+        0.4100, 0.9419
     };
 
     icons[ICON_SETTINGS] = {
         46, 46, 0, 0, 46,
-        0.4874, 0.0200,
-        0.7546, 0.9820
+        0.4178, 0.0200,
+        0.6468, 0.9820
     };
 
     icons[ICON_SIDEBAR] = {
         38, 38, 0, 0, 38,
-        0.9659, 0.1002,
-        0.9886, 0.9018
+        0.6565, 0.1002,
+        0.8474, 0.9018
+    };
+
+    icons[ICON_CLOSE] = {
+        27, 27, 0, 0, 27,
+        0.8571, 0.2200,
+        0.9905, 0.7800
     };
 
     glGenTextures(1, &iconTextureID);
@@ -307,12 +313,7 @@ inline void drawTextBuffers(
                 bufferSize *= 1.6;
             }
 
-            glDeleteBuffers(1, &vbo);
-            glGenBuffers(1, &vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
             glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
-            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-            glEnableVertexAttribArray(0);
         }
     }
 
@@ -593,7 +594,7 @@ RopeRenderResult getTextDimensions(
     return result;
 }
 
-void appendCharVertices(
+float appendCharVertices(
     float x,
     float y,
     Character c,
@@ -638,9 +639,11 @@ void appendCharVertices(
         xpos_plus_w,    ypos,           texX2, texY2,
         xpos_plus_w,    ypos_plus_h,    texX2, texY1
     });
+
+    return glyphWidth;
 }
 
-void appendTextVertices(
+float appendTextVertices(
     float x,
     float y,
     string text,
@@ -693,6 +696,8 @@ void appendTextVertices(
 
         xpos += advance;
     }
+
+    return xpos - x;
 }
 
 // render line of text
