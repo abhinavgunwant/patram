@@ -1346,6 +1346,8 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
                 reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
 
+                tab->updated = true;
+
                 cout << "\nDEBUG: ON SCROLL: tab->scrollOffsetY: " << tab->scrollOffsetY;
                 break;
             }
@@ -6148,17 +6150,23 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             bool visible = false;
 
+            uint32_t offset = 0;
+
+            if (!tab->updated && tab->firstVisibleCBIndex != 0) {
+                offset = tab->firstVisibleCBIndex;
+                i = offset;
+            }
+
             for (
-                auto itr = tab->contentBlocks.begin();
+                auto itr = tab->contentBlocks.begin() + offset;
                 itr != tab->contentBlocks.end();
                 ++itr, ++i
             ) {
                 if (renderContentBlock(tab, itr, resolution, cursor)) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
+                        visible = true;
                     }
-
-                    visible = true;
                 } else if (visible) {
                     #ifdef DEBUG_CONTENT_BLOCKS
                         // cout << "\nDEBUG: breaking render at " << to_string((ContentBlock)(*itr));
@@ -6223,6 +6231,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             if (showScrollbar) {
                 renderCBScrollbar();
             }
+
+            tab->updated = false;
             break;
         }
 
@@ -9477,6 +9487,8 @@ void processCBRedo(ContentTab* tab) {
     if (increment) {
         ++tab->currentCommand;
     }
+
+    tab->updated = true;
 
     #undef CONCAT
     #undef PROC
