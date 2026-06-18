@@ -909,6 +909,10 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
         tab->redrawCursor = true;
 
+        if (tab->textSelected) {
+            tab->redrawSel = true;
+        }
+
         reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
 
         if (tab->showCursor) {
@@ -5192,7 +5196,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
     float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     for (int i=0; i<4; ++i) {
-        SETUP_BUFFERS(vao[i], vbo[i], vertices);
+        SETUP_BUFFERS_DYNAMIC(vao[i], vbo[i], vertices);
     }
 
     commands.push_back(ContentCommand { CommandType::None, false, 0, 0, 0, "", });
@@ -7630,7 +7634,7 @@ void renderCBTextSelection(ContentTab* tab) {
             uint32_t row = 0;
             uint32_t cursorPosition = 0;
 
-            float initialX = (*cbIter).left + CONTENT_BLOCK_DRAGTAB_WIDTH;
+            float initialX = contentLeft;
             float initialY = (*cbIter).top;
 
             float xpos = initialX;
