@@ -1230,6 +1230,10 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 }
             }
             break;
+
+            case UIElementType::TextInput:
+                cShape = CursorShape::Text;
+                break;
         }
     } else if (explorer.elementHover) {
         unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_HOVER);
@@ -4610,60 +4614,92 @@ void updateWindowTitle() {
 }
 
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
-    uint32_t currentIndex = 0;
-    uint32_t row = 0;
-    uint32_t col = 0;
-
-    const float xStart = elem->left + BUTTON_PADDING;
-
-    float x = xStart;
+    float x = elem->left + BUTTON_PADDING;
     float y = elem->top + BUTTON_PADDING;
 
-    // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
-    const float Y_ADVANCE = static_cast<float>(elem->fontSize + LINE_GAP);
-    bool shouldYAdvance = false;
+    if (elem->textInputData->alignment != TextInputAlignment::Left) {
+        RopeRenderResult rRes = getTextDimensions(
+            elem->text,
+            glm::vec2(x, y),
+            resolution,
+            elem->fontSize,
+            elem->parent->left,
+            elem->parent->width
+        );
 
-    for (const char c: elem->text) {
-        shouldYAdvance = c == '\n';
-        GlyphDimensions gd = getGlyphDimensions(c, x, y, res, elem->fontSize);
+        switch (elem->textInputData->alignment) {
+            case TextInputAlignment::Center:
+                x = elem->left + (elem->width - rRes.width)/2;
+                y = elem->top + TEXT_INPUT_PADDING;
+                break;
 
-        // cout << "\ncharacter: " << c << ", leftX: " << gd.leftX
-        //     << ", rightX: " << gd.rightX << ", bottomY: " << gd.bottomY
-        //     << ", topY: " << gd.topY << "\nx: " << x;
-
-        uint32_t net_advance = (static_cast<uint32_t>(gd.advance * gd.scale) >> 6);
-
-        if (
-            x + static_cast<float>(net_advance)/2 > mouseX
-            && (
-                // !shouldYAdvance
-                // || shouldYAdvance &&
-                y + Y_ADVANCE > mouseY
-            )
-        ) {
-            #ifdef DEBUG_TEXT_SELECTION
-                cout << "\nx: " << x << ", y: " << y << ", shouldYAdvance: " << shouldYAdvance << " ";
-            #endif
-            break;
-        }
-
-        if (shouldYAdvance) {
-            x = xStart;
-            y += Y_ADVANCE;
-            col = 0;
-            ++row;
-        } else {
-            ++col;
-            x += net_advance;
-            ++currentIndex;
+            case TextInputAlignment::Right:
+                x = elem->left + elem->width - rRes.width;
+                y = elem->top + TEXT_INPUT_PADDING;
+                break;
         }
     }
 
-    return {
-        .cursorPosition = currentIndex,
-        .row = row,
-        .col = col,
-    };
+    // cout << "\nMouse x: " << mouseX << " y: " << mouseY;
+
+    float xpos = x;
+    float ypos = -1.0f;
+    float yNet = y;
+
+    uint32_t index = 0;
+    uint32_t row = 0;
+    uint32_t col = 0;
+    float height = elem->fontSize - elem->fontSize * glyphDescender;
+
+    uint32_t prevRow = row;
+    uint32_t prevCol = col;
+    float yposPrev = ypos;
+    float glyphHeight = -1000000.0f, glyphWidth, bearingLeft, bearingTop = -1000000.0f;
+    float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
+    bool _;
+
+    for (const char c: elem->text) {
+        glm::vec2 pos = glm::vec2(x, y);
+
+        prevRow = row;
+        prevCol = col;
+        yposPrev = ypos;
+
+        getCharParams(
+            characters[(int)c],
+            pos,
+            xpos,
+            ypos,
+            yNet,
+            xpos_plus_w,
+            ypos_plus_h,
+            height,
+            _x1,
+            _x2,
+            _y1,
+            _y2,
+            glyphHeight,
+            glyphWidth,
+            bearingTop,
+            bearingLeft,
+            advance,
+            contentRight,
+            row,
+            elem->fontSize,
+            _
+        );
+
+        if (xpos + glyphWidth / 2 >= mouseX && yNet + glyphHeight >= mouseY) {
+            break;
+        }
+
+        xpos += advance;
+
+        ++index;
+        ++col;
+    }
+
+    return { .cursorPosition = index, .row = row, .col = col };
 }
 
 void textInputMouseDownCallback(
@@ -4741,7 +4777,7 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
     if (elem->textInputData == nullptr) { return; }
 
     #ifdef DEBUG_TEXT_SELECTION
-        cout << "\nDrag Callback: ";
+        debug("Drag Callback");
     #endif
 
     TextInputData* tid = elem->textInputData;
@@ -6801,10 +6837,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 text = elem.text;
             }
 
-            RopeRenderResult rRes = getTextDimensions(
+            float dx = pos.x;
+            float dy = pos.y;
+
+            TextRenderResult rRes = getInputTextDimensions(
                 text,
+                tid,
                 pos,
-                resolution,
                 elem.fontSize,
                 elem.parent->left,
                 elem.parent->width
@@ -6820,6 +6859,58 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     pos.x = left + elem.width - rRes.width;
                     pos.y = top + TEXT_INPUT_PADDING;
                     break;
+            }
+
+            dx = pos.x - dx;
+            dy = pos.y - dy;
+
+            rRes.x += dx;
+            rRes.cursorX += dx;
+            rRes.selStartX += dx;
+
+            rRes.y += dy;
+            rRes.cursorY += dy;
+            rRes.selStartY += dy;
+
+            uint32_t currentIndex = 0;
+            float x = left + TEXT_INPUT_PADDING;
+            float y = top + TEXT_INPUT_PADDING;
+
+            float cursorX = rRes.cursorX;
+            float cursorY = rRes.cursorY - static_cast<float>(elem.fontSize) * glyphDescender;
+            float selectStartX = rRes.selStartX;
+            float selectEndX = selectStartX + rRes.selWidth;
+
+            if (elem.active && tid->textSelected) {
+                if (tid->textSelectUpdated) {
+                    float vertices[] = {
+                        selectStartX,   cursorY - rRes.height,
+                        selectEndX,     cursorY - rRes.height,
+                        selectStartX,   cursorY,
+                        selectEndX,     cursorY
+                    };
+
+                    if (tid->textSelectVAO == 0) {
+                        SETUP_BUFFERS_DYNAMIC(tid->textSelectVAO, tid->textSelectVBO, vertices);
+                    } else {
+                        glBindVertexArray(tid->textSelectVAO);
+                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
+                        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                    }
+
+                    tid->textSelectUpdated = false;
+
+                    #ifdef DEBUG_TEXT_SELECTION
+                        debugv("Text selection: CursorY: {}", cursorY);
+                    #endif
+                }
+
+                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
+
+                glBindVertexArray(tid->textSelectVAO);
+                glUseProgram(shaders[SHADER_DEFAULT].programId);
+                glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
 
             renderTextCached(
@@ -6838,37 +6929,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 false
             );
 
-            uint32_t currentIndex = 0;
-            float x = left + TEXT_INPUT_PADDING;
-            float y = top + TEXT_INPUT_PADDING;
-
-            float cursorX = -1;
-            float cursorY = -1;
-            float selectStartX = -1;
-            float selectEndX = -1;
-
-            if (tid->cursorPosition == elem.text.length()) {
-                cursorX = pos.x + rRes.width;
-                cursorY = y;
-            } else if (tid->cursorPosition == 0) {
-                cursorX = pos.x;
-                cursorY = y;
-            }
-
-            if (
-                elem.textInputData->textSelected
-                && elem.textInputData->textSelectStartCol == 0
-                && elem.textInputData->textSelectEndCol == elem.text.length()
-            ) {
-                selectStartX = pos.x + rRes.x;
-                selectEndX = selectStartX + rRes.width;
-            }
-
             // When text input is active, draw the cursor.
             if (elem.active) {
                 float vertices[] = {
-                    cursorX - 1, cursorY + static_cast<float>(elem.fontSize) * (1 - glyphDescender),
-                    cursorX + 1, cursorY + static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                    cursorX - 1, cursorY - static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                    cursorX + 1, cursorY - static_cast<float>(elem.fontSize) * (1 - glyphDescender),
                     cursorX - 1, cursorY,
                     cursorX + 1, cursorY,
                 };
@@ -6882,51 +6947,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
                 }
 
-                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
-
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
                 glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
-                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
+                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.r, color.g, color.b, color.a);
                 glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
                 glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
-                    if (tid->textSelectUpdated) {
-                        float vertices[] = {
-                            selectStartX, cursorY + elem.fontSize,
-                            selectEndX, cursorY + elem.fontSize,
-                            selectStartX, cursorY,
-                            selectEndX, cursorY,
-                        };
-
-                        if (tid->textSelectVAO == 0) {
-                            SETUP_BUFFERS_DYNAMIC(tid->textSelectVAO, tid->textSelectVBO, vertices);
-                        } else {
-                            glBindVertexArray(tid->textSelectVAO);
-                            glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
-                            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-                        }
-
-                        tid->textSelectUpdated = false;
-                        #ifdef DEBUG_TEXT_SELECTION
-                            cout << "\ncursorY: " << cursorY;
-                        #endif
-                    }
-
-                    glBindVertexArray(tid->textSelectVAO);
-
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
-
-                    glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-                }
             }
 
             if (

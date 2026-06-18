@@ -85,6 +85,21 @@ struct RopeRenderResult {
     bool renderNextContentBlock;
 };
 
+struct TextRenderResult {
+    float x;
+    float y;
+    float selStartX;
+    float selStartY;
+    float selWidth;
+    float selHeight;
+    float cursorX;
+    float cursorY;
+    float height;
+    float width;
+    uint32_t rows;
+    bool renderNextContentBlock;
+};
+
 inline bool getCharParams(
     Character& c,
     glm::vec2& pos,
@@ -153,6 +168,11 @@ RopeRenderResult renderTextCached(
 
 RopeRenderResult getTextDimensions(
     string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
+    float parentLeft, float parentWidth, bool breakLine = true
+);
+
+TextRenderResult getInputTextDimensions(
+    string text, TextInputData* tid, glm::vec2 pos, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine = true
 );
 

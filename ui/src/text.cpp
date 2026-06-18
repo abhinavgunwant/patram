@@ -594,6 +594,99 @@ RopeRenderResult getTextDimensions(
     return result;
 }
 
+TextRenderResult getInputTextDimensions(
+    string str, TextInputData* tid, glm::vec2 pos, uint8_t fontSize,
+    float parentLeft, float parentWidth, bool breakLine
+) {
+    TextRenderResult result = TextRenderResult {
+        pos.x, pos.y, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, true
+    };
+
+    float xpos = pos.x;
+    float ypos = 0.0f;
+    float yNet = pos.y;
+    float texX1 = 0.0f;
+    float texX2 = 0.0f;
+    float texY1 = 0.0f;
+    float texY2 = 0.0f;
+    float xpos_plus_w = 0.0f;
+    float ypos_plus_h = 0.0f;
+    float advance = 0.0f;
+
+    float glyphHeight, glyphWidth, bearingTop, bearingLeft;
+    uint32_t i = 0;
+
+    for (char c: str) {
+        if (!getCharParams(
+            characters[(int)c],
+            pos,
+            xpos,
+            ypos,
+            yNet,
+            xpos_plus_w,
+            ypos_plus_h,
+            result.height,
+            texX1,
+            texX2,
+            texY1,
+            texY2,
+            glyphHeight,
+            glyphWidth,
+            bearingTop,
+            bearingLeft,
+            advance,
+            parentLeft + parentWidth,
+            result.rows,
+            fontSize,
+            result.renderNextContentBlock,
+            breakLine
+        )) {
+            break;
+        }
+
+        if (i == tid->textSelectStartCol && result.rows == tid->textSelectStartRow) {
+            result.selStartX = xpos;
+            result.selStartY = ypos;
+        }
+
+        if (i == tid->cursorPosition) {
+            result.cursorX = xpos;
+            result.cursorY = ypos;
+        }
+
+        xpos += advance;
+
+        if (i == tid->textSelectEndCol - 1 && result.rows == tid->textSelectEndRow) {
+            result.selWidth = xpos - result.selStartX;
+            result.selHeight = ypos + static_cast<float>(fontSize) - result.selStartY;
+        }
+
+        ++i;
+    }
+
+    if (i == tid->cursorPosition) {
+        result.cursorX = xpos;
+        result.cursorY = ypos;
+    }
+
+    if (i == tid->textSelectEndCol - 1 && result.rows == tid->textSelectEndRow) {
+        result.selWidth = xpos - result.selStartX;
+        result.selHeight = ypos + static_cast<float>(fontSize) - result.selStartY;
+    }
+
+    if (tid->textSelectStartCol == tid->textSelectEndCol) {
+        result.selWidth = 0.0f;
+    }
+
+    result.width = xpos - pos.x;
+
+    if (result.rows) {
+        ++result.rows;
+    }
+
+    return result;
+}
+
 float appendCharVertices(
     float x,
     float y,
