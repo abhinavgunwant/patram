@@ -5158,21 +5158,33 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
 }
 
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
-    if (tabIndex >= tabs.size()) {
-        cerr << "\nError: Invalid tab!";
-        return;
-    }
-
+    if (tabIndex >= tabs.size()) { error("Invalid tab!"); return; }
     if (newIndex == oldIndex || newIndex == 0 || oldIndex == 0) {
+        error("Trying to move the title content block");
         return;
     }
 
     ContentTab* tab = &tabs[tabIndex];
+    uint32_t cbLength = tab->contentBlocks.size();
+
+    if (newIndex >= cbLength || oldIndex >= cbLength) {
+        errorv(
+            "Invalid content block move operation! newIndex: %d, oldIndex: %d",
+            newIndex,
+            oldIndex
+        );
+        return;
+    }
 
     if (abs(static_cast<int64_t>(newIndex) - static_cast<int64_t>(oldIndex)) == 1) {
         ContentBlock temp = tab->contentBlocks[newIndex];
         tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
         tab->contentBlocks[oldIndex] = temp;
+
+        #ifdef DEBUG_CONTENT_BLOCKS
+            printContentBlocks(activeTabIndex);
+        #endif
+
         return;
     }
 
@@ -5181,14 +5193,18 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
         tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
 
         for (
-            auto itr = tab->contentBlocks.begin() + newIndex + 1;
-            itr != tab->contentBlocks.begin() + oldIndex + 1;
+            auto itr = tab->contentBlocks.rbegin() + (cbLength - oldIndex);
+            itr != tab->contentBlocks.rbegin() + (cbLength - newIndex);
             ++itr
         ) {
             ContentBlock temp2 = *itr;
             *itr = temp;
             temp = temp2;
         }
+
+        #ifdef DEBUG_CONTENT_BLOCKS
+            printContentBlocks(activeTabIndex);
+        #endif
 
         return;
     }
