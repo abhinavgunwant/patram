@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "logger.hpp"
 #include "include/shader.hpp"
 #include "include/ui.hpp"
 #include "../lib/stb_image_write.h"
@@ -51,7 +52,7 @@ void initFontTexture(string path) {
     uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
 
     if (stbi_failure_reason()) {
-        cerr << "\nError: Failed to load font texture: " << stbi_failure_reason();
+        errorv("Failed to load font texture: %s", stbi_failure_reason());
     }
 
     if (data) {
@@ -63,49 +64,59 @@ void initFontTexture(string path) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
-        cerr << "\nError: Failed to load texture (" << path << ").";
+        errorv("Failed to load texture (%s).", path);
     }
 
     stbi_image_free(data);
 }
 
 void initIconTexture() {
-    uint8_t descender = static_cast<uint8_t>(glyphDescender * DEFAULT_FONT_SIZE);
-
     icons[ICON_CHEVRON_DOWN] = {
         32, 15, 0, 0, 27,
-        0.0095, 0.3407,
-        0.1432, 0.6614
+        0.0075, 0.3409,
+        0.1129, 0.6612
     };
 
     icons[ICON_CHEVRON_RIGHT] = {
         15, 32, 0, 0, 32,
-        0.1527, 0.2204,
-        0.2291, 0.7816
+        0.1204, 0.2208,
+        0.1806, 0.7813
     };
 
     icons[ICON_FILE] = {
         35, 42, 0, 0, 35,
-        0.2382, 0.0601,
-        0.4100, 0.9419
+        0.1879, 0.0607,
+        0.3233, 0.9415
     };
 
     icons[ICON_SETTINGS] = {
         46, 46, 0, 0, 46,
-        0.4178, 0.0200,
-        0.6468, 0.9820
+        0.3294, 0.0206,
+        0.5100, 0.9815
     };
 
     icons[ICON_SIDEBAR] = {
         38, 38, 0, 0, 38,
-        0.6565, 0.1002,
-        0.8474, 0.9018
+        0.5177, 0.1007,
+        0.6682, 0.9014
     };
 
     icons[ICON_CLOSE] = {
         27, 27, 0, 0, 27,
-        0.8571, 0.2200,
-        0.9905, 0.7800
+        0.6774, 0.2201,
+        0.7824, 0.7790
+    };
+
+    icons[ICON_MOVE] = {
+        42, 42, 0, 0, 27,
+        0.7894, 0.0600,
+        0.9548, 0.9400
+    };
+
+    icons[ICON_MORE_VERTICAL] = {
+        7, 34, 0, 0, 27,
+        0.9612, 0.1400,
+        0.9913, 0.8600
     };
 
     glGenTextures(1, &iconTextureID);
@@ -123,8 +134,14 @@ void initIconTexture() {
     stbi_set_flip_vertically_on_load(false);
     uint8_t* data = stbi_load(path, &width, &height, &nrChannels, 0);
 
+    uint32_t dataSize = width * height;
+
+    if (width < 0 || height < 0) {
+        dataSize = 0;
+    }
+
     if (stbi_failure_reason()) {
-        cerr << "\nError: Failed to load font texture: " << stbi_failure_reason();
+        errorv("\nFailed to load icon texture: %s", stbi_failure_reason());
     }
 
     if (data) {
@@ -135,8 +152,33 @@ void initIconTexture() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
+
+        Character moveIcon = icons[ICON_MOVE];
+        uint32_t moveCursorWidth = moveIcon.width/2;
+        uint32_t moveCursorHeight = moveIcon.height/2;
+        uint32_t moveCursorSize = moveCursorWidth * moveCursorHeight * 4;
+        uint32_t moveCursorDataXOffset = static_cast<uint32_t>(static_cast<float>(width) * moveIcon.textureX1);
+        uint32_t moveCursorDataYOffset = static_cast<uint32_t>(static_cast<float>(height) * moveIcon.textureY1 * width);
+        uint32_t moveIconActualWidth = static_cast<uint32_t>(static_cast<float>(width) * moveIcon.textureX2) - static_cast<uint32_t>(static_cast<float>(width) * moveIcon.textureX1) + 1;
+        uint32_t moveIconActualHeight = static_cast<uint32_t>(static_cast<float>(height) * moveIcon.textureY2) - static_cast<uint32_t>(static_cast<float>(height) * moveIcon.textureY1) + 1;
+
+        moveCursorBitmap = new uint8_t[moveCursorSize];
+        memset(moveCursorBitmap, 0xff, moveCursorSize);
+
+        for (uint32_t i=0; i<moveCursorHeight&& i<dataSize; ++i) {
+            for (uint32_t j=0; j<moveCursorWidth; ++j) {
+                uint32_t sourceX = static_cast<float>(j) * moveIconActualWidth / moveCursorWidth;
+                uint32_t sourceY = static_cast<float>(i) * moveIconActualHeight / moveCursorHeight;
+
+                uint32_t dataIndex = moveCursorDataYOffset + width * sourceY + moveCursorDataXOffset + sourceX;
+
+                if (dataIndex >= dataSize) { continue; }
+
+                moveCursorBitmap[moveCursorWidth * i * 4 + j*4 + 3] = data[dataIndex];
+            }
+        }
     } else {
-        cerr << "\nError: Failed to load texture (" << path << ").";
+        errorv("Failed to load texture (%s).", path);
     }
 
     stbi_image_free(data);

@@ -114,6 +114,7 @@ bool showFps = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
 CursorShape currentCursorShape = CursorShape::Default;
+uint8_t* moveCursorBitmap;
 ExplorerNode* targetNode = nullptr;
 
 string selectedVault = "";
@@ -121,6 +122,7 @@ string selectedVault = "";
 GLFWcursor* textCursor;
 GLFWcursor* pointerCursor;
 GLFWcursor* hResizeCursor;
+GLFWcursor* moveCursor;
 
 UIElement elements[DEFAULT_ELEM_LENGTH];
 Arena floatingArena;
@@ -252,6 +254,10 @@ void updateCursorShape(CursorShape shape) {
             #endif
             glfwSetCursor(window, hResizeCursor);
             currentCursorShape = CursorShape::HorizontalResize;
+            break;
+        case CursorShape::Move:
+            glfwSetCursor(window, moveCursor);
+            currentCursorShape = CursorShape::Move;
             break;
     }
 }
@@ -965,7 +971,10 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             if (ypos > top && ypos < top + (*itr).height) {
                 if (mouseX > contentLeft) {
                     cShape = CursorShape::Text;
+                } else if (mouseX > contentLeft - CONTENT_BLOCK_DRAGTAB_WIDTH) {
+                    cShape = CursorShape::Move;
                 }
+
                 if ((*itr).type == ContentBlockType::Title) {
                     highlightedContentBlock.show = false;
                     break;
@@ -2154,6 +2163,14 @@ void setupUI(bool isDarkTheme) {
 
     initFontTexture(getFontAtlasPath(0).string());
     initIconTexture();
+
+    GLFWimage moveCursorImage;
+    Character mvIcon = icons[ICON_MOVE];
+    moveCursorImage.width = mvIcon.width/2;
+    moveCursorImage.height = mvIcon.height/2;
+    moveCursorImage.pixels = moveCursorBitmap;
+
+    moveCursor = glfwCreateCursor(&moveCursorImage, mvIcon.width/4, mvIcon.height/4);
 
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);

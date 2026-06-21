@@ -213,6 +213,8 @@ extern bool minimized;
 extern bool focused;
 extern bool showFps;
 
+extern uint8_t* moveCursorBitmap;
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
@@ -246,7 +248,8 @@ enum class CursorShape: uint8_t {
     Default,
     Text,
     Pointer,
-    HorizontalResize
+    HorizontalResize,
+    Move,
 };
 
 enum class UIElementType: uint8_t {
