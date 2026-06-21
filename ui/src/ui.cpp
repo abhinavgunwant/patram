@@ -963,7 +963,9 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             top = (*itr).top - tab->scrollOffsetY;
 
             if (ypos > top && ypos < top + (*itr).height) {
-                cShape = CursorShape::Text;
+                if (mouseX > contentLeft) {
+                    cShape = CursorShape::Text;
+                }
                 if ((*itr).type == ContentBlockType::Title) {
                     highlightedContentBlock.show = false;
                     break;
@@ -7640,8 +7642,8 @@ void renderContentBlockHighlight() {
         float vertices[] = {
             highlightedContentBlock.left, highlightedContentBlock.top,
             highlightedContentBlock.left, highlightedContentBlock.bottom,
-            highlightedContentBlock.left - 20.0f, highlightedContentBlock.top,
-            highlightedContentBlock.left - 20.0f, highlightedContentBlock.bottom,
+            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.top,
+            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.bottom,
         };
 
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
