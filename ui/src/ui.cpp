@@ -92,6 +92,8 @@ HighlightedContentBlock highlightedContentBlock = {
     .backgroundVBO = 0,
     .dragTabVAO = 0,
     .dragTabVBO = 0,
+    .iconVAO = 0,
+    .iconVBO = 0,
 };
 
 ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
@@ -2023,10 +2025,13 @@ void setupUI(bool isDarkTheme) {
     glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    float vertices[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    float vertices[8] = { 0 };
+    float vertices_24[24] = { 0 };
+    float vertices_2400[2400] = { 0 };
 
-    SETUP_BUFFERS(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
-    SETUP_BUFFERS(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
+    SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
+    SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
+    SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, vertices_24);
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
@@ -2046,18 +2051,15 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
-    float verts[2400];
-    memset(verts, 0, sizeof(verts));
-    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, verts);
+    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, vertices_2400);
     explorer.textVerCap = 2400 * sizeof(float);
     explorer.textVertices = 600;
 
-    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, verts);
+    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, vertices_2400);
     explorer.iconsVerCap = 1200 * sizeof(float);
     explorer.iconsVertices = 300;
 
-    float xvertices[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, xvertices);
+    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, vertices_24);
     tabsDisplay.xBufferSize = 96;
     tabsDisplay.xVertices = 24;
 
@@ -7666,13 +7668,36 @@ void renderContentBlockHighlight() {
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     }
 
-    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
     color = darkTheme ? CONTENT_HIGHLIGHT_DRAG_DARK : CONTENT_HIGHLIGHT_DRAG;
 
+    glUseProgram(shaders[SHADER_DEFAULT].programId);
     glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);
-
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    vector<float> iVertices;
+
+    if (highlightedContentBlock.updated) {
+        glBindVertexArray(highlightedContentBlock.iconVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.iconVBO);
+
+        iVertices.reserve(24);
+
+        float height = highlightedContentBlock.bottom - highlightedContentBlock.top;
+        float iconHeight = 16.0f - glyphDescender * 16.0f;
+
+        appendCharVertices(
+            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH/2,
+            highlightedContentBlock.top + height / 2 - iconHeight,
+            icons[ICON_MORE_VERTICAL],
+            iVertices
+        );
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
+    }
+
+    color = WHITE;
+
+    DRAW_ICON(highlightedContentBlock.iconVAO, glm::value_ptr(color), 24);
 
     highlightedContentBlock.updated = false;
 }

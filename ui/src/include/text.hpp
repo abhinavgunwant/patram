@@ -48,6 +48,16 @@ extern bool debugTextFirstRenderPrint;
 #define ICON_MOVE                   6
 #define ICON_MORE_VERTICAL          7
 
+#define DRAW_ICON(vao, color, numVertices) do {\
+        glBindVertexArray(vao);\
+        glActiveTexture(GL_TEXTURE0);\
+        glBindTexture(GL_TEXTURE_2D, iconTextureID);\
+        glUseProgram(shaders[SHADER_TEXT].programId);\
+        glUniform4fv(uniforms[U_TEXT_COLOR], 4, color);\
+        glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);\
+        glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);\
+    } while(false)
+
 using namespace std;
 
 struct GlyphDimensions {

@@ -502,6 +502,8 @@ struct HighlightedContentBlock {
     uint32_t backgroundVBO;
     uint32_t dragTabVAO;
     uint32_t dragTabVBO;
+    uint32_t iconVAO;
+    uint32_t iconVBO;
 };
 
 struct ContentBlockMoveMarker {
