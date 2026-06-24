@@ -390,11 +390,53 @@ vector<VaultIndexEntry> getDirectoryContent(filesystem::path dirPath) {
                 continue;
             }
 
+            sort(children.begin(), children.end(), [](VaultIndexEntry& a, VaultIndexEntry& b) {
+                if (
+                    a.type == VaultIndexEntryType::Folder
+                    && b.type == VaultIndexEntryType::Folder
+                ) {
+                    return lexicographical_compare(
+                        a.title.begin(), a.title.end(),
+                        b.title.begin(), b.title.end(),
+                        [] (char a, char b) {
+                            return tolower(a) < tolower(b);
+                        }
+                    );
+                }
+
+                if (a.type == VaultIndexEntryType::Folder) {
+                    return true;
+                }
+
+                return false;
+            });
+
             index.push_back({ type, filename, children });
         }
     } catch (const filesystem::filesystem_error& e) {
         cerr << "\nError: " << e.what();
     }
+
+    sort(index.begin(), index.end(), [](VaultIndexEntry& a, VaultIndexEntry& b) {
+        if (
+            a.type == VaultIndexEntryType::Folder
+            && b.type == VaultIndexEntryType::Folder
+        ) {
+            return lexicographical_compare(
+                a.title.begin(), a.title.end(),
+                b.title.begin(), b.title.end(),
+                [] (char a, char b) {
+                    return tolower(a) < tolower(b);
+                }
+            );
+        }
+
+        if (a.type == VaultIndexEntryType::Folder) {
+            return true;
+        }
+
+        return false;
+    });
 
     return index;
 }
