@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
+#include <algorithm>
 
 #ifdef DEBUG_TEXT_INPUT
     #include <string_view>
@@ -501,9 +502,11 @@ tuple<ExplorerNodeType, filesystem::path> getActiveExplorerNodePath(vector<Explo
             tuple<ExplorerNodeType, filesystem::path> tup = getActiveExplorerNodePath((*itr).children);
             filesystem::path _p = get<1>(tup);
 
-            ent = get<0>(tup);
-            p /= (*itr).name / _p;
-            break;
+            if (!_p.empty()) {
+                ent = get<0>(tup);
+                p /= (*itr).name / _p;
+                break;
+            }
         }
     }
 
@@ -570,10 +573,10 @@ tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
 
 void unsetExplorerTreeFlag(vector<ExplorerNode>& nodes, uint8_t flag) {
     for (auto itr = nodes.begin(); itr != nodes.end(); ++itr) {
-        UNSET_FLAG((*itr).flags, flag);
+        UNSET_FLAG(itr->flags, flag);
 
-        if (!(*itr).children.empty()) {
-            unsetExplorerTreeFlag((*itr).children, flag);
+        if (!itr->children.empty()) {
+            unsetExplorerTreeFlag(itr->children, flag);
         }
     }
 }
@@ -1945,13 +1948,15 @@ void createNoteInActiveExplorerNode() {
     ExplorerNodeType ent = get<0>(tup);
     filesystem::path p = get<1>(tup);
 
-    if (p.empty()) { return; }
+    if (p.empty()) {
+        p = getVaultPath(selectedVault) / elem->text;
+    } else {
+        if (ent == ExplorerNodeType::Note) {
+            p = p.parent_path();
+        }
 
-    if (ent == ExplorerNodeType::Note) {
-        p = p.parent_path();
+        p = getVaultPath(selectedVault) / p / elem->text;
     }
-
-    p = getVaultPath(selectedVault) / p / elem->text;
 
     createNote(p);
     newNote(p);
