@@ -2874,7 +2874,8 @@ void cbKeyCallback(int key, int action, int mod) {
                 }
 
                 TAB_BAR.reDraw = true;
-
+                recalculateLayout(&MAIN_CONTAINER);
+                recalculateContentWidth();
                 updateWindowTitle();
                 break;
 
