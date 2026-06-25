@@ -17,7 +17,7 @@
 #define ICONS_ATLAS_FILE            "assets/images/icons.png"
 
 #define MAX_CHARACTERS              65535
-#define MAX_ICONS                   8
+#define MAX_ICONS                   9
 #define DEFAULT_FONT_SIZE           48
 #define ATLAS_DIMENSION             1024
 // #define DEBUG_TEXT
@@ -41,12 +41,13 @@ extern bool debugTextFirstRenderPrint;
 
 #define ICON_CHEVRON_DOWN           0
 #define ICON_CHEVRON_RIGHT          1
-#define ICON_FILE                   2
-#define ICON_SETTINGS               3
-#define ICON_SIDEBAR                4
-#define ICON_CLOSE                  5
-#define ICON_MOVE                   6
-#define ICON_MORE_VERTICAL          7
+#define ICON_CHEVRON_LEFT           2
+#define ICON_FILE                   3
+#define ICON_SETTINGS               4
+#define ICON_SIDEBAR                5
+#define ICON_CLOSE                  6
+#define ICON_MOVE                   7
+#define ICON_MORE_VERTICAL          8
 
 #define DRAW_ICON(vao, color, numVertices) do {\
         glBindVertexArray(vao);\
