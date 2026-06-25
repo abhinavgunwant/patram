@@ -1714,7 +1714,7 @@ inline void appendTextVerticesForExplorerNode(
 }
 
 void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
-    float x = 0.0f;
+    float x = TAB_BAR.left;
     uint32_t i = 0;
 
     for (ContentTab& tab: tabs) {
@@ -1762,8 +1762,8 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
     }
 
     float vertices[8] = {
-        0, 0,
-        0, TAB_BAR_HEIGHT,
+        TAB_BAR.left, 0,
+        TAB_BAR.left, TAB_BAR_HEIGHT,
         static_cast<float>(windowWidth), 0,
         static_cast<float>(windowWidth), TAB_BAR_HEIGHT
     };
@@ -2077,36 +2077,38 @@ void setupUI(bool isDarkTheme) {
 
     // TODO: when restoring previous session reserve the previous tabs
 
-    ROOT_CONTAINER.text = "Root Container";
+    ROOT_CONTAINER.text = "ROOT";
     ROOT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     ROOT_CONTAINER.preferences->heightPreference = UISizePreference::Full;
-    ROOT_CONTAINER.preferences->direction = false;
+    ROOT_CONTAINER.preferences->direction = true;
 
-    TAB_BAR.text = "Tab Bar";
+    TAB_BAR.text = "TAB_BAR";
     TAB_BAR.preferences->widthPreference = UISizePreference::Full;
     TAB_BAR.preferences->heightPreference = UISizePreference::Fixed;
     TAB_BAR.preferences->verticalAlign = UIAlignment::Start;
     TAB_BAR.preferences->horizontalAlign = UIAlignment::Center;
 
-    MAIN_CONTAINER.text = "MAIN_CONTAINER";
-    MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Full;
-    MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
-    MAIN_CONTAINER.preferences->verticalAlign = UIAlignment::End;
+    MAIN_CONTAINER.text = "MAIN";
+    MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Stretch;
+    MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Full;
+    MAIN_CONTAINER.preferences->horizontalAlign = UIAlignment::End;
+    MAIN_CONTAINER.preferences->direction = false;
+    MAIN_CONTAINER.show = false;
 
     EXPLORER.text = "EXPLORER";
     EXPLORER.show = false;
     EXPLORER.id = EXPLORER_PANE_ID;
 
-    CONTENT_CONTAINER.text = "CONT_CONTAINER";
+    CONTENT_CONTAINER.text = "CONTENT";
     CONTENT_CONTAINER.scrollData->width = WINDOW_WIDTH;
-    CONTENT_CONTAINER.scrollData->height = WINDOW_HEIGHT - 64;
-    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Stretch;
+    CONTENT_CONTAINER.scrollData->height = WINDOW_HEIGHT - TAB_BAR_HEIGHT;
+    CONTENT_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     CONTENT_CONTAINER.preferences->heightPreference = UISizePreference::Stretch;
     CONTENT_CONTAINER.preferences->verticalAlign = UIAlignment::End;
     CONTENT_CONTAINER.preferences->horizontalAlign = UIAlignment::End;
-    CONTENT_CONTAINER.active = true;
+    CONTENT_CONTAINER.active = false;
 
-    WELCOME_SCREEN.text = "Welcome Screen";
+    WELCOME_SCREEN.text = "WELCOME";
     WELCOME_SCREEN.preferences->widthPreference = UISizePreference::Stretch;
     WELCOME_SCREEN.preferences->heightPreference = UISizePreference::Full;
     WELCOME_SCREEN.preferences->horizontalAlign = UIAlignment::End;
@@ -2116,9 +2118,9 @@ void setupUI(bool isDarkTheme) {
     WELCOME_MAIN_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     WELCOME_MAIN_CONTAINER.preferences->heightPreference = UISizePreference::Grow;
     WELCOME_MAIN_CONTAINER.preferences->direction = false;
-    WELCOME_MAIN_CONTAINER.text = "WEL_MAIN_CONT";
+    WELCOME_MAIN_CONTAINER.text = "WEL_MAIN";
 
-    FLOATING_CONTAINER.text = "FLOATING_CONT";
+    FLOATING_CONTAINER.text = "FLOATING";
     FLOATING_CONTAINER.positioning = UIPositioning::Absolute;
     FLOATING_CONTAINER.preferences->widthPreference = UISizePreference::Full;
     FLOATING_CONTAINER.preferences->heightPreference = UISizePreference::Full;
@@ -2160,11 +2162,11 @@ void setupUI(bool isDarkTheme) {
 
     addChild(&WELCOME_SCREEN, &WELCOME_MAIN_CONTAINER);
 
-    addChild(&MAIN_CONTAINER, &EXPLORER);
-    addChild(&MAIN_CONTAINER, &WELCOME_SCREEN);
+    addChild(&MAIN_CONTAINER, &TAB_BAR);
     addChild(&MAIN_CONTAINER, &CONTENT_CONTAINER);
 
-    addChild(&ROOT_CONTAINER, &TAB_BAR);
+    addChild(&ROOT_CONTAINER, &EXPLORER);
+    addChild(&ROOT_CONTAINER, &WELCOME_SCREEN);
     addChild(&ROOT_CONTAINER, &MAIN_CONTAINER);
     addChild(&ROOT_CONTAINER, &FLOATING_CONTAINER);
 
@@ -4784,7 +4786,12 @@ void tabBarMouseDownCallback(
                 activeTabIndex = i;
                 TAB_BAR.reDraw = true;
                 TAB_BAR.active = false;
+
+                if (activeElement != nullptr) {
+                    activeElement->active = false;
+                }
                 activeElement = &CONTENT_CONTAINER;
+                CONTENT_CONTAINER.active = true;
 
                 ContentTab* tab = CURRENT_TAB;
 
@@ -5294,7 +5301,14 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
 
     TAB_BAR.reDraw = true;
     WELCOME_SCREEN.show = false;
+    MAIN_CONTAINER.show = true;
+    MAIN_CONTAINER.reDraw = true;
+
+    if (activeElement != nullptr) {
+        activeElement->active = false;
+    }
     activeElement = &CONTENT_CONTAINER;
+    CONTENT_CONTAINER.active = true;
 }
 
 void closeCurrentTab() {
@@ -5370,10 +5384,14 @@ void closeTab(uint32_t index) {
 
     if (tabs.empty()) {
         WELCOME_SCREEN.show = true;
+        WELCOME_SCREEN.reDraw = true;
+        WELCOME_MAIN_CONTAINER.reDraw = true;
+
         activeElement = nullptr;
+
+        MAIN_CONTAINER.show = false;
         TAB_BAR.show = false;
         CONTENT_CONTAINER.show = false;
-        recalculateLayout(&WELCOME_SCREEN);
     }
 
     updateWindowTitle();
@@ -5504,15 +5522,28 @@ inline void toggleExplorer() {
         }
     #endif
 
-    highlightedContentBlock.show = false;
-    highlightedContentBlock.updated = true;
-    recalculateLayout(&MAIN_CONTAINER);
-
-    if (CONTENT_CONTAINER.show) {
-        CURRENT_TAB->redrawCursor = true;
+    if (EXPLORER.show) {
+        EXPLORER.reDraw = true;
     }
 
-    recalculateContentWidth();
+    if (MAIN_CONTAINER.show) {
+        highlightedContentBlock.show = false;
+        highlightedContentBlock.updated = true;
+
+        MAIN_CONTAINER.reDraw = true;
+
+        if (CONTENT_CONTAINER.show) {
+            CURRENT_TAB->redrawCursor = true;
+        }
+
+        recalculateLayout(&MAIN_CONTAINER);
+        recalculateContentWidth();
+    }
+
+    if (WELCOME_SCREEN.show) {
+        WELCOME_SCREEN.reDraw = true;
+        recalculateLayout(&WELCOME_SCREEN);
+    }
 }
 
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
@@ -5572,6 +5603,7 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                         ) {
                             switch (siblingElem->preferences->widthPreference) {
                                 case UISizePreference::Fixed:
+                                    ++stretchCandidates;
                                 case UISizePreference::Grow:
                                     if (!currElemFound) {
                                         left += siblingElem->width;
@@ -5731,7 +5763,7 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
 
             case UIAlignment::End:
                 if (elem->parent != nullptr) {
-                    elem->left = elem->parent->width - elem->width;
+                    elem->left = elem->parent->left + elem->parent->width - elem->width;
                 }
                 break;
 
@@ -6130,6 +6162,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                             elem.children[i]->left = left;
                             elem.children[i]->top = elem.top + elem.children[i]->marginTop;
 
+                            if (elem.reDraw) {
+                                elem.children[i]->reDraw = true;
+                            }
+
                             renderElement(*elem.children[i], resolution, cursor, i, yp);
 
                             left += elem.children[i]->width + 8.0f;
@@ -6138,6 +6174,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 } else {
                     for (uint32_t i=0; i<elem.totalChildren; ++i) {
                         if (elem.children[i]->show) {
+                            if (elem.reDraw) {
+                                elem.children[i]->reDraw = true;
+                            }
+
                             renderElement(*elem.children[i], resolution, cursor, i, yp);
                         }
                     }
