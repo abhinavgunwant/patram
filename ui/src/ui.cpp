@@ -940,6 +940,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         tab->scrollbarUpdated = false;
 
         TAB_BAR.reDraw = true;
+        adjustTabOffset();
 
         if (tabs.size() > 1) {
             for (auto tabIter = tabs.begin(); tabIter != tabs.end(); ++tabIter) {
