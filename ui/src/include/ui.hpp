@@ -42,6 +42,7 @@
 
 // Generic colors
 #define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
+#define RED                 glm::vec4(1.0, 0.0, 0.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
 #define TRANSPARENT_COLOR   glm::vec4(0.0, 0.0, 0.0, 0.0)
 
@@ -63,6 +64,7 @@
 #define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
 #define EXPLORER_BG                 glm::vec4(0.82, 0.82, 0.82, 1.0)
 #define EXPLORER_HOVER_BG           glm::vec4(0.89, 0.827, 0.827, 1.0)
+#define EXPLORER_LINE_COLOR         glm::vec4(1.0, 0.7, 0.7, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
 #define SCROLL_BAR_THUMB_COLOR      glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
@@ -89,6 +91,7 @@
 #define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
 #define EXPLORER_BG_DARK            glm::vec4(0.12, 0.1, 0.1, 1.0)
 #define EXPLORER_HOVER_BG_DARK      glm::vec4(0.19, 0.18, 0.18, 1.0)
+#define EXPLORER_LINE_COLOR_DARK    glm::vec4(1.0, 0.7, 0.7, 1.0)
 
 #define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 #define SCROLL_BAR_THUMB_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
