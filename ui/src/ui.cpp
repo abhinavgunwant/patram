@@ -59,6 +59,14 @@
         glEnableVertexAttribArray(0);\
     } while (false)
 
+#define DRAW_RECT(vao, color) do {\
+        glBindVertexArray(vao);\
+        glUseProgram(shaders[SHADER_DEFAULT].programId);\
+        glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);\
+        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);\
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
+    } while(false)
+
 
 #define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
@@ -1735,22 +1743,22 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
         tab.xOffset = static_cast<uint16_t>(x);
 
         x += TAB_HORIZONTAL_PADDING;
-        x += appendTextVertices(x, TAB_VERTICAL_PADDING, tabtext, textVertices);
+        x += appendTextVertices(x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING, tabtext, textVertices);
         x += TAB_HORIZONTAL_PADDING;
 
         tab.closeX = static_cast<uint16_t>(x - prevX);
 
-        x += appendCharVertices(x, 5, icons[ICON_CLOSE], xVertices);
+        x += appendCharVertices(x - tabsDisplay.xOffset, 5, icons[ICON_CLOSE], xVertices);
         x += TAB_HORIZONTAL_PADDING;
 
         tab.width = static_cast<uint16_t>(x - prevX);
 
         if (i == activeTabIndex) {
             float vertices[8] = {
-                static_cast<float>(tab.xOffset), 0.0f,
-                static_cast<float>(tab.xOffset), TAB_BAR_HEIGHT,
-                static_cast<float>(tab.xOffset) + static_cast<float>(tab.width), 0.0f,
-                static_cast<float>(tab.xOffset) + static_cast<float>(tab.width), TAB_BAR_HEIGHT,
+                static_cast<float>(tab.xOffset) - tabsDisplay.xOffset, 0.0f,
+                static_cast<float>(tab.xOffset) - tabsDisplay.xOffset, TAB_BAR_HEIGHT,
+                static_cast<float>(tab.xOffset + tab.width) - tabsDisplay.xOffset, 0.0f,
+                static_cast<float>(tab.xOffset + tab.width) - tabsDisplay.xOffset, TAB_BAR_HEIGHT,
             };
 
             glBindVertexArray(tabsDisplay.activeBgVao);
@@ -1760,6 +1768,8 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
 
         ++i;
     }
+
+    tabsDisplay.totalX = x;
 
     float vertices[8] = {
         TAB_BAR.left, 0,
@@ -1771,6 +1781,35 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
     glBindVertexArray(TAB_BAR.vao);
     glBindBuffer(GL_ARRAY_BUFFER, TAB_BAR.vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+    if (x > windowWidth - 2 * TAB_BAR_HEIGHT && TAB_BAR.totalChildren == 0) {
+        float vertices[8] = { 0 };
+        float vertices24[24] = { 0 };
+
+        UIElement* buttons = new UIElement[2];
+
+        initElement(buttons[0], UIElementType::IconButton, 0.0f, windowWidth - 2 * TAB_BAR_HEIGHT, TAB_BAR_HEIGHT, TAB_BAR_HEIGHT);
+        initElement(buttons[1], UIElementType::IconButton, 0.0f, windowWidth - TAB_BAR_HEIGHT, TAB_BAR_HEIGHT, TAB_BAR_HEIGHT);
+
+        SETUP_BUFFERS_DYNAMIC(buttons[0].vao, buttons[0].vbo, vertices);
+        SETUP_BUFFERS_TEXT(buttons[0].textVAO, buttons[0].textVBO, vertices24);
+        SETUP_BUFFERS_DYNAMIC(buttons[1].vao, buttons[1].vbo, vertices);
+        SETUP_BUFFERS_TEXT(buttons[1].textVAO, buttons[1].textVBO, vertices24);
+
+        buttons[0].icon = Icon::ChevronLeft;
+        buttons[1].icon = Icon::ChevronRight;
+        buttons[0].id = TAB_BAR_PREV_TAB_ID;
+        buttons[1].id = TAB_BAR_NEXT_TAB_ID;
+
+        buttons[0].textBufferSize = 24 * sizeof(float);
+        buttons[1].textBufferSize = 24 * sizeof(float);
+        buttons[0].textVerticesCount = 24;
+        buttons[1].textVerticesCount = 24;
+
+        initializeCapacity(&TAB_BAR, 2);
+        addChild(&TAB_BAR, &buttons[0]);
+        addChild(&TAB_BAR, &buttons[1]);
+    }
 }
 
 void setupExplorer(vector<float>& vertices, vector<float>& iVertices) {
@@ -4771,14 +4810,44 @@ void tabBarMouseDownCallback(
     glm::vec2 res,
     int glfwButton
 ) {
+    float totalWidth = elem->left + tabsDisplay.totalX + 2 * TAB_BAR_HEIGHT;
+
+    if (totalWidth > windowWidth) {
+        if (mouseX > windowWidth - TAB_BAR_HEIGHT) {
+
+            if (totalWidth - tabsDisplay.xOffset > windowWidth) {
+                float newOffset = tabsDisplay.xOffset + 160.0f;
+
+                if (totalWidth - newOffset < windowWidth) {
+                    newOffset = totalWidth - windowWidth;
+                }
+
+                tabsDisplay.xOffset = newOffset;
+
+                elem->reDraw = true;
+            }
+
+            return;
+        } else if (mouseX > windowWidth - 2 * TAB_BAR_HEIGHT) {
+            tabsDisplay.xOffset -= 160.0f;
+
+            if (tabsDisplay.xOffset < 0.0f) {
+                tabsDisplay.xOffset = 0.0f;
+            }
+
+            elem->reDraw = true;
+            return;
+        }
+    }
+
     for (int i=0; i<tabs.size(); ++i) {
-        float x = static_cast<float>(tabs[i].xOffset + tabs[i].width);
+        float x = static_cast<float>(tabs[i].xOffset + tabs[i].width) - tabsDisplay.xOffset;
 
         if (mouseX <= x) {
             if (
                 glfwButton == GLFW_MOUSE_BUTTON_3
                 || (
-                    mouseX > static_cast<float>(tabs[i].xOffset + tabs[i].closeX - 5)
+                    mouseX > static_cast<float>(tabs[i].xOffset + tabs[i].closeX - 5) - tabsDisplay.xOffset
                     && mouseX < x - 5
                 )
             ) {
@@ -5135,7 +5204,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
         0,
         0,
-        0,
 
         0,
         0,
@@ -5316,6 +5384,22 @@ void closeCurrentTab() {
     closeTab(activeTabIndex);
 }
 
+void adjustTabOffset() {
+    tabsDisplay.recalcOffset = false;
+    float totalWidth = TAB_BAR.left + tabsDisplay.totalX + 2 * TAB_BAR_HEIGHT;
+
+    if (totalWidth > windowWidth) {
+        if (totalWidth - tabsDisplay.xOffset < windowWidth) {
+            tabsDisplay.xOffset = totalWidth - windowWidth;
+            TAB_BAR.reDraw = true;
+        }
+        return;
+    }
+
+    tabsDisplay.xOffset = 0.0f;
+    TAB_BAR.reDraw = true;
+}
+
 void closeTab(uint32_t index) {
     ContentTab* tab = &tabs[index];
 
@@ -5393,6 +5477,8 @@ void closeTab(uint32_t index) {
         MAIN_CONTAINER.show = false;
         TAB_BAR.show = false;
         CONTENT_CONTAINER.show = false;
+    } else {
+        tabsDisplay.recalcOffset = true;
     }
 
     updateWindowTitle();
@@ -6717,102 +6803,105 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         }
 
         case UIElementType::IconButton: {
-            if (iconButtonVertices[0] == -1.0) {
-                // TODO: update this to run on every initialization and changes
-                // in appearance settings
-
-                // cout << "\nInitializing icon button vertices";
-                iconButtonVertices[0] = 48.0f;
-                iconButtonVertices[1] = 48.0f;
-                iconButtonVertices[2] = 1.0f;
-                iconButtonVertices[3] = 0.0f;
-
-                iconButtonVertices[4] = 48.0f;
-                iconButtonVertices[5] = 0.0f;
-                iconButtonVertices[6] = 1.0f;
-                iconButtonVertices[7] = 1.0f;
-
-                iconButtonVertices[8] = 0.0f;
-                iconButtonVertices[9] = 48.0f;
-                iconButtonVertices[10] = 0.0f;
-                iconButtonVertices[11] = 0.0f;
-
-                iconButtonVertices[12] = 0.0f;
-                iconButtonVertices[13] = 0.0f;
-                iconButtonVertices[14] = 0.0f;
-                iconButtonVertices[15] = 1.0f;
-
-                if (elem.reDraw) {
-                    #ifdef DEBUG_RENDER
-                        cout << "\nRedrawing icon button";
-                    #endif
-
-                    glGenVertexArrays(1, &iconButtonVAO);
-                    glBindVertexArray(iconButtonVAO);
-                    glGenBuffers(1, &iconButtonVBO);
-                    glBindBuffer(GL_ARRAY_BUFFER, iconButtonVBO);
-                    glBufferData(GL_ARRAY_BUFFER, sizeof(iconButtonVertices), iconButtonVertices, GL_STATIC_DRAW);
-                    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-                    glEnableVertexAttribArray(0);
-                    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-                    glEnableVertexAttribArray(1);
-                }
-            }
-
-            glBindVertexArray(iconButtonVAO);
-            glUseProgram(shaders[SHADER_ICON_BUTTON].programId);
-
-            // cout << "icon button color: r: " << elem.color.r << " g: " << elem.color.g << " b: " << elem.color.b << " a: " << elem.color.a;
-
-            glUniform2f(uniforms[U_ICON_BUTTON_RESOLUTION], resolution.x, resolution.y);
             glm::vec4 bg = darkTheme ? ICON_BUTTON_BG_DARK : ICON_BUTTON_BG;
             glm::vec4 hv = darkTheme ? ICON_BUTTON_HOVER_BG_DARK : ICON_BUTTON_HOVER_BG;
             glm::vec4 color = darkTheme ? ICON_BUTTON_COLOR_DARK : ICON_BUTTON_COLOR;
-            glUniform4f(uniforms[U_ICON_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
-            glUniform4f(uniforms[U_ICON_BUTTON_COLOR], color.r, color.g, color.b, color.a);
-            glUniform4f(uniforms[U_ICON_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
-            glUniform2f(uniforms[U_ICON_BUTTON_TOP_LEFT], elem.left, elem.top);
-            glUniform2f(uniforms[U_ICON_BUTTON_CURSOR], cursor.x, cursor.y);
-            glUniform1f(uniforms[U_ICON_BUTTON_WIDTH], elem.width);
-            glUniform1f(uniforms[U_ICON_BUTTON_HEIGHT], elem.height);
 
-            if (elem.icon != Icon::None) {
-                if (elem.texture == 0) {
-                    glGenTextures(1, &elem.texture);
-                    glBindTexture(GL_TEXTURE_2D, elem.texture);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-                    int width, height, nrChannels;
-
-                    stbi_set_flip_vertically_on_load(true);
-
-                    string location = getIconLocation(elem.icon);
-                    uint8_t* data = stbi_load(location.c_str(), &width, &height, &nrChannels, 0);
-
-                    if (data) {
-                        #ifdef DEBUG_TEXTURE
-                            cout << "\nTexture " << location << " loaded.";
-                        #endif
-
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-                        glGenerateMipmap(GL_TEXTURE_2D);
-                    } else {
-                        cerr << "\nError: Failed to load texture (" << location << ").";
-                    }
-
-                    stbi_image_free(data);
-                }
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, elem.texture);
+            if (elem.id == TAB_BAR_PREV_TAB_ID || elem.id == TAB_BAR_NEXT_TAB_ID) {
+                bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
             }
 
-            glUniform1i(uniforms[U_ICON_BUTTON_TEXTURE], 0);
+            if (elem.reDraw) {
+                vector<float> vertices;
+                vertices.reserve(24);
 
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                vertices.insert(vertices.end(), {
+                    elem.left,              elem.top,
+                    elem.left + elem.width, elem.top,
+                    elem.left,              elem.top + elem.height,
+                    elem.left + elem.width, elem.top + elem.height,
+                });
+
+                glBindVertexArray(elem.vao);
+                glBindBuffer(GL_ARRAY_BUFFER, elem.vao);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
+
+                glUseProgram(shaders[SHADER_BUTTON].programId);
+                glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
+                glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
+                glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
+                glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
+                glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
+                glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], 16.0f);
+                glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                vertices.clear();
+
+                Character c;
+
+                switch (elem.icon) {
+                    case Icon::ChevronRight:    c = icons[ICON_CHEVRON_RIGHT]; break;
+                    case Icon::ChevronLeft:     c = icons[ICON_CHEVRON_LEFT]; break;
+                    default:
+                        elem.reDraw = false;
+                        return;
+                }
+
+                float dimension = TAB_BAR_HEIGHT;
+
+                float width = static_cast<float>(c.width) / 2;
+                float height = static_cast<float>(c.height) / 2;
+
+                float left = elem.left + (dimension - width) / 2;
+                float top = elem.top + (dimension - height)/2;
+
+                vertices.insert(vertices.end(), {
+                    left,         top,          c.textureX1, c.textureY1,
+                    left + width, top,          c.textureX2, c.textureY1,
+                    left,         top + height, c.textureX1, c.textureY2,
+                    left,         top + height, c.textureX1, c.textureY2,
+                    left + width, top,          c.textureX2, c.textureY1,
+                    left + width, top + height, c.textureX2, c.textureY2,
+                });
+
+                drawTextBuffers(
+                    elem.textVAO,
+                    elem.textVBO,
+                    elem.textBufferSize, 
+                    elem.textVerticesCount,
+                    resolution,
+                    vertices,
+                    darkTheme ? WHITE : BLACK,
+                    true,
+                    iconTextureID
+                );
+            } else {
+                vector<float> _v;
+
+                glBindVertexArray(elem.vao);
+                glUseProgram(shaders[SHADER_BUTTON].programId);
+                glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
+                glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
+                glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
+                glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
+                glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
+                glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], 16.0f);
+                glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                drawTextBuffers(
+                    elem.textVAO,
+                    elem.textVBO,
+                    elem.textBufferSize, 
+                    elem.textVerticesCount,
+                    resolution,
+                    _v,
+                    darkTheme ? WHITE : BLACK,
+                    false,
+                    iconTextureID
+                );
+            }
 
             elem.reDraw = false;
             break;
@@ -7332,20 +7421,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
         case UIElementType::TabBar: {
             if (tabs.empty()) { return; }
 
-            glBindVertexArray(elem.vao);
-            glUseProgram(shaders[SHADER_DEFAULT].programId);
-            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
             glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
-            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.x, bg.y, bg.z, bg.w);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            DRAW_RECT(elem.vao, bg);
 
-            glBindVertexArray(tabsDisplay.activeBgVao);
-            glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay.activeBgVbo);
-            glUseProgram(shaders[SHADER_DEFAULT].programId);
             bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
-            glUniform4f(uniforms[U_DEFAULT_COLOR], bg.r, bg.g, bg.b, bg.a);
-            glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            DRAW_RECT(tabsDisplay.activeBgVao, bg);
+
+            glScissor(elem.left, 0, windowWidth, windowHeight);
+
+            glEnable(GL_SCISSOR_TEST);
 
             if (elem.reDraw) {
                 vector<float> textVertices;
@@ -7404,7 +7488,31 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 );
             }
 
-            elem.reDraw = false;
+            glDisable(GL_SCISSOR_TEST);
+
+            if (
+                tabsDisplay.totalX > windowWidth - 2 * TAB_BAR_HEIGHT
+                && elem.children != nullptr
+                && elem.totalChildren
+            ) {
+                float _y;
+                glm::vec2 cursor = glm::vec2(mouseX, mouseY);
+
+                if (elem.reDraw) {
+                    elem.children[0]->left = windowWidth - 2*TAB_BAR_HEIGHT;
+                    elem.children[1]->left = windowWidth - TAB_BAR_HEIGHT;
+                }
+
+                renderElement(*elem.children[0], resolution, cursor, 0, _y);
+                renderElement(*elem.children[1], resolution, cursor, 1, _y);
+            }
+
+
+            if (tabsDisplay.recalcOffset) {
+                adjustTabOffset();
+            } else {
+                elem.reDraw = false;
+            }
 
             break;
         }

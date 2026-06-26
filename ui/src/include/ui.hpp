@@ -138,6 +138,9 @@
 #define DIALOG_CONTAINER_ID                         202
 #define HORIZONTAL_BUTTON_ROW_ID                    203
 
+#define TAB_BAR_PREV_TAB_ID                         301
+#define TAB_BAR_NEXT_TAB_ID                         302
+
 #define BUTTON_PADDING                              8
 #define EXPLORER_CONTEXT_MENU_BUTTON_PADDING        4
 #define TEXT_INPUT_PADDING                          4
@@ -298,6 +301,8 @@ enum class Icon : uint8_t {
     None,
     Plus,
     File,
+    ChevronRight,
+    ChevronLeft,
 };
 
 enum class UIPositioning: uint8_t {
@@ -449,7 +454,6 @@ struct UIElement {
 
     uint32_t vao;
     uint32_t vbo;
-    uint32_t texture;
 
     uint32_t textVAO;
     uint32_t textVBO;
@@ -578,6 +582,9 @@ struct TabsDisplay {
     uint32_t xVertices;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
+    float totalX;
+    float xOffset;
+    bool recalcOffset;
 };
 
 extern TabsDisplay tabsDisplay;
@@ -667,6 +674,7 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
 void newTab(filesystem::path tabPath);
 void closeTab(uint32_t index);
 void closeCurrentTab();
+void adjustTabOffset();
 string getSelectedTextFromCurrentTab();
 UIPreferences* initPreferences();
 void initializeCapacity(UIElement* parent, int capacity, Arena* arena = nullptr);
