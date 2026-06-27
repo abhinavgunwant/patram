@@ -786,17 +786,20 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             if (highlightedContentBlock.show && highlightedContentBlock.mouseDown) {
                 cout << "\nHighlighted content block RELEASE target: ";
 
-                if (cbMove.targetIndex != 0) {
+                if (cbMove.targetIndex > 0 && cbMove.targetIndex < CURRENT_TAB->contentBlocks.size()) {
                     cout << tabs[activeTabIndex].contentBlocks[cbMove.targetIndex].rope->text.substr(0, 10);
                 } else {
                     cout << "NULL";
                 }
 
-                moveContentBlock(
-                    activeTabIndex,
+                processCBCommand({
+                    CommandType::MoveContentBlock,
+                    false,
+                    0,
+                    cbMove.targetIndex,
                     highlightedContentBlock.cbIndex,
-                    cbMove.targetIndex
-                );
+                    ""
+                });
 
                 tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
                 reDrawAllContentBlocks();
@@ -9110,7 +9113,7 @@ bool processCBDeleteSelectedCommand(
 
 void processCBCommand(ContentCommand cmd) {
     ContentTab* tab = &tabs[activeTabIndex];
-    ContentBlock* cb = &tab->contentBlocks[cmd.startCBIndex];
+    ContentBlock* cb = cmd.startCBIndex >= tab->contentBlocks.size() ? nullptr : &tab->contentBlocks[cmd.startCBIndex];
 
     #define CONCAT(a, b, c) a ## b ## c
     #define PROC(cmdType) CONCAT(processCB, cmdType, Command)(tab, &cmd, cb, true);
@@ -9139,6 +9142,11 @@ void processCBCommand(ContentCommand cmd) {
         case CommandType::DeleteSelected: append = PROC(DeleteSelected); break;
         case CommandType::Undo: processCBUndo(tab); break;
         case CommandType::Redo: processCBRedo(tab); break;
+        case CommandType::MoveContentBlock: {
+            append = true;
+            moveContentBlock(activeTabIndex, cmd.moveCBTo, cmd.moveCBFrom);
+            break;
+        }
     }
 
     updateCBCursor(tab, getCBTextCursor(resolution));
@@ -9611,13 +9619,36 @@ void processCBUndo(ContentTab* tab) {
 
             break;
         }
+
+        case CommandType::MoveContentBlock: {
+            decrement = true;
+
+            if (cmd->moveCBFrom < cmd->moveCBTo) {
+                if (cmd->moveCBTo + 1 == tab->contentBlocks.size()) {
+                    moveContentBlock(activeTabIndex, cmd->moveCBFrom, cmd->moveCBTo);
+                } else {
+                    moveContentBlock(activeTabIndex, cmd->moveCBFrom, cmd->moveCBTo + 1);
+                }
+            } else {
+                moveContentBlock(activeTabIndex, cmd->moveCBFrom - 1, cmd->moveCBTo);
+            }
+            break;
+        }
     }
 
     if (decrement) {
         --tab->currentCommand;
     }
 
-    reDrawCBsFrom(cmd->startCBIndex, 64);
+    if (cmd->type == CommandType::MoveContentBlock) {
+        if (cmd->moveCBFrom < cmd->moveCBTo) {
+            reDrawCBsFrom(cmd->moveCBFrom, cmd->moveCBTo + 1);
+        } else {
+            reDrawCBsFrom(cmd->moveCBTo, cmd->moveCBFrom - 1);
+        }
+    } else {
+        reDrawCBsFrom(cmd->startCBIndex, 64);
+    }
 
     #undef START
     #undef END
@@ -9651,6 +9682,17 @@ void processCBRedo(ContentTab* tab) {
         case CommandType::Delete: increment = PROC(Delete); break;
         case CommandType::DeleteMergeCB: increment = PROC(DeleteMergeCB); break;
         case CommandType::DeleteSelected: increment = PROC(DeleteSelected); break;
+
+        case CommandType::MoveContentBlock: {
+            increment = true;
+            moveContentBlock(activeTabIndex, cmd->moveCBTo, cmd->moveCBFrom);
+            if (cmd->moveCBTo < cmd->moveCBFrom) {
+                reDrawCBsFrom(cmd->moveCBTo, cmd->moveCBFrom);
+            } else {
+                reDrawCBsFrom(cmd->moveCBFrom, cmd->moveCBTo);
+            }
+            break;
+        }
     }
 
     if (increment) {
