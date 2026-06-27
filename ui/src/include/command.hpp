@@ -24,6 +24,7 @@ enum class CommandType : uint8_t {
     Paste,
     Redo,
     Replace,
+    MoveContentBlock,
 };
 
 enum class ContentDeletionType: uint8_t {
@@ -43,8 +44,15 @@ struct ContentCommand {
 
     uint16_t extIndex;
 
-    uint32_t startCBIndex;
-    uint32_t startCursorPos;
+    union {
+        uint32_t startCBIndex;
+        uint32_t moveCBFrom;
+    };
+
+    union {
+        uint32_t startCursorPos;
+        uint32_t moveCBTo;
+    };
 
     string str;
 };
