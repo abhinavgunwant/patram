@@ -9459,17 +9459,11 @@ void processCBUndo(ContentTab* tab) {
             if (cmd->startCursorPos == 0) {
                 auto cbIter = tab->contentBlocks.begin() + cmd->startCBIndex;
 
-                delete (*cbIter).rope;
-
-                // tab->contentBlocks.erase(cbIter);
                 deleteCBs(tab, cbIter, cbIter + 1);
             } else {
                 auto cbIter = tab->contentBlocks.begin() + cmd->startCBIndex + 1;
                 string newLineString = (*cbIter).rope->getString();
 
-                delete (*cbIter).rope;
-
-                // tab->contentBlocks.erase(cbIter);
                 deleteCBs(tab, cbIter, cbIter + 1);
                 CB_ROPE(cmd->startCBIndex)->append(newLineString);
             }
