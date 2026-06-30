@@ -5272,7 +5272,7 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     ContentTab* tab = &tabs[tabIndex];
     uint32_t cbLength = tab->contentBlocks.size();
 
-    if (newIndex >= cbLength || oldIndex >= cbLength) {
+    if (newIndex >= cbLength || oldIndex > cbLength) {
         errorv(
             "Invalid content block move operation! newIndex: %d, oldIndex: %d",
             newIndex,
@@ -5282,6 +5282,8 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     }
 
     if (abs(static_cast<int64_t>(newIndex) - static_cast<int64_t>(oldIndex)) == 1) {
+        if (oldIndex == cbLength) { return; }
+
         ContentBlock temp = tab->contentBlocks[newIndex];
         tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
         tab->contentBlocks[oldIndex] = temp;
@@ -5294,8 +5296,12 @@ void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex) {
     }
 
     if (newIndex < oldIndex) {
+        uint32_t _oldIndex = oldIndex;
+
+        if (oldIndex == cbLength) { --_oldIndex; }
+
         ContentBlock temp = tab->contentBlocks[newIndex];
-        tab->contentBlocks[newIndex] = tab->contentBlocks[oldIndex];
+        tab->contentBlocks[newIndex] = tab->contentBlocks[_oldIndex];
 
         for (
             auto itr = tab->contentBlocks.rbegin() + (cbLength - oldIndex);
@@ -8139,16 +8145,25 @@ void renderCBMoveMarker() {
         && cbMove.show
     ) {
         if (cbMove.updated) {
+            ContentTab* tab = &tabs[activeTabIndex];
+
             float top;
 
             if (cbMove.targetIndex == 0) {
-                uint32_t index = tabs[activeTabIndex].contentBlocks.size() - 1;
-                ContentBlock* last = &tabs[activeTabIndex].contentBlocks[index];
+                uint32_t index = tab->contentBlocks.size() - 1;
+                ContentBlock* last = &tab->contentBlocks[index];
 
                 top = GET_TOP(last) + last->height;
             } else {
-                ContentBlock* last = &tabs[activeTabIndex].contentBlocks[cbMove.targetIndex];
-                top = GET_TOP(last);
+                ContentBlock* last;
+
+                if (cbMove.targetIndex < tab->contentBlocks.size()) {
+                    ContentBlock* block = &tab->contentBlocks[cbMove.targetIndex];
+                    top = GET_TOP(block);
+                } else {
+                    ContentBlock* block = &tab->contentBlocks[cbMove.targetIndex - 1];
+                    top = GET_TOP(block) + block->height;
+                }
             }
 
             float bottom = top + 3.0f;
