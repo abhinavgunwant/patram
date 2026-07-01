@@ -2,8 +2,8 @@
  * Inspired by: https://learnopengl.com/In-Practice/Text-Rendering
  **/
 
-#ifndef PATRAM_TEXT
-#define PATRAM_TEXT
+#ifndef PATRAM_UI_TEXT
+#define PATRAM_UI_TEXT
 
 #include <string>
 
@@ -233,5 +233,5 @@ void initIconTexture();
 
 uint16_t getCharIndex(uint32_t charcode);
 
-#endif // PATRAM_TEXT
+#endif // PATRAM_UI_TEXT
 

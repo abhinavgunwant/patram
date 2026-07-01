@@ -81,9 +81,6 @@ float iconButtonVertices[16] = {
 
 bool darkTheme = false;
 
-uint32_t iconButtonVAO;
-uint32_t iconButtonVBO;
-
 float contentLeft = CONTENT_HORIZONTAL_MARGIN;
 float contentRight = 530.0f;
 

@@ -1,5 +1,5 @@
-#ifndef PATRAM_CORE_UI
-#define PATRAM_CORE_UI
+#ifndef PATRAM_UI_COMMAND
+#define PATRAM_UI_COMMAND
 
 #include <string>
 #include <vector>
@@ -166,5 +166,5 @@ void printCommands(CommandList& list);
 void printContentCommand(ContentCommand* command, ContentCommandExt* cmdExt = nullptr);
 string to_string(CommandType cmdType);
 
-#endif // PATRAM_CORE_UI
+#endif // PATRAM_UI_COMMAND
 
