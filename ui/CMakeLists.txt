@@ -26,3 +26,5 @@ target_link_libraries(ui
     ${LIB_DIR}
 )
 
+target_link_libraries(rope sys ${LIB_DIR})
+

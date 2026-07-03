@@ -6,6 +6,7 @@ add_library(sys
     src/files.cpp
     src/arena.cpp
     src/logger.cpp
+    src/test.cpp
 )
 
 target_include_directories(sys

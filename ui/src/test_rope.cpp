@@ -1,164 +1,128 @@
 #include "include/rope.hpp"
+#include "test.hpp"
 
 #include <iostream>
 
-uint32_t testPassed = 0;
-uint32_t totalTests = 0;
-
-bool allPassed = true;
-bool passed = true;
-
-#define TEST_START(funName, _testName) void funName () {\
-    string testName = _testName; cout << "\nTesting \""\
-    << testName << "\"";
-
-#define TEST_END cout << "\n    \"" << testName << "\" ";\
-        if(passed) {\
-            ++testPassed;\
-            cout << "\033[32mpassed.\033[0m";\
-        } else {\
-            cout << "\033[31mfailed.\033[0m";\
-        }\
-    }
-
-#define RUN_TEST(funName) passed = true;\
-    ++totalTests;\
-    funName()
-
-#define ASSERT(x) if (x == false) {\
-    allPassed = false;\
-    passed = false;\
-    cout << "\n\033[31mAssertion at line " << __LINE__ << " failed.\033[0m";\
-    }
-
-#define ASSERT_EQ(x, y) if (x != y) {\
-    allPassed = false;\
-    passed = false;\
-    cout << "\nAssertion at line " << __LINE__ << " failed. Expected: `" << y << "`, Got: `" << x << "`";\
-    }
-
-#define ASSERT_NULL(x) if (x != nullptr) {\
-    allPassed = false;\
-    passed = false;\
-    cout << "\nAssertion at line " << __LINE__ << " failed. Expected NULL " << ", Got: `" << x << "`";\
-    }
+SETUP_TEST;
 
 TEST_START(basicTest, "Basic Test")
-    Rope a("Say ");
-    Rope b("hello ");
-    Rope c("to");
-    Rope d(" the");
-    Rope e(" beautiful");
-    Rope f(" world!");
+    Rope* a = new Rope("Say ");
+    Rope* b = new Rope("hello ");
+    Rope* c = new Rope("to");
+    Rope* d = new Rope(" the");
+    Rope* e = new Rope(" beautiful");
+    Rope* f = new Rope(" world!");
 
-    Rope g(&b, &c);
-    Rope h(&a, &g);
-    Rope i(&d, &e);
-    Rope j(&i, &f);
+    Rope* g = new Rope(b, c);
+    Rope* h = new Rope(a, g);
+    Rope* i = new Rope(d, e);
+    Rope* j = new Rope(i, f);
 
-    Rope k(&h, &j);
+    Rope* k = new Rope(h, j);
 
-    ASSERT_EQ(k.getString(), "Say hello to the beautiful world!");
-    ASSERT_EQ(k[8], 'o');
-    ASSERT_EQ(k[16], ' ');
-    ASSERT_EQ(k[20], 'u');
-    ASSERT_EQ(k.length(), 33);
+    ASSERT_EQ(k->getString(), "Say hello to the beautiful world!");
+    ASSERT_EQ((*k)[8], 'o');
+    ASSERT_EQ((*k)[16], ' ');
+    ASSERT_EQ((*k)[20], 'u');
+    ASSERT_EQ(k->length(), 33);
 
-    Rope testLen("Let's say this is a string with length 42.");
+    Rope* testLen = new Rope("Let's say this is a string with length 42.");
 
-    ASSERT_EQ(testLen.length(), 42);
+    ASSERT_EQ(testLen->length(), 42);
 TEST_END
 
 TEST_START(testInsert, "Insert test")
-    Rope hello("world!");
+    Rope* hello = new Rope("world!");
 
-    ASSERT_EQ(hello.getString(), "world!");
+    ASSERT_EQ(hello->getString(), "world!");
 
-    hello.insert(0, "Hello ");
+    hello->insert(0, "Hello ");
 
-    ASSERT_EQ(hello.getString(), "Hello world!");
+    ASSERT_EQ(hello->getString(), "Hello world!");
 
-    hello.insert(6, "beautiful ");
+    hello->insert(6, "beautiful ");
 
-    ASSERT_EQ(hello.getString(), "Hello beautiful world!");
+    ASSERT_EQ(hello->getString(), "Hello beautiful world!");
 TEST_END
 
 TEST_START(testPrepend, "Prepend test")
-    Rope hello("day!");
+    Rope* hello = new Rope("day!");
 
-    ASSERT_EQ(hello.getString(), "day!");
+    ASSERT_EQ(hello->getString(), "day!");
 
-    hello.prepend("awesome ");
+    hello->prepend("awesome ");
 
-    ASSERT_EQ(hello.getString(), "awesome day!");
+    ASSERT_EQ(hello->getString(), "awesome day!");
 
-    hello.prepend("an ");
+    hello->prepend("an ");
 
-    ASSERT_EQ(hello.getString(), "an awesome day!");
+    ASSERT_EQ(hello->getString(), "an awesome day!");
 
-    hello.prepend("Today's ");
+    hello->prepend("Today's ");
 
-    ASSERT_EQ(hello.getString(), "Today's an awesome day!");
+    ASSERT_EQ(hello->getString(), "Today's an awesome day!");
 TEST_END
 
 TEST_START(testRemove, "Remove test")
-    Rope a("Say ");
-    Rope b("hello ");
-    Rope c("to");
-    Rope d(" the");
-    Rope e(" beautiful");
-    Rope f(" world!");
+    Rope* a = new Rope("Say ");
+    Rope* b = new Rope("hello ");
+    Rope* c = new Rope("to");
+    Rope* d = new Rope(" the");
+    Rope* e = new Rope(" beautiful");
+    Rope* f = new Rope(" world!");
 
-    Rope g(&b, &c);
-    Rope h(&a, &g);
-    Rope i(&d, &e);
-    Rope j(&i, &f);
+    Rope* g = new Rope(b, c);
+    Rope* h = new Rope(a, g);
+    Rope* i = new Rope(d, e);
+    Rope* j = new Rope(i, f);
 
-    Rope k(&h, &j);
+    Rope* k = new Rope(h, j);
 
-    ASSERT_EQ(k.getString(), "Say hello to the beautiful world!");
+    ASSERT_EQ(k->getString(), "Say hello to the beautiful world!");
 
-    k.remove(16, 10);
+    k->remove(16, 10);
 
-    ASSERT_EQ(k[17], 'w');
-    ASSERT_EQ(k.getString(), "Say hello to the world!");
+    ASSERT_EQ((*k)[17], 'w');
+    ASSERT_EQ(k->getString(), "Say hello to the world!");
 
-    k.remove(18, 3);
+    k->remove(18, 3);
 
-    ASSERT_EQ(k.getString(), "Say hello to the wd!");
+    ASSERT_EQ(k->getString(), "Say hello to the wd!");
 
-    k.remove(8, 3);
+    k->remove(8, 3);
 
-    ASSERT_EQ(k.getString(), "Say hello the wd!");
+    ASSERT_EQ(k->getString(), "Say hello the wd!");
 
-    k.remove(7, 8);
+    k->remove(7, 8);
 
-    ASSERT_EQ(k.getString(), "Say held!");
+    ASSERT_EQ(k->getString(), "Say held!");
+
+    delete k;
 TEST_END
 
 TEST_START(testClear, "Clear test")
-    Rope a("Say ");
-    Rope b("hello ");
-    Rope c("to");
-    Rope d(" the");
-    Rope e(" beautiful");
-    Rope f(" world!");
+    Rope* a = new Rope("Say ");
+    Rope* b = new Rope("hello ");
+    Rope* c = new Rope("to");
+    Rope* d = new Rope(" the");
+    Rope* e = new Rope(" beautiful");
+    Rope* f = new Rope(" world!");
 
-    Rope g(&b, &c);
-    Rope h(&a, &g);
-    Rope i(&d, &e);
-    Rope j(&i, &f);
+    Rope* g = new Rope(b, c);
+    Rope* h = new Rope(a, g);
+    Rope* i = new Rope(d, e);
+    Rope* j = new Rope(i, f);
 
-    Rope k(&h, &j);
+    Rope* k = new Rope(h, j);
 
-    ASSERT_EQ(k.getString(), "Say hello to the beautiful world!");
+    ASSERT_EQ(k->getString(), "Say hello to the beautiful world!");
 
-    k.clear();
+    k->clear();
 
-    ASSERT_EQ(k.getString(), "");
-    ASSERT_EQ(k.length(), 0);
-    ASSERT_NULL(k.left);
-    ASSERT_NULL(k.right);
+    ASSERT_EQ(k->getString(), "");
+    ASSERT_EQ(k->length(), 0);
+    ASSERT_NULL(k->left);
+    ASSERT_NULL(k->right);
 TEST_END
 
 TEST_START(testBalance, "Balance test")
@@ -217,12 +181,8 @@ int main() {
     RUN_TEST(testClear);
     RUN_TEST(testBalance);
 
-    if (allPassed) {
-        cout << "\n\nAll tests passed!";
-        return 0;
-    }
+    WRAP_TESTS();
 
-    cout << "\n\n" << testPassed << "/" << totalTests << " tests passed!";
-    return 1;
+    return 0;
 }
 

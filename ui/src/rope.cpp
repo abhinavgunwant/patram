@@ -73,13 +73,13 @@ Rope::Rope(string s1, string s2) {
 
 Rope::~Rope() {
     if (left != nullptr) {
-        left->~Rope();
+        delete left;
         left = nullptr;
     }
 
     if (right != nullptr) {
-        right->~Rope();
-        left = nullptr;
+        delete right;
+        right = nullptr;
     }
 }
 
@@ -159,105 +159,12 @@ string Rope::getString() {
 }
 
 void Rope::recalculateLenLeft() {
-    #define STACK_SIZE 16
+    RopeTraverser rt(left);
+    lenLeft = 0;
 
-    Rope* stack[STACK_SIZE];
-    uint32_t llStack[STACK_SIZE];
-
-    for (int i = 0; i<STACK_SIZE; ++i) {
-        llStack[i] = 0;
+    while (rt.hasNext()) {
+        lenLeft += rt.next()->text.length();
     }
-
-    uint16_t top = 0;
-    uint32_t totalLen = 0;
-
-    if (left != nullptr) {
-        stack[0] = this;
-        top = 1;
-        lenLeft = 0;
-        Rope* node = left;
-
-        bool firstPassToRoot = false;
-
-        while (node != this) {
-            if (node->isLeaf()) {
-                uint32_t len = node->text.length();
-                node->lenLeft = len;
-                llStack[top - 1] = len;
-
-                int i = top - 2;
-
-                while (i >= 0) {
-                    if (stack[i + 1] == stack[i]->left) {
-                        llStack[i] += len;
-                    }
-                    --i;
-                }
-
-                if (node == stack[top-1]->left) {
-                    stack[top - 1]->lenLeft = node->lenLeft;
-
-                    if (stack[top - 1]->right != nullptr) {
-                        node = stack[top-1]->right;
-                    }
-
-                    continue;
-                }
-
-                while (top > 0 && node == stack[top - 1]->right) {
-                    node = stack[top - 1];
-                    --top;
-                    stack[top]->lenLeft = llStack[top];
-
-                    if (top == 0) {
-                        return;
-                    }
-                }
-
-                if (top > 0 && node == stack[top - 1]->left) {
-                    stack[top - 1]->lenLeft = llStack[top - 1];
-                    node = stack[top - 1]->right;
-                }
-
-                continue;
-            }
-
-            if (node == this) {
-                if (firstPassToRoot) {
-                    return;
-                } else {
-                    firstPassToRoot = true;
-                }
-            }
-
-            if (node->left != nullptr) {
-                if (top <= STACK_SIZE) {
-                    stack[top] = node;
-                    llStack[top] = 0;
-                    ++top;
-                    node = node->left;
-                } else {
-                    cerr << "\nError: Stack size is too large!";
-                    return;
-                }
-                continue;
-            }
-
-            if (node->right != nullptr) {
-                if (top <= STACK_SIZE) {
-                    stack[top] = node;
-                    llStack[top] = 0;
-                    ++top;
-                    node = node->right;
-                } else {
-                    cerr << "\nError: Stack size is too large!";
-                    return;
-                }
-            }
-        }
-    }
-
-    #undef STACK_SIZE
 }
 
 char Rope::operator[](uint32_t i) {
@@ -533,7 +440,7 @@ void Rope::remove(uint32_t startIndex, uint32_t length) {
                 nodeParent->left = nullptr;
                 nodeParent->right = nullptr;
 
-                propagateLenLeft(nodeParent->parent, -change);
+                propagateLenLeft(nodeParent, -change);
             } else {
                 change = static_cast<int64_t>(length);
 
