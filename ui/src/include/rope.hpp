@@ -81,5 +81,28 @@ class ReverseRopeTraverser {
         void reset();
 };
 
+class RopeCharIterator {
+    private:
+        bool newIterator;
+
+        uint32_t globalIndex;
+        uint32_t currentRopeIndex;
+
+        Rope* root;
+        Rope* current;
+        RopeTraverser rt;
+
+    public:
+        RopeCharIterator(Rope* root);
+
+        bool hasNext();
+        char next();
+        char peekNext();
+        void reset();
+        Rope* getRootRope();
+        uint32_t index();
+        void setIndex(uint32_t index);
+};
+
 #endif // PATRAM_UI_ROPE
 

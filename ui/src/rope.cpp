@@ -829,3 +829,112 @@ void ReverseRopeTraverser::reset() {
     }
 }
 
+// ---
+// RopeCharIterator
+// ---
+
+RopeCharIterator::RopeCharIterator(Rope* root): rt(root) {
+    this->root = root;
+    current = root;
+    currentRopeIndex = 0;
+    globalIndex = 0;
+    newIterator = true;
+}
+
+bool RopeCharIterator::hasNext() {
+    if (current != nullptr) {
+        if (currentRopeIndex < current->text.length()) {
+            return true;
+        } else {
+            return rt.hasNext();
+        }
+    }
+
+    return false;
+}
+
+char RopeCharIterator::next() {
+    if (newIterator) {
+        newIterator = false;
+
+        if (current->text.length() > 1) {
+            return current->text[0];
+        }
+    }
+
+    if (current != nullptr) {
+        if (currentRopeIndex < current->text.length()) {
+            ++currentRopeIndex;
+            ++globalIndex;
+
+            return current->text[currentRopeIndex];
+        }
+
+        if (rt.hasNext()) {
+            currentRopeIndex = 0;
+            ++globalIndex;
+            current = rt.next();
+
+            return current->text[currentRopeIndex];
+        }
+    }
+
+    current = nullptr;
+
+    return 0;
+}
+
+char RopeCharIterator::peekNext() {
+    uint32_t newIndex = currentRopeIndex + 1;
+
+    if (newIndex < current->text.length()) {
+        return current->text[newIndex];
+    } else if (rt.hasNext()) {
+        current = rt.next();
+
+        return current->text[0];
+    }
+
+    return 0;
+}
+
+void RopeCharIterator::reset() {
+    rt.reset();
+    currentRopeIndex = 0;
+    globalIndex = 0;
+    current = root;
+    newIterator = true;
+}
+
+Rope* RopeCharIterator::getRootRope() { return root; }
+uint32_t RopeCharIterator::index() { return globalIndex; }
+
+void RopeCharIterator::setIndex(uint32_t index) {
+    if (index > root->length()) { return; }
+
+    if (index > globalIndex) { reset(); }
+
+    if (index) { newIterator = false; }
+
+    uint32_t i = index;
+    RopeTraverser rt2(root);
+
+    while (rt2.hasNext()) {
+        Rope* r = rt2.next();
+
+        if (i < r->length()) {
+            currentRopeIndex = i;
+            current = r;
+            globalIndex = index;
+            return;
+        }
+
+        if (i == r->length()) {
+            i = 0;
+            continue;
+        }
+
+        i -= r->length();
+    }
+}
+
