@@ -489,6 +489,7 @@ struct ContentBlock {
     uint32_t textVAO;
     uint32_t textVBO;
     uint32_t bufferSize;
+    uint32_t numVertices;
 
     Rope* rope;
 };
@@ -499,6 +500,7 @@ struct HighlightedContentBlock {
     bool show;
     bool updated;
     bool mouseDown;
+    bool showContentMenu;
 
     float top;
     float left;
@@ -693,7 +695,7 @@ void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 glm::vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
-bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor);
+bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t index);
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);

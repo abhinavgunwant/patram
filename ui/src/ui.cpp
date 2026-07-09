@@ -25,6 +25,7 @@
 #include "utils.hpp"
 #include "logger.hpp"
 #include "../lib/stb_image.h"
+#include "md.hpp"
 
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
@@ -89,6 +90,7 @@ HighlightedContentBlock highlightedContentBlock = {
     .show =  false,
     .updated =  false,
     .mouseDown = false,
+    .showContentMenu = false,
     .top =  0.0f,
     .left =  0.0f,
     .bottom =  0.0f,
@@ -1056,6 +1058,9 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                 }
 
+                SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+                SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
             } else if (sd.cursorPosition != tab->cursorPosition) {
@@ -1098,6 +1103,9 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                         tab->selEndCursorPosition = tab->cursorPosition;
                     }
                 }
+
+                SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+                SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
 
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
@@ -2735,6 +2743,8 @@ void cbKeyCallback(int key, int action, int mod) {
                             << ", row: " << sd.row << ", col: " << sd.col;
                     #endif
 
+                    SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+
                     if (shift) {
                         if (sd.cursorCBIndex == 0) {
                             tab->textSelected = false;
@@ -3942,6 +3952,10 @@ void activateCBFromScreenCoords(float mouseX, float mouseY) {
             uint32_t index = distance(tab->contentBlocks.begin(), itr);
 
             tab->activeCBIndex = index;
+
+            SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+            SET_FLAG(itr->flags, CONTENT_BLOCK_REDRAW);
+
             tab->cursorCBIndex = index;
             return;
         }
@@ -4589,7 +4603,7 @@ void openFile(bool openDialog, filesystem::path p) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
                     CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(line),
+                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(line),
                 });
             }
 
@@ -4663,7 +4677,7 @@ void newNote(filesystem::path p) {
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope()
+        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope()
     });
     tab->updated = true;
 
@@ -5234,7 +5248,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
         0.0f,
         0.0f,
         0.0f,
-        0, 0, 0, 0,
+        0, 0, 0, 0, 0,
         new Rope(text),
     };
 
@@ -5254,7 +5268,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
         0.0f,
         0.0f,
         0.0f,
-        0, 0, 0, 0,
+        0, 0, 0, 0, 0,
         new Rope(text),
     });
 }
@@ -5348,7 +5362,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        1, 0, 0, 0,
+        1, 0, 0, 0, 0,
         new Rope(path.filename().string()),
     });
 
@@ -6129,6 +6143,9 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         reDrawCBsFrom(0, 64);
     }
 
+    SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+    SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
@@ -6317,7 +6334,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 itr != tab->contentBlocks.end();
                 ++itr, ++i
             ) {
-                if (renderContentBlock(tab, itr, resolution, cursor)) {
+                if (renderContentBlock(tab, itr, resolution, cursor, i)) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
                         visible = true;
@@ -7679,7 +7696,8 @@ inline bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
-    glm::vec2 &cursor
+    glm::vec2 &cursor,
+    uint32_t index
 ) {
     if (!((*cb).flags & CONTENT_BLOCK_VISIBLE)) {
         cout << "\nContent block not visible";
@@ -7691,7 +7709,7 @@ inline bool renderContentBlock(
         return false;
     }
 
-    if (GET_FLAG((*cb).flags, CONTENT_BLOCK_REDRAW)) {
+    if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
         setCBDimensions(cb, cb == tab->contentBlocks.begin(), false);
     }
 
@@ -7707,18 +7725,18 @@ inline bool renderContentBlock(
         auto t0 = std::chrono::high_resolution_clock::now();
     #endif
 
-    RopeRenderResult res = renderContentRope(
-        (*cb).rope,
-        glm::vec2(left, top),
-        resolution,
-        (*cb).textVAO,
-        (*cb).textVBO,
-        (*cb).bufferSize,
-        CONTENT_CONTAINER.width,
-        darkTheme ? WHITE : BLACK,
-        getCBFontSize((*cb).type),
-        ((*cb).flags & CONTENT_BLOCK_REDRAW) != 0
-    );
+    // RopeRenderResult res = renderContentRope(
+    //     (*cb).rope,
+    //     glm::vec2(left, top),
+    //     resolution,
+    //     (*cb).textVAO,
+    //     (*cb).textVBO,
+    //     (*cb).bufferSize,
+    //     CONTENT_CONTAINER.width,
+    //     darkTheme ? WHITE : BLACK,
+    //     getCBFontSize((*cb).type),
+    //     ((*cb).flags & CONTENT_BLOCK_REDRAW) != 0
+    // );
 
     #ifdef DEBUG_TEXT
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -7728,14 +7746,50 @@ inline bool renderContentBlock(
         ++textTimeCalculated;
     #endif
 
-    if (((*cb).flags & CONTENT_BLOCK_REDRAW) != 0) {
-        (*cb).height = (res.height == 0.0f && glyphDescender < 0) ?
-            static_cast<float>(getCBFontSize((*cb).type)) * (1.0f - glyphDescender)
+    if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
+        Markdown md = parseContent(cb->rope);
+
+        if (index) {
+            cb->type = md.cbType;
+        }
+
+        RopeRenderResult res = renderContentRope(
+            cb->rope,
+            tab->cursorCBIndex == index ? 0 : md.startIndex,
+            glm::vec2(left, top),
+            resolution,
+            cb->textVAO,
+            cb->textVBO,
+            cb->bufferSize,
+            CONTENT_CONTAINER.width,
+            darkTheme ? WHITE : BLACK,
+            getCBFontSize(cb->type),
+            GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+        );
+
+        cb->height = (res.height == 0.0f && glyphDescender < 0) ?
+            static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender)
             :
             res.height;
 
-        (*cb).rows = res.rows;
-        (*cb).flags &= ~(CONTENT_BLOCK_REDRAW);
+        cb->rows = res.rows;
+        cb->flags &= ~(CONTENT_BLOCK_REDRAW);
+    } else {
+        Markdown md = parseContent(cb->rope);
+
+        renderContentRope(
+            cb->rope,
+            tab->cursorCBIndex == index ? 0 : md.startIndex,
+            glm::vec2(left, top),
+            resolution,
+            cb->textVAO,
+            cb->textVBO,
+            cb->bufferSize,
+            CONTENT_CONTAINER.width,
+            darkTheme ? WHITE : BLACK,
+            getCBFontSize(cb->type),
+            GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+        );
     }
 
     if (tab->maxHeight < (*cb).top + (*cb).height) {
@@ -8279,7 +8333,7 @@ void deleteCBsToDeletedBlocks(
 
         extCmd->deletedBlocks.emplace_back(ContentBlock {
             (*cbIter).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
         });
     }
 
@@ -8567,7 +8621,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*itr).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
             new Rope((*itr).rope->getString().substr(
                 cmd->startCursorPos,
                 extCmd->endCursorPos - cmd->startCursorPos
@@ -8591,7 +8645,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
             CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope()
+            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
     }
@@ -8608,7 +8662,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             lastBlockType,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
             new Rope(ropeString),
         });
         return ContentDeletionType::DeleteMultipleCBsPartialLast;
@@ -8624,7 +8678,7 @@ ContentDeletionType deleteSelectedCBText(
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*firstCB).type,
             (*firstCB).flags,
-            0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
+            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
             new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
         });
         (*firstCB).rope->remove(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos);
@@ -8646,7 +8700,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*firstCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
         new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
     });
 
@@ -8654,7 +8708,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*lastCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
         new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
     });
 
@@ -8677,7 +8731,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(str)
+                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(str)
                 });
             }
 
@@ -8696,7 +8750,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, new Rope(str)
+                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(str)
             });
         }
     }
@@ -8991,7 +9045,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0,
+                0, 0, 0, 0, 0,
                 new Rope()
             }
         );
@@ -9010,7 +9064,7 @@ bool processCBNewLineCommand(
                         cb->type,
                         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                         0.0f, 0.0f, 0.0f,
-                        0, 0, 0, 0,
+                        0, 0, 0, 0, 0,
                         rope
                 });
 
@@ -9028,7 +9082,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0,
+                0, 0, 0, 0, 0,
                 nullptr
             });
     }
@@ -9195,29 +9249,33 @@ void processCBCommand(ContentCommand cmd) {
     #ifdef DEBUG_COMMANDS
         cout << "\nDEBUG: Commands:";
 
-        for (
-            auto cmd = tab->commands.begin();
-            cmd != tab->commands.end();
-            ++cmd
-        ) {
-            if (distance(tab->commands.begin(), cmd) == tab->currentCommand) {
+        uint32_t i = 0;
+
+        for (auto cmd: tab->commands) {
+        //     auto cmd = tab->commands.begin();
+        //     cmd != tab->commands.end();
+        //     ++cmd
+        // ) {
+            if (i == tab->currentCommand) {
                 cout << "\n  -> ";
             } else {
                 cout << "\n     ";
             }
 
-            if ((*cmd).ext) {
-                printContentCommand(&*cmd, &tab->extCommands[(*cmd).extIndex]);
+            if (cmd.ext) {
+                printContentCommand(&cmd, &tab->extCommands[cmd.extIndex]);
                 #ifdef DEBUG_CONTENT_BLOCKS
-                    printContentBlocksFromVector(tab->extCommands[(*cmd).extIndex].deletedBlocks);
-                    if (!tab->extCommands[(*cmd).extIndex].insertedBlocks.empty()) {
+                    printContentBlocksFromVector(tab->extCommands[cmd.extIndex].deletedBlocks);
+                    if (!tab->extCommands[cmd.extIndex].insertedBlocks.empty()) {
                         cout << "\n     |-> Inserted Content Blocks:";
-                        printContentBlocksFromVector(tab->extCommands[(*cmd).extIndex].insertedBlocks);
+                        printContentBlocksFromVector(tab->extCommands[cmd.extIndex].insertedBlocks);
                     }
                 #endif
             } else {
-                printContentCommand(&*cmd);
+                printContentCommand(&cmd);
             }
+
+            ++i;
         }
     #endif
 

@@ -152,6 +152,7 @@ inline void drawTextBuffers(
 
 RopeRenderResult renderContentRope(
     Rope* rope,
+    uint32_t startIndex,
     glm::vec2 pos,
     glm::vec2& res,
     uint32_t& textVAO,

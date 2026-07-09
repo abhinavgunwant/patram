@@ -370,6 +370,7 @@ inline void drawTextBuffers(
 
 RopeRenderResult renderContentRope(
     Rope* rope,
+    uint32_t startIndex,
     glm::vec2 pos,
     glm::vec2& res,
     uint32_t& cbTextVAO,
@@ -405,6 +406,8 @@ RopeRenderResult renderContentRope(
 
     RopeTraverser rt(rope);
 
+    uint32_t i = 0;
+
     while (rt.hasNext()) {
         Rope* r = rt.next();
 
@@ -415,6 +418,10 @@ RopeRenderResult renderContentRope(
         float glyphHeight, glyphWidth, bearingTop, bearingLeft;
 
         for (const char c : r->text) {
+            if (i < startIndex) {
+                ++i;
+                continue;
+            }
             #ifdef DEBUG_TEXT
             if (debugTextFirstRenderPrint) {
                 cout << "\n--> Rendering character: '" << (char) c << "'";
