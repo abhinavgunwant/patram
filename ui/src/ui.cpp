@@ -4603,7 +4603,7 @@ void openFile(bool openDialog, filesystem::path p) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
                     CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(line),
+                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(line),
                 });
             }
 
@@ -4677,7 +4677,7 @@ void newNote(filesystem::path p) {
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope()
+        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope()
     });
     tab->updated = true;
 
@@ -5245,10 +5245,8 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
     ContentBlock cb = ContentBlock {
         type,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f,
-        0.0f,
-        0.0f,
-        0, 0, 0, 0, 0,
+        0.0f, 0.0f, 0.0f,
+        0, 0, 0, 0, 0, 0,
         new Rope(text),
     };
 
@@ -5265,10 +5263,8 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
     tabs[tabIndex].contentBlocks.push_back(ContentBlock {
         type,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f,
-        0.0f,
-        0.0f,
-        0, 0, 0, 0, 0,
+        0.0f, 0.0f, 0.0f,
+        0, 0, 0, 0, 0, 0,
         new Rope(text),
     });
 }
@@ -5362,7 +5358,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        1, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0,
         new Rope(path.filename().string()),
     });
 
@@ -7751,6 +7747,7 @@ inline bool renderContentBlock(
 
         if (index) {
             cb->type = md.cbType;
+            cb->startIndex = md.startIndex;
         }
 
         RopeRenderResult res = renderContentRope(
@@ -7775,11 +7772,9 @@ inline bool renderContentBlock(
         cb->rows = res.rows;
         cb->flags &= ~(CONTENT_BLOCK_REDRAW);
     } else {
-        Markdown md = parseContent(cb->rope);
-
         renderContentRope(
             cb->rope,
-            tab->cursorCBIndex == index ? 0 : md.startIndex,
+            tab->cursorCBIndex == index ? 0 : cb->startIndex,
             glm::vec2(left, top),
             resolution,
             cb->textVAO,
@@ -8333,7 +8328,7 @@ void deleteCBsToDeletedBlocks(
 
         extCmd->deletedBlocks.emplace_back(ContentBlock {
             (*cbIter).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
         });
     }
 
@@ -8621,7 +8616,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*itr).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
             new Rope((*itr).rope->getString().substr(
                 cmd->startCursorPos,
                 extCmd->endCursorPos - cmd->startCursorPos
@@ -8645,7 +8640,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
             CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope()
+            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
     }
@@ -8662,7 +8657,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             lastBlockType,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
             new Rope(ropeString),
         });
         return ContentDeletionType::DeleteMultipleCBsPartialLast;
@@ -8678,7 +8673,7 @@ ContentDeletionType deleteSelectedCBText(
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*firstCB).type,
             (*firstCB).flags,
-            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
+            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
             new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
         });
         (*firstCB).rope->remove(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos);
@@ -8700,7 +8695,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*firstCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
         new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
     });
 
@@ -8708,7 +8703,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*lastCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
         new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
     });
 
@@ -8731,7 +8726,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(str)
+                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(str)
                 });
             }
 
@@ -8750,7 +8745,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, new Rope(str)
+                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(str)
             });
         }
     }
@@ -9045,7 +9040,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
                 new Rope()
             }
         );
@@ -9064,7 +9059,7 @@ bool processCBNewLineCommand(
                         cb->type,
                         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                         0.0f, 0.0f, 0.0f,
-                        0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0,
                         rope
                 });
 
@@ -9082,7 +9077,7 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
                 nullptr
             });
     }

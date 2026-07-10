@@ -490,6 +490,7 @@ struct ContentBlock {
     uint32_t textVBO;
     uint32_t bufferSize;
     uint32_t numVertices;
+    uint32_t startIndex;
 
     Rope* rope;
 };
