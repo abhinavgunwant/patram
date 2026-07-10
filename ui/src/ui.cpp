@@ -3985,6 +3985,12 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
     switch (cbType) {
         case ContentBlockType::Paragraph: return { 4.0f, 4.0f };
         case ContentBlockType::Title: return { 24.0f, 16.0f };
+        case ContentBlockType::Heading1: return { 8.0f, 8.0f };
+        case ContentBlockType::Heading2: return { 8.0f, 8.0f };
+        case ContentBlockType::Heading3: return { 8.0f, 8.0f };
+        case ContentBlockType::Heading4: return { 8.0f, 8.0f };
+        case ContentBlockType::Heading5:
+        case ContentBlockType::Heading6: return { 4.0f, 8.0f };
 
         default: return { 16.0f, 8.0f };
     }
