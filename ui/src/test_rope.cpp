@@ -175,9 +175,27 @@ TEST_END
 TEST_START(testSubstring, "Substring test")
     Rope* r = new Rope("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
 
+    Rope* r1 = new Rope("Lorem ");
+    Rope* r2 = new Rope("ipsum ");
+    Rope* r3 = new Rope("dolor ");
+    Rope* r4 = new Rope("sit ");
+    Rope* r5 = new Rope("amet.");
+
+    Rope* r6 = new Rope(r1, r2);
+    Rope* r7 = new Rope(r3, r4);
+    Rope* r8 = new Rope(r7, r5);
+    Rope* r9 = new Rope(r6, r8);
+
     ASSERT_EQ(r->substring(12, 5), "dolor");
     ASSERT_EQ(r->substring(0, 5), "Lorem");
     ASSERT_EQ(r->substring(116, 7), "aliqua.");
+
+    ASSERT_EQ(r9->substring(0, 5), "Lorem");
+    ASSERT_EQ(r9->substring(0, 6), "Lorem ");
+    ASSERT_EQ(r9->substring(0, 7), "Lorem i");
+    ASSERT_EQ(r9->substring(1, 7), "orem ip");
+    ASSERT_EQ(r9->substring(1, 13), "orem ipsum do");
+    ASSERT_EQ(r9->substring(1, 17), "orem ipsum dolor ");
 TEST_END
 
 int main() {
@@ -188,6 +206,7 @@ int main() {
     RUN_TEST(testRemove);
     RUN_TEST(testClear);
     RUN_TEST(testBalance);
+    RUN_TEST(testSubstring);
 
     WRAP_TESTS();
 

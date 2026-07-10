@@ -277,22 +277,29 @@ string Rope::substring(uint32_t offset, uint32_t length) {
     RopeTraverser rt(this);
 
     uint32_t i = offset;
+    uint32_t len = length;
 
     while (rt.hasNext()) {
         Rope* node = rt.next();
 
-        if (i <= node->length()) {
+        if (i >= node->length()) {
             i -= node->length();
             continue;
         }
 
-        if (i > 0) {
-            ss << node->text.substr(i, node->text.length() - i);
-            i = 0;
-            continue;
+        if (len <= node->text.length()) {
+            ss << node->text.substr(i, len);
+            break;
         }
 
-        ss << node->text;
+        if (node->text.length() <= len) {
+            ss << node->text.substr(i, node->text.length() - i);
+        } else {
+            ss << node->text.substr(i, len);
+        }
+
+        len -= node->text.length() - i;
+        i = 0;
     }
 
     return ss.str();
