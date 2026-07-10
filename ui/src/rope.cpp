@@ -272,6 +272,32 @@ void Rope::prepend(string s) {
     propagateLenLeft(newLeft, s.length());
 }
 
+string Rope::substring(uint32_t offset, uint32_t length) {
+    stringstream ss;
+    RopeTraverser rt(this);
+
+    uint32_t i = offset;
+
+    while (rt.hasNext()) {
+        Rope* node = rt.next();
+
+        if (i <= node->length()) {
+            i -= node->length();
+            continue;
+        }
+
+        if (i > 0) {
+            ss << node->text.substr(i, node->text.length() - i);
+            i = 0;
+            continue;
+        }
+
+        ss << node->text;
+    }
+
+    return ss.str();
+}
+
 Rope* Rope::split(uint32_t index) {
     if (isLeaf()) {
         string secondText = text.substr(index, text.length() - index);

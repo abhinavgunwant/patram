@@ -45,6 +45,7 @@ class Rope {
         uint32_t length();
         void append(string s);
         void prepend(string s);
+        string substring(uint32_t offset, uint32_t length);
         Rope* split(uint32_t index);
         void pick(Rope* leaf);
         void remove(uint32_t startIndex, uint32_t length);

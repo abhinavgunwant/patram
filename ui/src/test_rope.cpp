@@ -172,6 +172,14 @@ TEST_START(testBalance, "Balance test")
     ASSERT_EQ(ak->getString(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
 TEST_END
 
+TEST_START(testSubstring, "Substring test")
+    Rope* r = new Rope("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+
+    ASSERT_EQ(r->substring(12, 5), "dolor");
+    ASSERT_EQ(r->substring(0, 5), "Lorem");
+    ASSERT_EQ(r->substring(116, 7), "aliqua.");
+TEST_END
+
 int main() {
     cout << "Testing " << __FILE__ << "\n";
     RUN_TEST(basicTest);
