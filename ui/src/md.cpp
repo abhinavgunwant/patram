@@ -278,7 +278,7 @@ inline void parseBoldText(
         if (ch == '*' && nextChar == '*') {
             frags.push_back({
                 MarkdownFragmentType::Bold,
-                rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+                rci.getRootRope()->substring(currentIndex, i-currentIndex)
             });
             rci.next();
             rci.next();
@@ -290,7 +290,7 @@ inline void parseBoldText(
 
     frags.push_back({
         MarkdownFragmentType::Normal,
-        rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+        rci.getRootRope()->substring(currentIndex, i-currentIndex)
     });
 }
 
@@ -307,7 +307,7 @@ inline void parseItalicText(
         if (ch == '*') {
             frags.push_back({
                 MarkdownFragmentType::Italic,
-                rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+                rci.getRootRope()->substring(currentIndex, i-currentIndex)
             });
             rci.next();
             return;
@@ -316,7 +316,7 @@ inline void parseItalicText(
 
     frags.push_back({
         MarkdownFragmentType::Normal,
-        rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+        rci.getRootRope()->substring(currentIndex, i-currentIndex)
     });
 }
 
@@ -333,7 +333,7 @@ inline void parseStrikethroughText(
         if (ch == '~') {
             frags.push_back({
                 MarkdownFragmentType::Strikethrough,
-                rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+                rci.getRootRope()->substring(currentIndex, i-currentIndex)
             });
             rci.next();
             return;
@@ -342,7 +342,7 @@ inline void parseStrikethroughText(
 
     frags.push_back({
         MarkdownFragmentType::Normal,
-        rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+        rci.getRootRope()->substring(currentIndex, i-currentIndex)
     });
 }
 
@@ -359,7 +359,7 @@ inline void parseCodeText(
         if (ch == '`') {
             frags.push_back({
                 MarkdownFragmentType::Strikethrough,
-                rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+                rci.getRootRope()->substring(currentIndex, i-currentIndex)
             });
             rci.next();
             return;
@@ -368,7 +368,7 @@ inline void parseCodeText(
 
     frags.push_back({
         MarkdownFragmentType::Normal,
-        rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+        rci.getRootRope()->substring(currentIndex, i-currentIndex)
     });
 }
 
@@ -385,7 +385,7 @@ inline void parseNormalText(
         if (ch == '*' || ch == '~' || ch == '`') {
             frags.push_back({
                 MarkdownFragmentType::Normal,
-                rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+                rci.getRootRope()->substring(currentIndex, i-currentIndex)
             });
             return;
         }
@@ -397,7 +397,7 @@ inline void parseNormalText(
     if (i > currentIndex) {
         frags.push_back({
             MarkdownFragmentType::Normal,
-            rci.getRootRope()->getString().substr(currentIndex, i-currentIndex)
+            rci.getRootRope()->substring(currentIndex, i-currentIndex)
         });
     }
 }
