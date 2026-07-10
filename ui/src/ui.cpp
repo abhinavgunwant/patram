@@ -7701,8 +7701,8 @@ inline bool renderContentBlock(
     glm::vec2 &cursor,
     uint32_t index
 ) {
-    if (!((*cb).flags & CONTENT_BLOCK_VISIBLE)) {
-        cout << "\nContent block not visible";
+    if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
+        cout << "\nDEBUG: Content block " << index << " not visible";
         return false;
     }
 
@@ -7715,38 +7715,13 @@ inline bool renderContentBlock(
         setCBDimensions(cb, cb == tab->contentBlocks.begin(), false);
     }
 
-    float top = (*cb).top - tab->scrollOffsetY;
+    float top = cb->top - tab->scrollOffsetY;
     float left = contentLeft;
-    float bottom = top + (*cb).height;
+    float bottom = top + cb->height;
 
     bool visible = top >= 0 && top <= windowHeight
         || bottom >= 0 && bottom <= windowHeight
         || top < 0 && bottom > windowHeight;
-
-    #ifdef DEBUG_TEXT
-        auto t0 = std::chrono::high_resolution_clock::now();
-    #endif
-
-    // RopeRenderResult res = renderContentRope(
-    //     (*cb).rope,
-    //     glm::vec2(left, top),
-    //     resolution,
-    //     (*cb).textVAO,
-    //     (*cb).textVBO,
-    //     (*cb).bufferSize,
-    //     CONTENT_CONTAINER.width,
-    //     darkTheme ? WHITE : BLACK,
-    //     getCBFontSize((*cb).type),
-    //     ((*cb).flags & CONTENT_BLOCK_REDRAW) != 0
-    // );
-
-    #ifdef DEBUG_TEXT
-        auto t1 = std::chrono::high_resolution_clock::now();
-
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
-        cumulativeTextTime += duration.count();
-        ++textTimeCalculated;
-    #endif
 
     if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
         Markdown md = parseContent(cb->rope);
@@ -7793,12 +7768,12 @@ inline bool renderContentBlock(
         );
     }
 
-    if (tab->maxHeight < (*cb).top + (*cb).height) {
+    if (tab->maxHeight < cb->top + cb->height) {
         #ifdef DEBUG_SCROLL_AREA
             cout << "\nScroll height less than dim.z " << dim.z;
         #endif
 
-        tab->maxHeight = (*cb).top + (*cb).height;
+        tab->maxHeight = cb->top + cb->height;
         tab->scrollbarUpdated = false;
         CONTENT_CONTAINER.reDraw = true;
     }
@@ -9185,6 +9160,7 @@ void processCBCommand(ContentCommand cmd) {
     #define CONCAT(a, b, c) a ## b ## c
     #define PROC(cmdType) CONCAT(processCB, cmdType, Command)(tab, &cmd, cb, true);
 
+    #ifdef DEBUG_COMMANDS
     #ifdef DEBUG_TEXT_INPUT
         cout << "\nProcessing command \"" << to_string(cmd.type)
             << "\"\n  -> str: \"" << cmd.str << "\", startCBIndex: "
@@ -9194,6 +9170,7 @@ void processCBCommand(ContentCommand cmd) {
             cout << ", endCBIndex: " << tab->extCommands[cmd.extIndex].endCBIndex
                 << ", endCursorPos: " << tab->extCommands[cmd.extIndex].endCursorPos;
         }
+    #endif
     #endif
 
     bool append = false;
