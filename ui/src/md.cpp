@@ -219,42 +219,78 @@ ContentBlockType getCBTypeAndStartIndex(Rope* rope, uint32_t& startIndex) {
     uint8_t hashCount = 0;
     uint8_t dashCount = 0;
     uint8_t tickCount = 0;
+    uint8_t asteriskCount = 0;
+    uint8_t numberCount = 0;
 
     uint32_t i = 0;
 
     RopeCharIterator rci(rope);
 
+    bool shouldBreak = false;
+    bool numbering = false;
+    bool success = false;
+
     while (rci.hasNext()) {
         char ch = rci.next();
 
-        if (ch == ' ' || isalnum(ch)) { break; }
-        if (ch == '#') { ++hashCount; }
-        if (ch == '-') { ++dashCount; }
-        if (ch == '`') { ++tickCount; }
+        if (ch >= '0' && ch <= '9') {
+            if (i == 0) { numbering = true; }
+
+            if (numbering) { ++numberCount; }
+
+            ++i;
+            continue;
+        }
+
+        if (numbering && ch == '.') {
+            ++i;
+            continue;
+        }
+
+        switch (ch) {
+            case '#': ++hashCount; break;
+            case '-': ++dashCount; break;
+            case '`': ++tickCount; break;
+            case '*': ++asteriskCount; break;
+        }
+
+        if (shouldBreak || isalnum(ch)) { break; }
+        if (ch == ' ') { success = true; break; }
 
         ++i;
     }
 
-    if (hashCount && !dashCount && !tickCount) {
-        startIndex = i;
+    if (success) {
+        if (hashCount && !dashCount && !tickCount && !asteriskCount && !numberCount) {
+            startIndex = i;
 
-        switch (hashCount) {
-            case 1: return ContentBlockType::Heading1;
-            case 2: return ContentBlockType::Heading2;
-            case 3: return ContentBlockType::Heading3;
-            case 4: return ContentBlockType::Heading4;
-            case 5: return ContentBlockType::Heading5;
-            default: return ContentBlockType::Heading6;
+            switch (hashCount) {
+                case 1: return ContentBlockType::Heading1;
+                case 2: return ContentBlockType::Heading2;
+                case 3: return ContentBlockType::Heading3;
+                case 4: return ContentBlockType::Heading4;
+                case 5: return ContentBlockType::Heading5;
+                default: return ContentBlockType::Heading6;
+            }
         }
-    }
 
-    // if (dashCount == 1 && hashCount == 0 && tickCount == 0) {
-    //     return ContentBlockType::Bullet;
-    // }
-    //
-    // if (tickCount == 3 && hashCount == 0 && dashCount == 0) {
-    //     return ContentBlockType::Code;
-    // }
+        if (
+            dashCount == 1 && !hashCount && !tickCount && !asteriskCount && !numberCount
+            || asteriskCount == 1 && !dashCount && !hashCount && !tickCount && !numberCount
+        ) {
+            startIndex = i;
+            return ContentBlockType::Bullet;
+        }
+
+        if (numberCount && !dashCount && !hashCount && !tickCount && !asteriskCount) {
+            startIndex = i;
+            return ContentBlockType::Numbering;
+        }
+
+        // if (tickCount == 3 && hashCount == 0 && dashCount == 0) {
+        //     return ContentBlockType::Code;
+        // }
+    }
 
     return ContentBlockType::Paragraph;
 }
