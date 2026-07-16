@@ -68,6 +68,17 @@
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
     } while (false)
 
+#define PUSH_ICON_VERTICES(vec, ch, x, y, w, h) do {\
+    vec.insert(vec.end(), {\
+        x,     y,     ch.textureX1, ch.textureY1,\
+        x + w, y,     ch.textureX2, ch.textureY1,\
+        x,     y + h, ch.textureX1, ch.textureY2,\
+        x,     y + h, ch.textureX1, ch.textureY2,\
+        x + w, y,     ch.textureX2, ch.textureY1,\
+        x + w, y + h, ch.textureX2, ch.textureY2,\
+    });\
+} while (false)
+
 #define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
@@ -2084,6 +2095,7 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
     SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, vertices_24);
+    SETUP_BUFFERS_TEXT(tabsDisplay.iconsVAO, tabsDisplay.iconsVBO, vertices_2400);
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
@@ -2114,6 +2126,8 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, vertices_24);
     tabsDisplay.xBufferSize = 96;
     tabsDisplay.xVertices = 24;
+    tabsDisplay.iconsVertices = 150;
+    tabsDisplay.iconsBufferSize = 2400 * sizeof(float);
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -2745,6 +2759,8 @@ void cbKeyCallback(int key, int action, int mod) {
 
                     SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
 
+                    tabsDisplay.reDrawIconsAndExtraText = true;
+
                     if (shift) {
                         if (sd.cursorCBIndex == 0) {
                             tab->textSelected = false;
@@ -2825,6 +2841,8 @@ void cbKeyCallback(int key, int action, int mod) {
                     cout << "\nSelectionData:  cursorPosition: " << sd.cursorPosition
                         << ", row: " << sd.row << ", col: " << sd.col;
                     #endif
+
+                    tabsDisplay.reDrawIconsAndExtraText = true;
 
                     if (shift) {
                         if (sd.cursorCBIndex != tab->cursorCBIndex) {
@@ -3991,6 +4009,7 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
         case ContentBlockType::Heading4: return { 8.0f, 8.0f };
         case ContentBlockType::Heading5:
         case ContentBlockType::Heading6: return { 4.0f, 8.0f };
+        case ContentBlockType::Bullet: return { 4.0f, 0.0f };
 
         default: return { 16.0f, 8.0f };
     }
@@ -6331,12 +6350,21 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 i = offset;
             }
 
+            vector<float> iconVertices;
+
+            if (tabsDisplay.reDrawIconsAndExtraText) {
+                iconVertices.reserve(3072);
+            }
+
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
                 itr != tab->contentBlocks.end();
                 ++itr, ++i
             ) {
-                if (renderContentBlock(tab, itr, resolution, cursor, i)) {
+                if (renderContentBlock(
+                    tab, itr, resolution, cursor, i, iconVertices,
+                    tabsDisplay.reDrawIconsAndExtraText
+                )) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
                         visible = true;
@@ -6348,6 +6376,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     break;
                 }
             }
+
+            drawTextBuffers(
+                tabsDisplay.iconsVAO,
+                tabsDisplay.iconsVBO,
+                tabsDisplay.iconsBufferSize,
+                tabsDisplay.iconsVertices,
+                resolution,
+                iconVertices,
+                WHITE,
+                tabsDisplay.reDrawIconsAndExtraText,
+                iconTextureID
+            );
+
+            tabsDisplay.reDrawIconsAndExtraText = false;
 
             tab->visibleCBLength = i - tab->firstVisibleCBIndex + 1;
 
@@ -7699,7 +7741,9 @@ inline bool renderContentBlock(
     vector<ContentBlock>::iterator cb,
     glm::vec2 &resolution,
     glm::vec2 &cursor,
-    uint32_t index
+    uint32_t index,
+    vector<float>& iconVertices,
+    bool reDrawIconsAndExtraText
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
         cout << "\nDEBUG: Content block " << index << " not visible";
@@ -7723,6 +7767,10 @@ inline bool renderContentBlock(
         || bottom >= 0 && bottom <= windowHeight
         || top < 0 && bottom > windowHeight;
 
+    bool isActive = tab->cursorCBIndex == index;
+
+    glm::vec2 pos = glm::vec2(left, top);
+
     if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
         Markdown md = parseContent(cb->rope);
 
@@ -7731,10 +7779,36 @@ inline bool renderContentBlock(
             cb->startIndex = md.startIndex;
         }
 
+        switch (cb->type) {
+            case ContentBlockType::Bullet:
+                if (isActive) {
+                    if (reDrawIconsAndExtraText) {
+                        PUSH_ICON_VERTICES(
+                            iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0
+                        );
+                    }
+                } else {
+                    pos.x += 16.0f;
+
+                    if (reDrawIconsAndExtraText) {
+                        PUSH_ICON_VERTICES(
+                            iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
+                            4.0f, 4.0f
+                        );
+                    }
+                }
+                break;
+
+            case ContentBlockType::Numbering:
+                // TODO: Check for the maximum width of the number characters.
+                // TODO: append the text vertices with the numbering text.
+                break;
+        }
+
         RopeRenderResult res = renderContentRope(
             cb->rope,
-            tab->cursorCBIndex == index ? 0 : md.startIndex,
-            glm::vec2(left, top),
+            isActive ? 0 : md.startIndex,
+            pos,
             resolution,
             cb->textVAO,
             cb->textVBO,
@@ -7753,10 +7827,20 @@ inline bool renderContentBlock(
         cb->rows = res.rows;
         cb->flags &= ~(CONTENT_BLOCK_REDRAW);
     } else {
+        switch (cb->type) {
+            case ContentBlockType::Bullet:
+                if (reDrawIconsAndExtraText) {
+                    PUSH_ICON_VERTICES(
+                        iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
+                        4.0f, 4.0f
+                    );
+                }
+                break;
+        }
         renderContentRope(
             cb->rope,
-            tab->cursorCBIndex == index ? 0 : cb->startIndex,
-            glm::vec2(left, top),
+            isActive ? 0 : cb->startIndex,
+            pos,
             resolution,
             cb->textVAO,
             cb->textVBO,
@@ -8130,9 +8214,9 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
     }
 
     tab->initialCursorPosition = sd.cursorPosition;
-    updateCBCursor(CURRENT_TAB, sd);
-
     tab->cbTextMouseDown = true;
+    tabsDisplay.reDrawIconsAndExtraText = true;
+    updateCBCursor(CURRENT_TAB, sd);
 }
 
 void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -8239,6 +8323,8 @@ void hideCBMoveMarker() {
 }
 
 void reDrawAllContentBlocks() {
+    tabsDisplay.reDrawIconsAndExtraText = true;
+
     for (
         auto itr = tabs[activeTabIndex].contentBlocks.begin();
         itr != tabs[activeTabIndex].contentBlocks.end();
@@ -8250,6 +8336,7 @@ void reDrawAllContentBlocks() {
 
 void reDrawCBsFrom(uint32_t i, uint32_t limit) {
     uint32_t j = 0;
+    tabsDisplay.reDrawIconsAndExtraText = true;
 
     for (
         auto itr = tabs[activeTabIndex].contentBlocks.begin() + i;

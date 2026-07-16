@@ -281,6 +281,7 @@ enum class ContentBlockType: uint8_t {
     Heading4,
     Heading5,
     Heading6,
+    Bullet,
 };
 
 enum class UIAlignment : uint8_t {
@@ -582,15 +583,22 @@ struct ContentTab {
 };
 
 struct TabsDisplay {
+    bool recalcOffset;
+    bool reDrawIconsAndExtraText;
+
     uint32_t xVao;
     uint32_t xVbo;
     uint32_t xBufferSize;
     uint32_t xVertices;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
+    uint32_t iconsVAO;
+    uint32_t iconsVBO;
+    uint32_t iconsBufferSize;
+    uint32_t iconsVertices;
+
     float totalX;
     float xOffset;
-    bool recalcOffset;
 };
 
 extern TabsDisplay tabsDisplay;
@@ -696,7 +704,15 @@ void updateCBCursor(ContentTab* tab, SelectionData sd);
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 glm::vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
-bool renderContentBlock(ContentTab* tab, vector<ContentBlock>::iterator cb, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t index);
+bool renderContentBlock(
+    ContentTab* tab,
+    vector<ContentBlock>::iterator cb,
+    glm::vec2 &resolution,
+    glm::vec2 &cursor,
+    uint32_t index,
+    vector<float>& iconVertices,
+    bool reDrawIconsAndExtraText
+);
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
