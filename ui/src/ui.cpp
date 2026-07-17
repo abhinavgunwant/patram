@@ -6170,8 +6170,13 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         reDrawCBsFrom(0, 64);
     }
 
-    SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
-    SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+    if (tab->cursorCBIndex < tab->contentBlocks.size()) {
+        SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+    }
+
+    if (sd.cursorCBIndex < tab->contentBlocks.size()) {
+        SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+    }
 
     tab->cursorPosition = sd.cursorPosition;
     tab->lastCursorTime = TIME();
