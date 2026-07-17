@@ -2095,7 +2095,6 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
     SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, vertices_24);
-    SETUP_BUFFERS_TEXT(tabsDisplay.iconsVAO, tabsDisplay.iconsVBO, vertices_2400);
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
@@ -2126,8 +2125,14 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, vertices_24);
     tabsDisplay.xBufferSize = 96;
     tabsDisplay.xVertices = 24;
-    tabsDisplay.iconsVertices = 150;
+
+    SETUP_BUFFERS_TEXT(tabsDisplay.iconsVAO, tabsDisplay.iconsVBO, vertices_2400);
+    tabsDisplay.iconsVertices = 600;
     tabsDisplay.iconsBufferSize = 2400 * sizeof(float);
+
+    SETUP_BUFFERS_TEXT(tabsDisplay.textVAO, tabsDisplay.textVBO, vertices_2400);
+    tabsDisplay.textVertices = 600;
+    tabsDisplay.textBufferSize = 2400 * sizeof(float);
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -4009,6 +4014,7 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
         case ContentBlockType::Heading4: return { 8.0f, 8.0f };
         case ContentBlockType::Heading5:
         case ContentBlockType::Heading6: return { 4.0f, 8.0f };
+        case ContentBlockType::Numbering:
         case ContentBlockType::Bullet: return { 4.0f, 0.0f };
 
         default: return { 16.0f, 8.0f };
@@ -6351,9 +6357,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             vector<float> iconVertices;
+            vector<float> extraTextVertices;
 
             if (tabsDisplay.reDrawIconsAndExtraText) {
-                iconVertices.reserve(3072);
+                iconVertices.reserve(tabsDisplay.iconsBufferSize > 9600 ? tabsDisplay.iconsBufferSize : 9600);
+                extraTextVertices.reserve(tabsDisplay.textBufferSize > 9600 ? tabsDisplay.textBufferSize : 9600);
             }
 
             for (
@@ -6362,7 +6370,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 ++itr, ++i
             ) {
                 if (renderContentBlock(
-                    tab, itr, resolution, cursor, i, iconVertices,
+                    tab, itr, resolution, cursor, i,
+                    iconVertices, extraTextVertices,
                     tabsDisplay.reDrawIconsAndExtraText
                 )) {
                     if (!visible) {
@@ -6384,9 +6393,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 tabsDisplay.iconsVertices,
                 resolution,
                 iconVertices,
-                WHITE,
+                darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
                 tabsDisplay.reDrawIconsAndExtraText,
                 iconTextureID
+            );
+
+            drawTextBuffers(
+                tabsDisplay.textVAO,
+                tabsDisplay.textVBO,
+                tabsDisplay.textBufferSize,
+                tabsDisplay.textVertices,
+                resolution,
+                extraTextVertices,
+                darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
+                tabsDisplay.reDrawIconsAndExtraText
             );
 
             tabsDisplay.reDrawIconsAndExtraText = false;
@@ -7743,6 +7763,7 @@ inline bool renderContentBlock(
     glm::vec2 &cursor,
     uint32_t index,
     vector<float>& iconVertices,
+    vector<float>& textVertices,
     bool reDrawIconsAndExtraText
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
@@ -7800,6 +7821,22 @@ inline bool renderContentBlock(
                 break;
 
             case ContentBlockType::Numbering:
+                if (isActive) {
+                    if (reDrawIconsAndExtraText) {
+                        PUSH_ICON_VERTICES(
+                            textVertices, characters[(int)' '], 0, 0, 0, 0
+                        );
+                    }
+                } else {
+                    pos.x += 16.0f;
+
+                    if (reDrawIconsAndExtraText) {
+                        appendTextVertices(
+                            left, top, cb->rope->substring(0, md.startIndex),
+                            textVertices
+                        );
+                    }
+                }
                 // TODO: Check for the maximum width of the number characters.
                 // TODO: append the text vertices with the numbering text.
                 break;
@@ -7825,7 +7862,7 @@ inline bool renderContentBlock(
             res.height;
 
         cb->rows = res.rows;
-        cb->flags &= ~(CONTENT_BLOCK_REDRAW);
+        UNSET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW);
     } else {
         switch (cb->type) {
             case ContentBlockType::Bullet:
@@ -7836,7 +7873,20 @@ inline bool renderContentBlock(
                     );
                 }
                 break;
+
+            case ContentBlockType::Numbering: {
+                    Markdown md = parseContent(cb->rope);
+
+                    if (reDrawIconsAndExtraText) {
+                        appendTextVertices(
+                            left, top, cb->rope->substring(0, md.startIndex),
+                            textVertices
+                        );
+                    }
+                }
+                break;
         }
+
         renderContentRope(
             cb->rope,
             isActive ? 0 : cb->startIndex,

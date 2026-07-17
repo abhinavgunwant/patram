@@ -74,6 +74,8 @@
 #define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
 
+#define BULLET_NUMBERING_COLOR      glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
+
 //// Dark theme colors
 #define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
 #define TOOL_BAR_BG_DARK            glm::vec4(0.24, 0.22, 0.22, 1.0) // #3D3838
@@ -98,8 +100,10 @@
 
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
 
-#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.15f, 0.15f, 0.15f, 1.0)
-#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.25f, 0.25f, 0.25f, 1.0)
+#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.22f, 0.2f, 0.2f, 1.0)
+#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.32f, 0.3f, 0.3f, 1.0)
+
+#define BULLET_NUMBERING_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -282,6 +286,7 @@ enum class ContentBlockType: uint8_t {
     Heading5,
     Heading6,
     Bullet,
+    Numbering,
 };
 
 enum class UIAlignment : uint8_t {
@@ -596,6 +601,10 @@ struct TabsDisplay {
     uint32_t iconsVBO;
     uint32_t iconsBufferSize;
     uint32_t iconsVertices;
+    uint32_t textVAO;
+    uint32_t textVBO;
+    uint32_t textBufferSize;
+    uint32_t textVertices;
 
     float totalX;
     float xOffset;
@@ -711,6 +720,7 @@ bool renderContentBlock(
     glm::vec2 &cursor,
     uint32_t index,
     vector<float>& iconVertices,
+    vector<float>& textVertices,
     bool reDrawIconsAndExtraText
 );
 void renderContentBlockHighlight();
