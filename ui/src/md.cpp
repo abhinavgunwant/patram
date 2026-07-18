@@ -250,8 +250,17 @@ ContentBlockType getCBTypeAndStartIndex(Rope* rope, uint32_t& startIndex) {
         switch (ch) {
             case '#': ++hashCount; break;
             case '-': ++dashCount; break;
-            case '`': ++tickCount; break;
             case '*': ++asteriskCount; break;
+            case '`':
+                ++tickCount;
+
+                if (tickCount == 3) {
+                  shouldBreak = true;
+                  success = true;
+                  ++i;
+                }
+
+                break;
         }
 
         if (shouldBreak || isalnum(ch)) { break; }
@@ -287,9 +296,10 @@ ContentBlockType getCBTypeAndStartIndex(Rope* rope, uint32_t& startIndex) {
             return ContentBlockType::Numbering;
         }
 
-        // if (tickCount == 3 && hashCount == 0 && dashCount == 0) {
-        //     return ContentBlockType::Code;
-        // }
+        if (tickCount == 3 && !hashCount && !dashCount && !numberCount && !asteriskCount) {
+            startIndex = i;
+            return ContentBlockType::Code;
+        }
     }
 
     return ContentBlockType::Paragraph;
@@ -450,7 +460,7 @@ Markdown parseContent(Rope* rope) {
         char ch = rci.next();
 
         switch (ch) {
-            case '*': 
+            case '*':
                 if (rci.peekNext() == '*') {
                     parseBoldText(rci, md.fragments);
                 } else {
@@ -465,5 +475,34 @@ Markdown parseContent(Rope* rope) {
     }
 
     return md;
+}
+
+bool containsCodeBlockBound(Rope* rope) {
+    uint32_t consecutiveTickCount = 0;
+    uint32_t maxConsecutiveTickCount = 0;
+
+    RopeCharIterator rci(rope);
+
+    char lastChar = '`';
+
+    while (rci.hasNext()) {
+        char ch = rci.next();
+
+        if (ch == '`') {
+            if (lastChar != '`') {
+                consecutiveTickCount = 1;
+            } else {
+                ++consecutiveTickCount;
+            }
+        }
+
+        if (consecutiveTickCount > maxConsecutiveTickCount) {
+            maxConsecutiveTickCount = consecutiveTickCount;
+        }
+
+        lastChar = ch;
+    }
+
+    return maxConsecutiveTickCount == 3;
 }
 

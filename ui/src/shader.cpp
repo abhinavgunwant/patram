@@ -52,6 +52,23 @@ string vertexShaders[] = {
         "vec2 uv = vec2(aPos.x, aPos.y - scrollOffsetY) / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
     "}\0",
+
+    // Rectangle shader
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in uint colorIndex;\n"
+    "layout (std140) uniform ColorsUniforms {\n"
+        "vec4 colors[4];\n"
+    "};\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
+    "out vec4 color;"
+    "void main() {\n"
+        "color = colors[colorIndex];\n"
+        "vec2 uv = aPos / resolution * 2;\n"
+        "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
+    "}\0",
 };
 
 string fragmentShaders[] = {
@@ -284,6 +301,14 @@ string fragmentShaders[] = {
         "FragColor = vec4(color.r, color.g, color.b, cos(time * 8) * color.a);\n"
         // "FragColor = color;\n"
     "}\0",
+
+    // Rectangle Shader
+    "#version 330 core\n"
+    "in vec4 color;\n"
+    "out vec4 FragColor;\n"
+    "void main() {\n"
+        "FragColor = vec4(color.rgb, color.a / 2);\n"
+    "}\0"
 };
 
 Shader shaders[] = {
@@ -294,6 +319,7 @@ Shader shaders[] = {
     { 0, 0, 4 }, // SHADER_TEXT_INPUT
     { 0, 0, 5 }, // SHADER_TEXT_CURSOR
     { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
+    { 0, 4, 6 }, // SHADER_RECTANGLE
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
@@ -434,5 +460,11 @@ void initShaders() {
     uniforms[U_TEXT_HL_COLOR] = glGetUniformLocation(id, "solidColor");
     uniforms[U_TEXT_HL_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_TEXT_HL_SCROLL_OFFSET_Y] = glGetUniformLocation(id, "scrollOffsetY");
+
+    id = shaders[SHADER_RECTANGLE].programId;
+    uint32_t commonUniformsIndex = glGetUniformBlockIndex(id, "CommonUniforms");
+    uint32_t colorUniformsIndex = glGetUniformBlockIndex(id, "ColorsUniforms");
+    glUniformBlockBinding(id, commonUniformsIndex, COMMON_UNIFORMS_UBO_INDEX);
+    glUniformBlockBinding(id, colorUniformsIndex, RECTANGLE_COLOR_INDEX_UBO_INDEX);
 }
 

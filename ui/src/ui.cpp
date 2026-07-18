@@ -82,6 +82,8 @@
 #define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
+#define LINE_HEIGHT(fontSize) static_cast<float>(fontSize) * (1 - glyphDescender)
+
 using namespace std;
 
 float iconButtonVertices[16] = {
@@ -157,6 +159,15 @@ float mouseDownY = 25000;
 uint32_t untitledNotes = 0;
 uint32_t untitledFolders = 0;
 
+uint32_t rectangleColorIndexUBO = 0;
+uint32_t commonUBO = 0;
+
+uint32_t rectangleVAO = 0;
+uint32_t rectangleVBO = 0;
+uint32_t rectangleVertices = 0;
+uint32_t maxRectangleVertices = 96;
+uint32_t rectangleBufferSize = 0;
+
 Explorer explorer = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     false, false, false, false, false,
@@ -205,6 +216,66 @@ void showWindow() {
     glfwSetWindowFocusCallback(window, windowFocusCallback);
 
     glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
+}
+
+void addRectangle(
+    float x, float y, float w, float h,
+    uint32_t colorIndex, uint32_t borderRadius,
+    vector<RectangleVertexAttributes>& rva
+) {
+    rva.insert(rva.end(), {
+        { x,     y,     colorIndex, borderRadius },
+        { x + w, y,     colorIndex, borderRadius },
+        { x,     y + h, colorIndex, borderRadius },
+        { x,     y + h, colorIndex, borderRadius },
+        { x + w, y,     colorIndex, borderRadius },
+        { x + w, y + h, colorIndex, borderRadius },
+    });
+}
+
+void drawRectangles(vector<RectangleVertexAttributes>& rva, bool redraw) {
+    glBindVertexArray(rectangleVAO);
+
+    if (redraw) {
+        if (rva.empty()) { return; }
+
+        rectangleVertices = rva.size();
+
+        glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
+
+        if (maxRectangleVertices < rva.size()) {
+            maxRectangleVertices = rva.size();
+            glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectangleVertexAttributes), &rva[0], GL_DYNAMIC_DRAW);
+        } else {
+            for (uint32_t i=rectangleVertices; i<maxRectangleVertices; i += 6) {
+                rva.insert(rva.end(), {
+                    { 0, 0, 0, 0 },
+                    { 0, 0, 0, 0 },
+                    { 0, 0, 0, 0 },
+                    { 0, 0, 0, 0 },
+                    { 0, 0, 0, 0 },
+                    { 0, 0, 0, 0 },
+                });
+            }
+
+            glBufferSubData(GL_ARRAY_BUFFER, 0, rva.size() * sizeof(RectangleVertexAttributes), &rva[0]);
+        }
+    }
+
+    glUseProgram(shaders[SHADER_RECTANGLE].programId);
+
+    glDrawArrays(GL_TRIANGLES, 0, rectangleVertices);
+}
+
+void clearRectangles() {
+    uint32_t length = sizeof(RectangleVertexAttributes) * maxRectangleVertices;
+    vector<RectangleVertexAttributes> rva;
+    rva.reserve(maxRectangleVertices);
+    memset(rva.data(), 0, length);
+
+    glBindVertexArray(rectangleVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, length, rva.data());
 }
 
 void toggleFullscreen() {
@@ -912,6 +983,9 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
+    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2), glm::value_ptr(resolution));
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     ROOT_CONTAINER.width = width;
     ROOT_CONTAINER.height = height;
@@ -960,6 +1034,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
                 (*tabIter).scrollbarUpdated = false;
             }
         }
+
+        tabsDisplay.reDrawIconsAndExtraText = true;
     }
 
     float _ = 0.0f;
@@ -2088,6 +2164,49 @@ void setupUI(bool isDarkTheme) {
     glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    glm::vec4 rectangleColors[] = {
+        WHITE,
+        BLACK,
+        CODE_COLOR,
+        CODE_COLOR_DARK,
+    };
+
+    glGenBuffers(1, &rectangleColorIndexUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, rectangleColorIndexUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(rectangleColors), rectangleColors, GL_STATIC_DRAW);
+    glBindBufferRange(
+        GL_UNIFORM_BUFFER,
+        RECTANGLE_COLOR_INDEX_UBO_INDEX,
+        rectangleColorIndexUBO,
+        0,
+        sizeof(glm::vec4) * RECTANGLE_COLOR_INDEX_COUNT
+    );
+
+    glGenBuffers(1, &commonUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2), glm::value_ptr(resolution), GL_STATIC_DRAW);
+    glBindBufferRange(
+        GL_UNIFORM_BUFFER,
+        COMMON_UNIFORMS_UBO_INDEX,
+        commonUBO,
+        0,
+        sizeof(glm::vec2)
+    );
+
+    maxRectangleVertices = 96;
+
+    glGenVertexArrays(1, &rectangleVAO);
+    glBindVertexArray(rectangleVAO);
+    glGenBuffers(1, &rectangleVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(RectangleVertexAttributes) * maxRectangleVertices, NULL, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectangleVertexAttributes), (void*)0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2 + sizeof(uint32_t)));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
     float vertices[8] = { 0 };
     float vertices_24[24] = { 0 };
     float vertices_2400[2400] = { 0 };
@@ -2949,6 +3068,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 recalculateLayout(&MAIN_CONTAINER);
                 recalculateContentWidth();
                 updateWindowTitle();
+                clearRectangles();
                 break;
 
             case GLFW_KEY_ENTER:
@@ -4016,6 +4136,7 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
         case ContentBlockType::Heading6: return { 4.0f, 8.0f };
         case ContentBlockType::Numbering:
         case ContentBlockType::Bullet: return { 4.0f, 0.0f };
+        case ContentBlockType::Code: return { 0.0f, 0.0f };
 
         default: return { 16.0f, 8.0f };
     }
@@ -4914,6 +5035,8 @@ void tabBarMouseDownCallback(
                     tab->redrawCursor = true;
                     reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
                 }
+
+                clearRectangles();
             }
 
             break;
@@ -5410,7 +5533,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
          0, 0, 0, 0, 0, 0,
-        commands, extCommands, content, path
+        commands, extCommands, content, vector<ContentBlockBounds>(), path
     });
 
     activeTabIndex = tabs.size() - 1;
@@ -5425,6 +5548,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
     }
     activeElement = &CONTENT_CONTAINER;
     CONTENT_CONTAINER.active = true;
+    clearRectangles();
 }
 
 void closeCurrentTab() {
@@ -5529,6 +5653,8 @@ void closeTab(uint32_t index) {
     }
 
     updateWindowTitle();
+    clearRectangles();
+    tabsDisplay.reDrawIconsAndExtraText = true;
 }
 
 string getSelectedTextFromCurrentTab() {
@@ -6369,6 +6495,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 extraTextVertices.reserve(tabsDisplay.textBufferSize > 9600 ? tabsDisplay.textBufferSize : 9600);
             }
 
+            vector<RectangleVertexAttributes> rva;
+            rva.reserve(rectangleVertices);
+
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
                 itr != tab->contentBlocks.end();
@@ -6376,7 +6505,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             ) {
                 if (renderContentBlock(
                     tab, itr, resolution, cursor, i,
-                    iconVertices, extraTextVertices,
+                    iconVertices, extraTextVertices, rva,
                     tabsDisplay.reDrawIconsAndExtraText
                 )) {
                     if (!visible) {
@@ -6390,6 +6519,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     break;
                 }
             }
+
+            drawRectangles(rva, tabsDisplay.reDrawIconsAndExtraText);
 
             drawTextBuffers(
                 tabsDisplay.iconsVAO,
@@ -6437,10 +6568,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 #endif
 
                 if (tab->showCursor && !tab->textSelected) {
+                    float height;
+
+                    if (tab->cursorCBIndex < tab->contentBlocks.size()) {
+                        height = LINE_HEIGHT(getCBFontSize(
+                            tab->contentBlocks[tab->cursorCBIndex].type
+                        ));
+                    } else {
+                        height = sd.height;
+                    }
+
                     float vertices[] = {
-                        sd.x + 1.0f, sd.y - sd.height - tab->scrollOffsetY,
+                        sd.x + 1.0f, sd.y - height - tab->scrollOffsetY,
                         sd.x + 1.0f, sd.y - tab->scrollOffsetY,
-                        sd.x - 1.0f, sd.y - sd.height - tab->scrollOffsetY,
+                        sd.x - 1.0f, sd.y - height - tab->scrollOffsetY,
                         sd.x - 1.0f, sd.y - tab->scrollOffsetY,
                     };
 
@@ -6454,7 +6595,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (tab->showCursor && !tab->textSelected) {
                 glBindVertexArray(tab->cursorVAO);
-                glBindBuffer(GL_ARRAY_BUFFER, tab->cursorVBO);
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
 
@@ -7769,6 +7909,7 @@ inline bool renderContentBlock(
     uint32_t index,
     vector<float>& iconVertices,
     vector<float>& textVertices,
+    vector<RectangleVertexAttributes>& rva,
     bool reDrawIconsAndExtraText
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
@@ -7794,13 +7935,14 @@ inline bool renderContentBlock(
         || top < 0 && bottom > windowHeight;
 
     bool isActive = tab->cursorCBIndex == index;
+    bool isCodeStart = false;
 
     glm::vec2 pos = glm::vec2(left, top);
 
     if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
         Markdown md = parseContent(cb->rope);
 
-        if (index) {
+        if (index && cb->type != ContentBlockType::Code) {
             cb->type = md.cbType;
             cb->startIndex = md.startIndex;
         }
@@ -7845,28 +7987,100 @@ inline bool renderContentBlock(
                 // TODO: Check for the maximum width of the number characters.
                 // TODO: append the text vertices with the numbering text.
                 break;
+
+            case ContentBlockType::Code:
+                ContentBlockBounds bounds;
+
+                if (!isActive) {
+                    pos.x += 8.0f;
+
+                    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+                        if (itr->end == index) {
+                            return visible;
+                        }
+
+                        if (itr->start == index) {
+                            isCodeStart = true;
+                            bounds = *itr;
+                            break;
+                        }
+                    }
+                }
+
+                if (reDrawIconsAndExtraText) {
+                    if (isActive) {
+                        addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
+                    } else {
+                        if (
+                            isCodeStart && (
+                                tab->cursorCBIndex < bounds.start
+                                || tab->cursorCBIndex > bounds.end
+                            )
+                        ) {
+                            cout << "\nFound bounds: { start: " << bounds.start
+                                << ", end: " << bounds.end << " }";
+
+                            string languageText;
+
+                            if (md.cbType == ContentBlockType::Code) {
+                                languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
+                            }
+
+                            uint32_t length;
+
+                            if (bounds.end == 0) {
+                                length = tab->contentBlocks.size() - tab->cursorCBIndex;
+                            } else {
+                                length = bounds.end - bounds.start + 1;
+                            }
+
+                            float height = static_cast<float>(length)
+                                * LINE_HEIGHT(getCBFontSize(
+                                    ContentBlockType::Code
+                                ));
+
+                            addRectangle(
+                                left,
+                                top,
+                                contentRight - contentLeft,
+                                height,
+                                darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+                                0,
+                                rva
+                            );
+
+                            if (!languageText.empty()) {
+                                appendTextVertices(left + 8.0f, top, languageText, textVertices);
+                            }
+                        }
+                    }
+                }
+                break;
         }
 
-        RopeRenderResult res = renderContentRope(
-            cb->rope,
-            isActive ? 0 : md.startIndex,
-            pos,
-            resolution,
-            cb->textVAO,
-            cb->textVBO,
-            cb->bufferSize,
-            CONTENT_CONTAINER.width,
-            darkTheme ? WHITE : BLACK,
-            getCBFontSize(cb->type),
-            GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
-        );
+        if (!isCodeStart) {
+            RopeRenderResult res = renderContentRope(
+                cb->rope,
+                isActive ? 0 : md.startIndex,
+                pos,
+                resolution,
+                cb->textVAO,
+                cb->textVBO,
+                cb->bufferSize,
+                CONTENT_CONTAINER.width,
+                darkTheme ? WHITE : BLACK,
+                getCBFontSize(cb->type),
+                GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+            );
 
-        cb->height = (res.height == 0.0f && glyphDescender < 0) ?
-            static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender)
-            :
-            res.height;
+            cb->height = (res.height == 0.0f && glyphDescender < 0) ?
+                static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender)
+                :
+                res.height;
 
-        cb->rows = res.rows;
+            cb->rows = res.rows;
+        }
+
         UNSET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW);
     } else {
         switch (cb->type) {
@@ -7890,21 +8104,89 @@ inline bool renderContentBlock(
                     }
                 }
                 break;
+
+            case ContentBlockType::Code:
+                ContentBlockBounds bounds;
+                if (!isActive) {
+                    pos.x += 8.0f;
+
+                    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+                        if (itr->end == index) {
+                            return visible;
+                        }
+
+                        if (itr->start == index) {
+                            isCodeStart = true;
+                            bounds = *itr;
+                            break;
+                        }
+                    }
+                }
+
+                if (reDrawIconsAndExtraText) {
+                    if (isActive) {
+                        addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
+                    } else {
+                        if (
+                            isCodeStart && (
+                                tab->cursorCBIndex < bounds.start
+                                || tab->cursorCBIndex > bounds.end
+                            )
+                        ) {
+                            Markdown md = parseContent(cb->rope);
+                            string languageText;
+
+                            if (md.cbType == ContentBlockType::Code) {
+                                languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
+                            }
+
+                            uint32_t length;
+
+                            if (bounds.end == 0) {
+                                length = tab->contentBlocks.size() - tab->cursorCBIndex;
+                            } else {
+                                length = bounds.end - bounds.start + 1;
+                            }
+
+                            float height = static_cast<float>(length)
+                                * LINE_HEIGHT(getCBFontSize(
+                                    ContentBlockType::Code
+                                ));
+
+                            addRectangle(
+                                left,
+                                top,
+                                contentRight - contentLeft,
+                                height,
+                                darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+                                0,
+                                rva
+                            );
+
+                            if (!languageText.empty()) {
+                                appendTextVertices(left + 8.0f, top, languageText, textVertices);
+                            }
+                        }
+                    }
+                }
+                break;
         }
 
-        renderContentRope(
-            cb->rope,
-            isActive ? 0 : cb->startIndex,
-            pos,
-            resolution,
-            cb->textVAO,
-            cb->textVBO,
-            cb->bufferSize,
-            CONTENT_CONTAINER.width,
-            darkTheme ? WHITE : BLACK,
-            getCBFontSize(cb->type),
-            GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
-        );
+        if (!isCodeStart) {
+            renderContentRope(
+                cb->rope,
+                isActive ? 0 : cb->startIndex,
+                pos,
+                resolution,
+                cb->textVAO,
+                cb->textVBO,
+                cb->bufferSize,
+                CONTENT_CONTAINER.width,
+                darkTheme ? WHITE : BLACK,
+                getCBFontSize(cb->type),
+                GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+            );
+        }
     }
 
     if (tab->maxHeight < cb->top + cb->height) {
@@ -8402,6 +8684,16 @@ void reDrawCBsFrom(uint32_t i, uint32_t limit) {
     }
 }
 
+bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex) {
+    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+        if (itr->start <= contentIndex && itr->end > contentIndex) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void insertCBs(
     ContentTab* tab,
     uint32_t index,
@@ -8880,6 +9172,8 @@ bool processCBTypeCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
     if (cmd->str != "") {
+        bool increment = true;
+
         cb->rope->insert(cmd->startCursorPos, cmd->str);
         reDrawCBsFrom(cmd->startCBIndex, 64);
 
@@ -8899,10 +9193,62 @@ bool processCBTypeCommand(
             && tab->commands.back().type == CommandType::Type
         ) {
             tab->commands.back().str += cmd->str;
-            return false;
+            increment = false;
         }
 
-        return true;
+        if (cmd->startCBIndex != 0) {
+            ContentBlockType cbType = getCBType(cb->rope);
+
+            if (
+                cb->type != ContentBlockType::Code && cbType == ContentBlockType::Code
+                || cb->type == ContentBlockType::Code && cmd->str == "`"
+                    && containsCodeBlockBound(cb->rope)
+            ) {
+                cb->type = ContentBlockType::Code;
+
+                if (tab->codeBlockBounds.empty()) {
+                    tab->codeBlockBounds.push_back(ContentBlockBounds { cmd->startCBIndex, 0 });
+                } else {
+                    bool foundMissingStart = false;
+                    bool foundMissingEnd = false;
+
+                    vector<ContentBlockBounds>::iterator cbbIter = tab->codeBlockBounds.begin();
+
+                    for (; cbbIter != tab->codeBlockBounds.end(); ++cbbIter) {
+                        if (cbbIter->start == 0) {
+                            foundMissingStart = true;
+                            break;
+                        }
+
+                        if (cbbIter->end == 0) {
+                            foundMissingEnd = true;
+                            break;
+                        }
+                    }
+
+                    if (foundMissingEnd) {
+                        cbbIter->end = cmd->startCBIndex;
+                    } else if (foundMissingStart) {
+                        cbbIter->start = cmd->startCBIndex;
+                    } else {
+                        tab->codeBlockBounds.push_back(ContentBlockBounds {
+                            cmd->startCBIndex, 0
+                        });
+                    }
+                }
+            } else {
+                for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end();++itr) {
+                    if (itr->start <= cmd->startCBIndex && itr->end > cmd->startCBIndex) {
+                        if (cb->type == ContentBlockType::Paragraph) {
+                            cb->type = ContentBlockType::Code;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return increment;
     }
 
     return false;
@@ -9152,15 +9498,35 @@ bool processCBReplaceCommand(
 bool processCBNewLineCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
+    bool isCodeEndBound = false;
+
+    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+        if (itr->end == cmd->startCBIndex) {
+            isCodeEndBound = true;
+            break;
+        }
+
+        if (itr->start <= cmd->startCBIndex && itr->end > cmd->startCBIndex) {
+            ++itr->end;
+            break;
+        }
+    }
+
     if (cmd->startCursorPos == cb->rope->length() || cmd->startCursorPos == 0) {
         if (cmd->startCursorPos != 0) {
             ++tab->cursorCBIndex;
         }
 
+        ContentBlockType type = cb->type;
+
+        if (cmd->startCursorPos == cb->rope->length() && isCodeEndBound) {
+            type = ContentBlockType::Paragraph;
+        }
+
         tab->contentBlocks.insert(
             tab->contentBlocks.begin() + tab->cursorCBIndex,
             ContentBlock {
-                cb->type,
+                type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
                 0, 0, 0, 0, 0, 0,

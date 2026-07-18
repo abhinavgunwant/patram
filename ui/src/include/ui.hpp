@@ -75,6 +75,7 @@
 #define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
 
 #define BULLET_NUMBERING_COLOR      glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
+#define CODE_COLOR                  glm::vec4(0.9f, 0.9f, 0.9f, 1.0)
 
 //// Dark theme colors
 #define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
@@ -104,6 +105,12 @@
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.32f, 0.3f, 0.3f, 1.0)
 
 #define BULLET_NUMBERING_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
+#define CODE_COLOR_DARK             glm::vec4(0.1f, 0.1f, 0.1f, 1.0)
+
+#define WHITE_INDEX                 0
+#define BLACK_INDEX                 1
+#define CODE_INDEX                  2
+#define CODE_DARK_INDEX             3
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -225,6 +232,17 @@ extern bool showFps;
 
 extern uint8_t* moveCursorBitmap;
 
+struct CommonUniforms {
+    glm::vec2 resolution;
+};
+
+struct RectangleVertexAttributes {
+    float x;
+    float y;
+    uint32_t colorIndex;
+    uint32_t borderRadius;
+};
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
@@ -287,6 +305,7 @@ enum class ContentBlockType: uint8_t {
     Heading6,
     Bullet,
     Numbering,
+    Code,
 };
 
 enum class UIAlignment : uint8_t {
@@ -531,6 +550,11 @@ struct ContentBlockMoveMarker {
     bool updated;
 };
 
+struct ContentBlockBounds {
+    uint32_t start;
+    uint32_t end;
+};
+
 struct ContentTab {
     bool showCursor;
     bool redrawCursor;
@@ -584,6 +608,7 @@ struct ContentTab {
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
+    vector<ContentBlockBounds> codeBlockBounds;
     filesystem::path filePath;
 };
 
@@ -721,6 +746,7 @@ bool renderContentBlock(
     uint32_t index,
     vector<float>& iconVertices,
     vector<float>& textVertices,
+    vector<RectangleVertexAttributes>& rva,
     bool reDrawIconsAndExtraText
 );
 void renderContentBlockHighlight();
@@ -732,6 +758,7 @@ void hideCBMoveMarker();
 void reDrawAllContentBlocks();
 void reDrawCBsFrom(uint32_t i, uint32_t limit);
 void reDrawCBsFromIter(vector<ContentBlock>::iterator iter, uint32_t limit);
+bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex);
 
 void insertCBs(
     ContentTab* tab,

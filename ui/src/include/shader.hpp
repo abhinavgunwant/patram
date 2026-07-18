@@ -4,9 +4,9 @@
 #include <string>
 
 // #define DEBUG_SHADER
-#define TOTAL_SHADERS 7
-#define TOTAL_VERTEX_SHADERS 4
-#define TOTAL_FRAGMENT_SHADERS 6
+#define TOTAL_SHADERS 8
+#define TOTAL_VERTEX_SHADERS 5
+#define TOTAL_FRAGMENT_SHADERS 7
 #define TOTAL_UNIFORMS 34
 
 #define U_DEFAULT_COLOR             0
@@ -44,6 +44,10 @@
 #define U_TEXT_HL_RESOLUTION        32
 #define U_TEXT_HL_SCROLL_OFFSET_Y   33
 
+#define COMMON_UNIFORMS_UBO_INDEX           0
+#define RECTANGLE_COLOR_INDEX_UBO_INDEX     1
+#define RECTANGLE_COLOR_INDEX_COUNT         4
+
 using namespace std;
 
 enum Shaders {
@@ -54,6 +58,7 @@ enum Shaders {
     SHADER_TEXT_INPUT,
     SHADER_TEXT_CURSOR,
     SHADER_CB_TEXT_HIGHLIGHT,
+    SHADER_RECTANGLE,
 };
 
 struct Shader {

@@ -30,6 +30,7 @@ struct Markdown {
 
 ContentBlockType getCBType(Rope* rope);
 Markdown parseContent(Rope* rope);
+bool containsCodeBlockBound(Rope* rope);
 
 #endif // PATRAM_UI_MD 
 
