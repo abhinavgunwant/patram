@@ -896,7 +896,7 @@ char RopeCharIterator::next() {
     }
 
     if (current != nullptr) {
-        if (currentRopeIndex < current->text.length()) {
+        if (currentRopeIndex + 1 < current->text.length()) {
             ++currentRopeIndex;
             ++globalIndex;
 
