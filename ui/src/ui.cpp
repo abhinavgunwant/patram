@@ -7992,9 +7992,12 @@ inline bool renderContentBlock(
                 ContentBlockBounds bounds;
 
                 if (!isActive) {
-                    pos.x += 8.0f;
-
                     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+                        if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
+                            isActive = true;
+                            break;
+                        }
+
                         if (itr->end == index) {
                             return visible;
                         }
@@ -8005,6 +8008,10 @@ inline bool renderContentBlock(
                             break;
                         }
                     }
+                }
+
+                if (!isActive) {
+                    pos.x += 8.0f;
                 }
 
                 if (reDrawIconsAndExtraText) {
@@ -8050,7 +8057,22 @@ inline bool renderContentBlock(
                             );
 
                             if (!languageText.empty()) {
-                                appendTextVertices(left + 8.0f, top, languageText, textVertices);
+                                RopeRenderResult dimensions = getTextDimensions(
+                                    languageText,
+                                    glm::vec2(left, top),
+                                    resolution,
+                                    16,
+                                    contentLeft,
+                                    contentRight - contentLeft,
+                                    false
+                                );
+
+                                appendTextVertices(
+                                    contentRight - dimensions.width - 8.0f,
+                                    top,
+                                    languageText,
+                                    textVertices
+                                );
                             }
                         }
                     }
@@ -8107,10 +8129,14 @@ inline bool renderContentBlock(
 
             case ContentBlockType::Code:
                 ContentBlockBounds bounds;
-                if (!isActive) {
-                    pos.x += 8.0f;
 
+                if (!isActive) {
                     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+                        if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
+                            isActive = true;
+                            break;
+                        }
+
                         if (itr->end == index) {
                             return visible;
                         }
@@ -8121,6 +8147,10 @@ inline bool renderContentBlock(
                             break;
                         }
                     }
+                }
+
+                if (!isActive) {
+                    pos.x += 8.0f;
                 }
 
                 if (reDrawIconsAndExtraText) {
@@ -8164,7 +8194,22 @@ inline bool renderContentBlock(
                             );
 
                             if (!languageText.empty()) {
-                                appendTextVertices(left + 8.0f, top, languageText, textVertices);
+                                RopeRenderResult dimensions = getTextDimensions(
+                                    languageText,
+                                    glm::vec2(left, top),
+                                    resolution,
+                                    16,
+                                    contentLeft,
+                                    contentRight - contentLeft,
+                                    false
+                                );
+
+                                appendTextVertices(
+                                    contentRight - dimensions.width - 8.0f,
+                                    top,
+                                    languageText,
+                                    textVertices
+                                );
                             }
                         }
                     }
