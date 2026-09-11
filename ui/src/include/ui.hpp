@@ -34,7 +34,7 @@
 #define CONTENT_HORIZONTAL_MARGIN   20.0f
 
 #define CONTENT_BLOCK_VISIBLE       0b00000001
-#define CONTENT_BLOCK_REDRAW        0b00000010
+#define CONTENT_BLOCK_REDRAW        0b00000010 // This has been moved to CBTextRenderInfo.redraw
 #define CONTENT_BLOCK_DRAGGING      0b00000100
 #define CONTENT_BLOCK_EDITING       0b00001000
 
@@ -510,14 +510,18 @@ struct ContentBlock {
     float height;
 
     uint32_t rows;
-
-    uint32_t textVAO;
-    uint32_t textVBO;
-    uint32_t bufferSize;
-    uint32_t numVertices;
     uint32_t startIndex;
 
     Rope* rope;
+};
+
+struct CBTextRenderInfo {
+    uint32_t vao;
+    uint32_t vbo;
+    uint32_t bufferSize;
+    uint32_t numVertices;
+    bool redraw;
+    vector<float> vertices;
 };
 
 struct HighlightedContentBlock {
@@ -756,8 +760,7 @@ void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, gl
 void renderCBMoveMarker();
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
-void reDrawCBsFrom(uint32_t i, uint32_t limit);
-void reDrawCBsFromIter(vector<ContentBlock>::iterator iter, uint32_t limit);
+inline void reDrawCBs();
 bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex);
 
 void insertCBs(

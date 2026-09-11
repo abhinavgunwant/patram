@@ -206,6 +206,14 @@ float appendTextVertices(
     vector<float>& vertices
 );
 
+RopeRenderResult appendRopeVertices(
+    float x,
+    float y,
+    Rope *rope,
+    uint8_t fontSize,
+    vector<float>& vertices
+);
+
 /**
  * Renders text
  *

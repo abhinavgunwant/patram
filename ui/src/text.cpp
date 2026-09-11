@@ -857,6 +857,70 @@ float appendTextVertices(
     return xpos - x;
 }
 
+RopeRenderResult appendRopeVertices(
+    float x,
+    float y,
+    Rope* rope,
+    uint8_t fontSize,
+    vector<float>& vertices
+) {
+    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
+
+    float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
+        glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0;
+    float infinity = numeric_limits<float>::infinity();
+
+    RopeTraverser rt(rope);
+
+    while (rt.hasNext()) {
+        Rope* node = rt.next();
+
+        for (char c: node->text) {
+            glm::vec2 pos = glm::vec2(x, y);
+
+            getCharParams(
+                characters[(int)c],
+                pos,
+                xpos,
+                ypos,
+                yNet,
+                xpos_plus_w,
+                ypos_plus_h,
+                result.height,
+                texX1,
+                texX2,
+                texY1,
+                texY2,
+                glyphHeight,
+                glyphWidth,
+                bearingTop,
+                bearingLeft,
+                advance,
+                infinity,
+                result.rows,
+                fontSize,
+                result.renderNextContentBlock
+            );
+
+            vertices.insert(vertices.end(), {
+                xpos,           ypos_plus_h,    texX1, texY1,
+                xpos,           ypos,           texX1, texY2,
+                xpos_plus_w,    ypos,           texX2, texY2,
+                xpos,           ypos_plus_h,    texX1, texY1,
+                xpos_plus_w,    ypos,           texX2, texY2,
+                xpos_plus_w,    ypos_plus_h,    texX2, texY1
+            });
+
+            xpos += advance;
+        }
+    }
+
+    result.width = x;
+    ++result.rows;
+
+    return result;
+}
+
 // render line of text
 glm::vec4 renderText(
     string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,

@@ -174,6 +174,8 @@ Explorer explorer = {
     vector<ExplorerNode>()
 };
 
+CBTextRenderInfo cbtrInfo;
+
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
     float textTime = 0.0f;
@@ -1018,7 +1020,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
             tab->redrawSel = true;
         }
 
-        reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength + 16);
+        reDrawCBs();
 
         if (tab->showCursor) {
             tab->redrawCursor = true;
@@ -1463,7 +1465,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
                 tab->scrollbarUpdated = false;
 
-                reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+                reDrawCBs();
 
                 tab->updated = true;
 
@@ -2369,6 +2371,18 @@ void setupUI(bool isDarkTheme) {
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);
     #endif
+
+    cbtrInfo = { 0, 0, 24000 * sizeof(float), 0, true, vector<float>() };
+    cbtrInfo.vertices.reserve(24000);
+
+    // cb
+    glGenVertexArrays(1, &cbtrInfo.vao);
+    glBindVertexArray(cbtrInfo.vao);
+    glGenBuffers(1, &cbtrInfo.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, cbtrInfo.vbo);
+    glBufferData(GL_ARRAY_BUFFER, cbtrInfo.bufferSize, nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
     explorerLoadThread.join();
 }
@@ -4755,7 +4769,7 @@ void openFile(bool openDialog, filesystem::path p) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
                     CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-                    0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(line),
+                    0.0f, 0.0f, 0.0f, 1, 0, new Rope(line),
                 });
             }
 
@@ -4829,7 +4843,7 @@ void newNote(filesystem::path p) {
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-        0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope()
+        0.0f, 0.0f, 0.0f, 1, 0, new Rope()
     });
     tab->updated = true;
 
@@ -5033,7 +5047,7 @@ void tabBarMouseDownCallback(
 
                 if (tab->scrollbarUpdated == false) {
                     tab->redrawCursor = true;
-                    reDrawCBsFrom(tab->firstVisibleCBIndex, tab->visibleCBLength);
+                    reDrawCBs();
                 }
 
                 clearRectangles();
@@ -5400,7 +5414,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
         type,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        0, 0, 0, 0, 0, 0,
+        0, 0,
         new Rope(text),
     };
 
@@ -5418,7 +5432,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
         type,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        0, 0, 0, 0, 0, 0,
+        0, 0,
         new Rope(text),
     });
 }
@@ -5512,7 +5526,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         ContentBlockType::Title,
         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
-        1, 0, 0, 0, 0, 0,
+        1, 0,
         new Rope(path.filename().string()),
     });
 
@@ -6272,9 +6286,9 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
 
         if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
-            reDrawCBsFrom(startIndex, 64);
+            reDrawCBs();
         } else {
-            reDrawCBsFrom(startIndex, 64);
+            reDrawCBs();
         }
     } else if (sd.y - sd.height - tab->scrollOffsetY < CONTENT_CONTAINER.top && sd.y != 0 && sd.height != 0) {
         tab->scrollOffsetY = sd.y - sd.height - CONTENT_CONTAINER.top;
@@ -6286,14 +6300,14 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
         uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
 
         if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
-            reDrawCBsFrom(startIndex, 64);
+            reDrawCBs();
         } else {
-            reDrawCBsFrom(startIndex, 64);
+            reDrawCBs();
         }
     } else if (tab->cursorCBIndex == 0 && tab->scrollOffsetY != 0) {
         tab->scrollOffsetY = 0;
         tab->scrollbarUpdated = true;
-        reDrawCBsFrom(0, 64);
+        reDrawCBs();
     }
 
     if (tab->cursorCBIndex < tab->contentBlocks.size()) {
@@ -6478,8 +6492,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             uint32_t i=0;
 
-            bool visible = false;
-
             uint32_t offset = 0;
 
             if (!tab->updated && tab->firstVisibleCBIndex != 0) {
@@ -6497,6 +6509,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             vector<RectangleVertexAttributes> rva;
             rva.reserve(rectangleVertices);
+
+            if (cbtrInfo.redraw) {
+                cbtrInfo.vertices.clear();
+            }
+
+            bool visible = false;
 
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
@@ -6543,6 +6561,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 extraTextVertices,
                 darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
                 tabsDisplay.reDrawIconsAndExtraText
+            );
+
+            drawTextBuffers(
+                cbtrInfo.vao,
+                cbtrInfo.vbo,
+                cbtrInfo.bufferSize,
+                cbtrInfo.numVertices,
+                resolution,
+                cbtrInfo.vertices,
+                WHITE,
+                cbtrInfo.redraw
             );
 
             tabsDisplay.reDrawIconsAndExtraText = false;
@@ -7991,6 +8020,7 @@ inline bool renderContentBlock(
             case ContentBlockType::Code:
                 ContentBlockBounds bounds;
 
+                // If the cursor is in the code bounds, show the start and end of the block
                 if (!isActive) {
                     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
                         if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
@@ -8081,18 +8111,12 @@ inline bool renderContentBlock(
         }
 
         if (!isCodeStart) {
-            RopeRenderResult res = renderContentRope(
+            RopeRenderResult res = appendRopeVertices(
+                pos.x,
+                pos.y,
                 cb->rope,
-                isActive ? 0 : md.startIndex,
-                pos,
-                resolution,
-                cb->textVAO,
-                cb->textVBO,
-                cb->bufferSize,
-                CONTENT_CONTAINER.width,
-                darkTheme ? WHITE : BLACK,
                 getCBFontSize(cb->type),
-                GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+                cbtrInfo.vertices
             );
 
             cb->height = (res.height == 0.0f && glyphDescender < 0) ?
@@ -8218,18 +8242,12 @@ inline bool renderContentBlock(
         }
 
         if (!isCodeStart) {
-            renderContentRope(
+            appendRopeVertices(
+                pos.x,
+                pos.y,
                 cb->rope,
-                isActive ? 0 : cb->startIndex,
-                pos,
-                resolution,
-                cb->textVAO,
-                cb->textVBO,
-                cb->bufferSize,
-                CONTENT_CONTAINER.width,
-                darkTheme ? WHITE : BLACK,
                 getCBFontSize(cb->type),
-                GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)
+                cbtrInfo.vertices
             );
         }
     }
@@ -8716,17 +8734,9 @@ void reDrawAllContentBlocks() {
     }
 }
 
-void reDrawCBsFrom(uint32_t i, uint32_t limit) {
-    uint32_t j = 0;
+void reDrawCBs() {
     tabsDisplay.reDrawIconsAndExtraText = true;
-
-    for (
-        auto itr = tabs[activeTabIndex].contentBlocks.begin() + i;
-        itr != tabs[activeTabIndex].contentBlocks.end() && j < limit;
-        ++itr, ++j
-    ) {
-        (*itr).flags |= CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE;
-    }
+    cbtrInfo.redraw = true;
 }
 
 bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex) {
@@ -8761,11 +8771,6 @@ void deleteCBs(
     vector<ContentBlock>::iterator to
 ) {
     for (auto cbIter = from; cbIter != to; ++cbIter) {
-        if ((*cbIter).textVAO != 0) {
-            glDeleteVertexArrays(1, &(*cbIter).textVAO);
-            glDeleteBuffers(1, &(*cbIter).textVBO);
-        }
-
         delete (*cbIter).rope;
     }
 
@@ -8779,16 +8784,11 @@ void deleteCBsToDeletedBlocks(
     ContentCommandExt* extCmd
 ) {
     for (auto cbIter = from; cbIter != to; ++cbIter) {
-        if ((*cbIter).textVAO != 0) {
-            glDeleteVertexArrays(1, &(*cbIter).textVAO);
-            glDeleteBuffers(1, &(*cbIter).textVBO);
-        }
-
         delete (*cbIter).rope;
 
         extCmd->deletedBlocks.emplace_back(ContentBlock {
-            (*cbIter).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0, Rope::deepCopy((*cbIter).rope)
+            (*cbIter).type, 0,
+            0.0f, 0.0f, 0.0f, 0, 0, Rope::deepCopy((*cbIter).rope)
         });
     }
 
@@ -9055,7 +9055,7 @@ void cbKeypressType(ContentTab* tab, string text) {
     tab->lastCursorTime = static_cast<float>(glfwGetTime());
     tab->redrawCursor = true;
 
-    reDrawCBsFrom(tab->activeCBIndex, 64);
+    reDrawCBs();
 }
 
 ContentDeletionType deleteSelectedCBText(
@@ -9076,7 +9076,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*itr).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0,
             new Rope((*itr).rope->getString().substr(
                 cmd->startCursorPos,
                 extCmd->endCursorPos - cmd->startCursorPos
@@ -9100,7 +9100,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
             CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
-            0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope()
+            0.0f, 0.0f, 0.0f, 1, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
     }
@@ -9117,7 +9117,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             lastBlockType,
-            0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
+            0, 0.0f, 0.0f, 0.0f, 0, 0,
             new Rope(ropeString),
         });
         return ContentDeletionType::DeleteMultipleCBsPartialLast;
@@ -9133,7 +9133,7 @@ ContentDeletionType deleteSelectedCBText(
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*firstCB).type,
             (*firstCB).flags,
-            0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
+            0.0f, 0.0f, 0.0f, 0, 0,
             new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
         });
         (*firstCB).rope->remove(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos);
@@ -9155,7 +9155,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*firstCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0,
         new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
     });
 
@@ -9163,7 +9163,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*lastCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0, 0,
+        0, 0.0f, 0.0f, 0.0f, 0, 0,
         new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
     });
 
@@ -9186,7 +9186,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(str)
+                    0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
                 });
             }
 
@@ -9205,7 +9205,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 1, 0, 0, 0, 0, 0, new Rope(str)
+                0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
             });
         }
     }
@@ -9220,7 +9220,6 @@ bool processCBTypeCommand(
         bool increment = true;
 
         cb->rope->insert(cmd->startCursorPos, cmd->str);
-        reDrawCBsFrom(cmd->startCBIndex, 64);
 
         if (cb->rows == 0) {
             cb->rows = 1;
@@ -9532,7 +9531,7 @@ bool processCBReplaceCommand(
         }
     }
 
-    reDrawCBsFrom(cmd->startCBIndex, 64);
+    reDrawCBs();
 
     #undef START
     #undef END
@@ -9574,7 +9573,7 @@ bool processCBNewLineCommand(
                 type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0, 0, 0,
+                0, 0,
                 new Rope()
             }
         );
@@ -9593,7 +9592,7 @@ bool processCBNewLineCommand(
                         cb->type,
                         CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                         0.0f, 0.0f, 0.0f,
-                        0, 0, 0, 0, 0, 0,
+                        0, 0,
                         rope
                 });
 
@@ -9611,14 +9610,14 @@ bool processCBNewLineCommand(
                 cb->type,
                 CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
-                0, 0, 0, 0, 0, 0,
+                0, 0,
                 nullptr
             });
     }
 
     tab->cursorPosition = 0;
 
-    reDrawCBsFrom(cmd->startCBIndex, 64);
+    reDrawCBs();
 
     return true;
 }
@@ -9637,11 +9636,11 @@ bool processCBBackspaceCommand(
         ) {
             tab->commands.back().str = cmd->str + tab->commands.back().str;
             --tab->commands.back().startCursorPos;
-            reDrawCBsFrom(cmd->startCBIndex, 64);
+            reDrawCBs();
             return false;
         }
 
-        reDrawCBsFrom(cmd->startCBIndex, 64);
+        reDrawCBs();
         return true;
     }
 
@@ -9689,7 +9688,7 @@ bool processCBDeleteMergeCBCommand(
             tab->contentBlocks.begin() + cmd->startCBIndex + 2
         );
 
-        reDrawCBsFrom(cmd->startCBIndex, 64);
+        reDrawCBs();
 
         return true;
     }
@@ -9702,7 +9701,7 @@ bool processCBDeleteSelectedCommand(
 ) {
     auto extCmd = tab->extCommands.rbegin();
     (*extCmd).delType = deleteSelectedCBText(tab, cmd, &*extCmd);
-    reDrawCBsFrom(cmd->startCBIndex, 64);
+    reDrawCBs();
     return true;
 }
 
@@ -10032,9 +10031,11 @@ void processCBUndo(ContentTab* tab) {
                         extCmd->deletedBlocks.size() - 2
                     );
 
+                    #ifdef DEBUG_CONTENT_BLOCKS
                     cout << "\nDEBUG: End rope is: \"" << (*(END)).rope->getString() << "\"";
                     cout << "\nDEBUG: Last pasted rope is: \"" << extCmd->insertedBlocks.back().rope->getString() << "\"";
                     cout << "\nDEBUG: End rope type is: " << to_string((*(END)).type);
+                    #endif
 
                     string lastString = (*(END)).rope->getString();
                     delete (*(END)).rope;
@@ -10237,12 +10238,12 @@ void processCBUndo(ContentTab* tab) {
 
     if (cmd->type == CommandType::MoveContentBlock) {
         if (cmd->moveCBFrom < cmd->moveCBTo) {
-            reDrawCBsFrom(cmd->moveCBFrom, cmd->moveCBTo + 1);
+            reDrawCBs();
         } else {
-            reDrawCBsFrom(cmd->moveCBTo, cmd->moveCBFrom - 1);
+            reDrawCBs();
         }
     } else {
-        reDrawCBsFrom(cmd->startCBIndex, 64);
+        reDrawCBs();
     }
 
     #undef START
@@ -10282,9 +10283,9 @@ void processCBRedo(ContentTab* tab) {
             increment = true;
             moveContentBlock(activeTabIndex, cmd->moveCBTo, cmd->moveCBFrom);
             if (cmd->moveCBTo < cmd->moveCBFrom) {
-                reDrawCBsFrom(cmd->moveCBTo, cmd->moveCBFrom);
+                reDrawCBs();
             } else {
-                reDrawCBsFrom(cmd->moveCBFrom, cmd->moveCBTo);
+                reDrawCBs();
             }
             break;
         }
