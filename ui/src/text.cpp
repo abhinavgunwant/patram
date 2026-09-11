@@ -363,16 +363,13 @@ inline void drawTextBuffers(
         uint32_t requiredBufferSize = numVertices * sizeof(float);
 
         if (bufferSize >= requiredBufferSize) {
-            uint32_t zeros = bufferSize - requiredBufferSize;
+            uint32_t zeros = (bufferSize - requiredBufferSize) / sizeof(float);
 
             for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(0.0f); }
 
             glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, &vertices[0]);
         } else {
-            while (bufferSize < requiredBufferSize) {
-                bufferSize *= 1.6;
-            }
-
+            bufferSize = requiredBufferSize;
             glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
         }
     }
