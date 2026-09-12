@@ -4416,7 +4416,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
     }
 
     return SelectionData {
-        tab->cursorPosition,
+        0,
         prevRow,
         prevCol,
         tab->activeCBIndex,
