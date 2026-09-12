@@ -9529,6 +9529,15 @@ bool processCBReplaceCommand(
 bool processCBNewLineCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
+    if (tab->cursorCBIndex == 0) {
+        if (tab->contentBlocks.size() > 1) {
+            tab->cursorCBIndex = 1;
+            tab->cursorPosition = 0;
+        }
+
+        return false;
+    }
+
     bool isCodeEndBound = false;
 
     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
@@ -9544,7 +9553,7 @@ bool processCBNewLineCommand(
     }
 
     if (cmd->startCursorPos == cb->rope->length() || cmd->startCursorPos == 0) {
-        if (cmd->startCursorPos != 0) {
+        if (tab->cursorCBIndex != 0) {
             ++tab->cursorCBIndex;
         }
 
