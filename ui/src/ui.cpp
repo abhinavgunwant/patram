@@ -9553,9 +9553,7 @@ bool processCBNewLineCommand(
     }
 
     if (cmd->startCursorPos == cb->rope->length() || cmd->startCursorPos == 0) {
-        if (tab->cursorCBIndex != 0) {
-            ++tab->cursorCBIndex;
-        }
+        ++tab->cursorCBIndex;
 
         ContentBlockType type = cb->type;
 
