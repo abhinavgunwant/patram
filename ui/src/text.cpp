@@ -861,6 +861,7 @@ RopeRenderResult appendRopeVertices(
     float x,
     float y,
     Rope* rope,
+    uint32_t startIndex,
     uint8_t fontSize,
     vector<float>& vertices
 ) {
@@ -872,10 +873,17 @@ RopeRenderResult appendRopeVertices(
 
     RopeTraverser rt(rope);
 
+    uint32_t i = 0;
+
     while (rt.hasNext()) {
         Rope* node = rt.next();
 
         for (char c: node->text) {
+            if (i < startIndex) {
+                ++i;
+                continue;
+            }
+
             glm::vec2 pos = glm::vec2(x, y);
 
             getCharParams(

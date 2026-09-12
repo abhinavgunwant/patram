@@ -210,6 +210,7 @@ RopeRenderResult appendRopeVertices(
     float x,
     float y,
     Rope *rope,
+    uint32_t startIndex,
     uint8_t fontSize,
     vector<float>& vertices
 );

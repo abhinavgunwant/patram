@@ -885,7 +885,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 });
 
                 tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
-                reDrawAllContentBlocks();
+                reDrawCBs();
 
                 highlightedContentBlock.mouseDown = false;
                 hideCBMoveMarker();
@@ -1147,8 +1147,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                 }
 
-                SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
-                SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+                cbtrInfo.redraw = true;
 
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
@@ -1193,8 +1192,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                 }
 
-                SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
-                SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+                cbtrInfo.redraw = true;
 
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
@@ -2895,7 +2893,7 @@ void cbKeyCallback(int key, int action, int mod) {
                             << ", row: " << sd.row << ", col: " << sd.col;
                     #endif
 
-                    SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+                    cbtrInfo.redraw = true;
 
                     tabsDisplay.reDrawIconsAndExtraText = true;
 
@@ -4110,8 +4108,7 @@ void activateCBFromScreenCoords(float mouseX, float mouseY) {
 
             tab->activeCBIndex = index;
 
-            SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
-            SET_FLAG(itr->flags, CONTENT_BLOCK_REDRAW);
+            cbtrInfo.redraw = true;
 
             tab->cursorCBIndex = index;
             return;
@@ -4768,7 +4765,7 @@ void openFile(bool openDialog, filesystem::path p) {
             for (string line: lines) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                    CONTENT_BLOCK_VISIBLE,
                     0.0f, 0.0f, 0.0f, 1, 0, new Rope(line),
                 });
             }
@@ -4842,7 +4839,7 @@ void newNote(filesystem::path p) {
 
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
-        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f, 1, 0, new Rope()
     });
     tab->updated = true;
@@ -5412,7 +5409,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
 
     ContentBlock cb = ContentBlock {
         type,
-        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
         0, 0,
         new Rope(text),
@@ -5430,7 +5427,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
 
     tabs[tabIndex].contentBlocks.push_back(ContentBlock {
         type,
-        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
         0, 0,
         new Rope(text),
@@ -5524,7 +5521,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
 
     content.push_back(ContentBlock {
         ContentBlockType::Title,
-        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE,
         0.0f, 0.0f, 0.0f,
         1, 0,
         new Rope(path.filename().string()),
@@ -6065,7 +6062,7 @@ void recalculateLayout(UIElement * elem) {
             elem->reDraw = true;
 
             if (!tabs.empty() && !tabs[activeTabIndex].contentBlocks.empty()) {
-                reDrawAllContentBlocks();
+                reDrawCBs();
 
                 elem->scrollData->height = 0;
             }
@@ -6311,11 +6308,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     }
 
     if (tab->cursorCBIndex < tab->contentBlocks.size()) {
-        SET_FLAG(tab->contentBlocks[tab->cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+        cbtrInfo.redraw = true;
     }
 
     if (sd.cursorCBIndex < tab->contentBlocks.size()) {
-        SET_FLAG(tab->contentBlocks[sd.cursorCBIndex].flags, CONTENT_BLOCK_REDRAW);
+        cbtrInfo.redraw = true;
     }
 
     tab->cursorPosition = sd.cursorPosition;
@@ -6573,6 +6570,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 WHITE,
                 cbtrInfo.redraw
             );
+
+            cbtrInfo.redraw = false;
 
             tabsDisplay.reDrawIconsAndExtraText = false;
 
@@ -7951,7 +7950,7 @@ inline bool renderContentBlock(
         return false;
     }
 
-    if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
+    if (cbtrInfo.redraw) {
         setCBDimensions(cb, cb == tab->contentBlocks.begin(), false);
     }
 
@@ -7968,7 +7967,7 @@ inline bool renderContentBlock(
 
     glm::vec2 pos = glm::vec2(left, top);
 
-    if (GET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW)) {
+    if (cbtrInfo.redraw) {
         Markdown md = parseContent(cb->rope);
 
         if (index && cb->type != ContentBlockType::Code) {
@@ -8115,6 +8114,7 @@ inline bool renderContentBlock(
                 pos.x,
                 pos.y,
                 cb->rope,
+                isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
                 cbtrInfo.vertices
             );
@@ -8126,8 +8126,6 @@ inline bool renderContentBlock(
 
             cb->rows = res.rows;
         }
-
-        UNSET_FLAG(cb->flags, CONTENT_BLOCK_REDRAW);
     } else {
         switch (cb->type) {
             case ContentBlockType::Bullet:
@@ -8246,6 +8244,7 @@ inline bool renderContentBlock(
                 pos.x,
                 pos.y,
                 cb->rope,
+                isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
                 cbtrInfo.vertices
             );
@@ -8722,18 +8721,6 @@ void hideCBMoveMarker() {
     cbMove.targetIndex = 0;
 }
 
-void reDrawAllContentBlocks() {
-    tabsDisplay.reDrawIconsAndExtraText = true;
-
-    for (
-        auto itr = tabs[activeTabIndex].contentBlocks.begin();
-        itr != tabs[activeTabIndex].contentBlocks.end();
-        ++itr
-    ) {
-        (*itr).flags |= CONTENT_BLOCK_REDRAW;
-    }
-}
-
 void reDrawCBs() {
     tabsDisplay.reDrawIconsAndExtraText = true;
     cbtrInfo.redraw = true;
@@ -9099,7 +9086,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.erase(START, END + 1);
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
-            CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+            CONTENT_BLOCK_VISIBLE,
             0.0f, 0.0f, 0.0f, 1, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
@@ -9352,7 +9339,7 @@ bool processCBPasteCommand(
             itr != tab->contentBlocks.end() && pastedCount < pastedBlocksLen;
             ++itr, ++pastedCount
         ) {
-            SET_FLAG((*itr).flags, CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE);
+            SET_FLAG((*itr).flags, CONTENT_BLOCK_VISIBLE);
             setCBDimensions(itr, itr == tab->contentBlocks.begin(), true);
         }
     }
@@ -9571,7 +9558,7 @@ bool processCBNewLineCommand(
             tab->contentBlocks.begin() + tab->cursorCBIndex,
             ContentBlock {
                 type,
-                CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
                 0, 0,
                 new Rope()
@@ -9590,7 +9577,7 @@ bool processCBNewLineCommand(
                     tab->contentBlocks.begin() + tab->cursorCBIndex,
                     ContentBlock {
                         cb->type,
-                        CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                        CONTENT_BLOCK_VISIBLE,
                         0.0f, 0.0f, 0.0f,
                         0, 0,
                         rope
@@ -9608,7 +9595,7 @@ bool processCBNewLineCommand(
             tab->contentBlocks.begin() + tab->cursorCBIndex,
             ContentBlock {
                 cb->type,
-                CONTENT_BLOCK_REDRAW | CONTENT_BLOCK_VISIBLE,
+                CONTENT_BLOCK_VISIBLE,
                 0.0f, 0.0f, 0.0f,
                 0, 0,
                 nullptr
