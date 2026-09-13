@@ -521,7 +521,6 @@ struct CBTextRenderInfo {
     uint32_t bufferSize;
     uint32_t numVertices;
     bool redraw;
-    vector<float> vertices;
 };
 
 struct HighlightedContentBlock {
@@ -750,6 +749,7 @@ bool renderContentBlock(
     uint32_t index,
     vector<float>& iconVertices,
     vector<float>& textVertices,
+    vector<float>& cbTextVertices,
     vector<RectangleVertexAttributes>& rva,
     bool reDrawIconsAndExtraText
 );

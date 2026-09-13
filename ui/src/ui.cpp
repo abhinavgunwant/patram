@@ -2370,8 +2370,7 @@ void setupUI(bool isDarkTheme) {
         printContentBlocks(0);
     #endif
 
-    cbtrInfo = { 0, 0, 24000 * sizeof(float), 0, true, vector<float>() };
-    cbtrInfo.vertices.reserve(24000);
+    cbtrInfo = { 0, 0, 2400 * sizeof(float), 0, true };
 
     // cb
     glGenVertexArrays(1, &cbtrInfo.vao);
@@ -6498,6 +6497,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             vector<float> iconVertices;
             vector<float> extraTextVertices;
+            vector<float> cbTextVertices;
 
             if (tabsDisplay.reDrawIconsAndExtraText) {
                 iconVertices.reserve(tabsDisplay.iconsBufferSize > 9600 ? tabsDisplay.iconsBufferSize : 9600);
@@ -6508,7 +6508,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             rva.reserve(rectangleVertices);
 
             if (cbtrInfo.redraw) {
-                cbtrInfo.vertices.clear();
+                 cbTextVertices.reserve(cbtrInfo.numVertices);
             }
 
             bool visible = false;
@@ -6520,7 +6520,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             ) {
                 if (renderContentBlock(
                     tab, itr, resolution, cursor, i,
-                    iconVertices, extraTextVertices, rva,
+                    iconVertices, extraTextVertices, cbTextVertices, rva,
                     tabsDisplay.reDrawIconsAndExtraText
                 )) {
                     if (!visible) {
@@ -6566,7 +6566,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 cbtrInfo.bufferSize,
                 cbtrInfo.numVertices,
                 resolution,
-                cbtrInfo.vertices,
+                cbTextVertices,
                 WHITE,
                 cbtrInfo.redraw
             );
@@ -7937,6 +7937,7 @@ inline bool renderContentBlock(
     uint32_t index,
     vector<float>& iconVertices,
     vector<float>& textVertices,
+    vector<float>& cbTextVertices,
     vector<RectangleVertexAttributes>& rva,
     bool reDrawIconsAndExtraText
 ) {
@@ -8116,7 +8117,7 @@ inline bool renderContentBlock(
                 cb->rope,
                 isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
-                cbtrInfo.vertices
+                cbTextVertices
             );
 
             cb->height = (res.height == 0.0f && glyphDescender < 0) ?
@@ -8237,17 +8238,6 @@ inline bool renderContentBlock(
                     }
                 }
                 break;
-        }
-
-        if (!isCodeStart) {
-            appendRopeVertices(
-                pos.x,
-                pos.y,
-                cb->rope,
-                isActive ? 0 : cb->startIndex,
-                getCBFontSize(cb->type),
-                cbtrInfo.vertices
-            );
         }
     }
 
