@@ -869,7 +869,6 @@ RopeRenderResult appendRopeVertices(
 
     float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
         glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0;
-    float infinity = numeric_limits<float>::infinity();
 
     RopeTraverser rt(rope);
 
@@ -904,20 +903,22 @@ RopeRenderResult appendRopeVertices(
                 bearingTop,
                 bearingLeft,
                 advance,
-                infinity,
+                contentRight,
                 result.rows,
                 fontSize,
                 result.renderNextContentBlock
             );
 
-            vertices.insert(vertices.end(), {
-                xpos,           ypos_plus_h,    texX1, texY1,
-                xpos,           ypos,           texX1, texY2,
-                xpos_plus_w,    ypos,           texX2, texY2,
-                xpos,           ypos_plus_h,    texX1, texY1,
-                xpos_plus_w,    ypos,           texX2, texY2,
-                xpos_plus_w,    ypos_plus_h,    texX2, texY1
-            });
+            if (c != ' ') {
+                vertices.insert(vertices.end(), {
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos,           ypos,           texX1, texY2,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos,           ypos_plus_h,    texX1, texY1,
+                    xpos_plus_w,    ypos,           texX2, texY2,
+                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
+                });
+            }
 
             xpos += advance;
         }
