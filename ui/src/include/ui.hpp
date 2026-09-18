@@ -515,12 +515,19 @@ struct ContentBlock {
     Rope* rope;
 };
 
-struct CBTextRenderInfo {
+struct RenderInfo {
     uint32_t vao;
     uint32_t vbo;
     uint32_t bufferSize;
     uint32_t numVertices;
+};
+
+struct GlobalRenderInfo {
     bool redraw;
+    RenderInfo text;
+    RenderInfo extraText;
+    RenderInfo icon;
+    RenderInfo rect;
 };
 
 struct HighlightedContentBlock {
@@ -617,7 +624,6 @@ struct ContentTab {
 
 struct TabsDisplay {
     bool recalcOffset;
-    bool reDrawIconsAndExtraText;
 
     uint32_t xVao;
     uint32_t xVbo;
@@ -625,14 +631,6 @@ struct TabsDisplay {
     uint32_t xVertices;
     uint32_t activeBgVao;
     uint32_t activeBgVbo;
-    uint32_t iconsVAO;
-    uint32_t iconsVBO;
-    uint32_t iconsBufferSize;
-    uint32_t iconsVertices;
-    uint32_t textVAO;
-    uint32_t textVBO;
-    uint32_t textBufferSize;
-    uint32_t textVertices;
 
     float totalX;
     float xOffset;
@@ -750,8 +748,7 @@ bool renderContentBlock(
     vector<float>& iconVertices,
     vector<float>& textVertices,
     vector<float>& cbTextVertices,
-    vector<RectangleVertexAttributes>& rva,
-    bool reDrawIconsAndExtraText
+    vector<RectangleVertexAttributes>& rva
 );
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);

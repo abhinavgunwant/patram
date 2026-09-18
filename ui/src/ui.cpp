@@ -162,19 +162,13 @@ uint32_t untitledFolders = 0;
 uint32_t rectangleColorIndexUBO = 0;
 uint32_t commonUBO = 0;
 
-uint32_t rectangleVAO = 0;
-uint32_t rectangleVBO = 0;
-uint32_t rectangleVertices = 0;
-uint32_t maxRectangleVertices = 96;
-uint32_t rectangleBufferSize = 0;
-
 Explorer explorer = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     false, false, false, false, false,
     vector<ExplorerNode>()
 };
 
-CBTextRenderInfo cbtrInfo;
+GlobalRenderInfo grInfo;
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -235,48 +229,35 @@ void addRectangle(
     });
 }
 
-void drawRectangles(vector<RectangleVertexAttributes>& rva, bool redraw) {
-    glBindVertexArray(rectangleVAO);
+inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
+    glBindVertexArray(grInfo.rect.vao);
 
-    if (redraw) {
+    if (grInfo.redraw) {
         if (rva.empty()) { return; }
 
-        rectangleVertices = rva.size();
+        glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
 
-        glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
-
-        if (maxRectangleVertices < rva.size()) {
-            maxRectangleVertices = rva.size();
+        if (grInfo.rect.numVertices < rva.size()) {
+            grInfo.rect.numVertices = rva.size();
             glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectangleVertexAttributes), &rva[0], GL_DYNAMIC_DRAW);
         } else {
-            for (uint32_t i=rectangleVertices; i<maxRectangleVertices; i += 6) {
-                rva.insert(rva.end(), {
-                    { 0, 0, 0, 0 },
-                    { 0, 0, 0, 0 },
-                    { 0, 0, 0, 0 },
-                    { 0, 0, 0, 0 },
-                    { 0, 0, 0, 0 },
-                    { 0, 0, 0, 0 },
-                });
-            }
-
             glBufferSubData(GL_ARRAY_BUFFER, 0, rva.size() * sizeof(RectangleVertexAttributes), &rva[0]);
         }
     }
 
     glUseProgram(shaders[SHADER_RECTANGLE].programId);
 
-    glDrawArrays(GL_TRIANGLES, 0, rectangleVertices);
+    glDrawArrays(GL_TRIANGLES, 0, rva.size() / 4);
 }
 
 void clearRectangles() {
-    uint32_t length = sizeof(RectangleVertexAttributes) * maxRectangleVertices;
+    uint32_t length = sizeof(RectangleVertexAttributes) * grInfo.rect.numVertices;
     vector<RectangleVertexAttributes> rva;
-    rva.reserve(maxRectangleVertices);
+    rva.reserve(grInfo.rect.numVertices);
     memset(rva.data(), 0, length);
 
-    glBindVertexArray(rectangleVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
+    glBindVertexArray(grInfo.rect.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, length, rva.data());
 }
 
@@ -1037,7 +1018,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
             }
         }
 
-        tabsDisplay.reDrawIconsAndExtraText = true;
+        grInfo.redraw = true;
     }
 
     float _ = 0.0f;
@@ -1147,7 +1128,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                 }
 
-                cbtrInfo.redraw = true;
+                grInfo.redraw = true;
 
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
@@ -1192,7 +1173,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                 }
 
-                cbtrInfo.redraw = true;
+                grInfo.redraw = true;
 
                 tab->cursorCBIndex = sd.cursorCBIndex;
                 tab->cursorPosition = sd.cursorPosition;
@@ -2193,19 +2174,20 @@ void setupUI(bool isDarkTheme) {
         sizeof(glm::vec2)
     );
 
-    maxRectangleVertices = 96;
-
-    glGenVertexArrays(1, &rectangleVAO);
-    glBindVertexArray(rectangleVAO);
-    glGenBuffers(1, &rectangleVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, rectangleVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(RectangleVertexAttributes) * maxRectangleVertices, NULL, GL_DYNAMIC_DRAW);
+    glGenVertexArrays(1, &grInfo.rect.vao);
+    glBindVertexArray(grInfo.rect.vao);
+    glGenBuffers(1, &grInfo.rect.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(RectangleVertexAttributes) * 96, NULL, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectangleVertexAttributes), (void*)0);
     glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2));
     glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2 + sizeof(uint32_t)));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+
+    grInfo = { 0 };
+    grInfo.redraw = true;
 
     float vertices[8] = { 0 };
     float vertices_24[24] = { 0 };
@@ -2245,13 +2227,17 @@ void setupUI(bool isDarkTheme) {
     tabsDisplay.xBufferSize = 96;
     tabsDisplay.xVertices = 24;
 
-    SETUP_BUFFERS_TEXT(tabsDisplay.iconsVAO, tabsDisplay.iconsVBO, vertices_2400);
-    tabsDisplay.iconsVertices = 600;
-    tabsDisplay.iconsBufferSize = 2400 * sizeof(float);
+    SETUP_BUFFERS_TEXT(grInfo.icon.vao, grInfo.icon.vbo, vertices_2400);
+    grInfo.icon.numVertices = 600;
+    grInfo.icon.bufferSize = 2400 * sizeof(float);
 
-    SETUP_BUFFERS_TEXT(tabsDisplay.textVAO, tabsDisplay.textVBO, vertices_2400);
-    tabsDisplay.textVertices = 600;
-    tabsDisplay.textBufferSize = 2400 * sizeof(float);
+    SETUP_BUFFERS_TEXT(grInfo.text.vao, grInfo.text.vbo, vertices_2400);
+    grInfo.text.numVertices = 600;
+    grInfo.text.bufferSize = 2400 * sizeof(float);
+
+    SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, vertices_2400);
+    grInfo.extraText.numVertices = 600;
+    grInfo.extraText.bufferSize = 2400 * sizeof(float);
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -2369,17 +2355,6 @@ void setupUI(bool isDarkTheme) {
     #ifdef DEBUG_CONTENT_BLOCKS
         printContentBlocks(0);
     #endif
-
-    cbtrInfo = { 0, 0, 2400 * sizeof(float), 0, true };
-
-    // cb
-    glGenVertexArrays(1, &cbtrInfo.vao);
-    glBindVertexArray(cbtrInfo.vao);
-    glGenBuffers(1, &cbtrInfo.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, cbtrInfo.vbo);
-    glBufferData(GL_ARRAY_BUFFER, cbtrInfo.bufferSize, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
     explorerLoadThread.join();
 }
@@ -2892,9 +2867,7 @@ void cbKeyCallback(int key, int action, int mod) {
                             << ", row: " << sd.row << ", col: " << sd.col;
                     #endif
 
-                    cbtrInfo.redraw = true;
-
-                    tabsDisplay.reDrawIconsAndExtraText = true;
+                    grInfo.redraw = true;
 
                     if (shift) {
                         if (sd.cursorCBIndex == 0) {
@@ -2977,7 +2950,7 @@ void cbKeyCallback(int key, int action, int mod) {
                         << ", row: " << sd.row << ", col: " << sd.col;
                     #endif
 
-                    tabsDisplay.reDrawIconsAndExtraText = true;
+                    grInfo.redraw = true;
 
                     if (shift) {
                         if (sd.cursorCBIndex != tab->cursorCBIndex) {
@@ -4107,7 +4080,7 @@ void activateCBFromScreenCoords(float mouseX, float mouseY) {
 
             tab->activeCBIndex = index;
 
-            cbtrInfo.redraw = true;
+            grInfo.redraw = true;
 
             tab->cursorCBIndex = index;
             return;
@@ -5664,7 +5637,7 @@ void closeTab(uint32_t index) {
 
     updateWindowTitle();
     clearRectangles();
-    tabsDisplay.reDrawIconsAndExtraText = true;
+    grInfo.redraw = true;
 }
 
 string getSelectedTextFromCurrentTab() {
@@ -6307,11 +6280,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     }
 
     if (tab->cursorCBIndex < tab->contentBlocks.size()) {
-        cbtrInfo.redraw = true;
+        grInfo.redraw = true;
     }
 
     if (sd.cursorCBIndex < tab->contentBlocks.size()) {
-        cbtrInfo.redraw = true;
+        grInfo.redraw = true;
     }
 
     tab->cursorPosition = sd.cursorPosition;
@@ -6497,18 +6470,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             vector<float> iconVertices;
             vector<float> extraTextVertices;
-            vector<float> cbTextVertices;
-
-            if (tabsDisplay.reDrawIconsAndExtraText) {
-                iconVertices.reserve(tabsDisplay.iconsBufferSize > 9600 ? tabsDisplay.iconsBufferSize : 9600);
-                extraTextVertices.reserve(tabsDisplay.textBufferSize > 9600 ? tabsDisplay.textBufferSize : 9600);
-            }
-
+            vector<float> textVertices;
             vector<RectangleVertexAttributes> rva;
-            rva.reserve(rectangleVertices);
 
-            if (cbtrInfo.redraw) {
-                 cbTextVertices.reserve(cbtrInfo.numVertices);
+            if (grInfo.redraw) {
+                iconVertices.reserve(grInfo.icon.bufferSize > 9600 ? grInfo.icon.bufferSize : 9600);
+                extraTextVertices.reserve(grInfo.extraText.bufferSize > 9600 ? grInfo.extraText.bufferSize : 9600);
+                textVertices.reserve(grInfo.text.numVertices);
+                rva.reserve(grInfo.rect.numVertices);
             }
 
             bool visible = false;
@@ -6520,8 +6489,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             ) {
                 if (renderContentBlock(
                     tab, itr, resolution, cursor, i,
-                    iconVertices, extraTextVertices, cbTextVertices, rva,
-                    tabsDisplay.reDrawIconsAndExtraText
+                    iconVertices, extraTextVertices, textVertices, rva
                 )) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
@@ -6535,45 +6503,43 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 }
             }
 
-            drawRectangles(rva, tabsDisplay.reDrawIconsAndExtraText);
+            drawRectangles(rva);
 
             drawTextBuffers(
-                tabsDisplay.iconsVAO,
-                tabsDisplay.iconsVBO,
-                tabsDisplay.iconsBufferSize,
-                tabsDisplay.iconsVertices,
+                grInfo.icon.vao,
+                grInfo.icon.vbo,
+                grInfo.icon.bufferSize,
+                grInfo.icon.numVertices,
                 resolution,
                 iconVertices,
                 darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
-                tabsDisplay.reDrawIconsAndExtraText,
+                grInfo.redraw,
                 iconTextureID
             );
 
             drawTextBuffers(
-                tabsDisplay.textVAO,
-                tabsDisplay.textVBO,
-                tabsDisplay.textBufferSize,
-                tabsDisplay.textVertices,
+                grInfo.extraText.vao,
+                grInfo.extraText.vbo,
+                grInfo.extraText.bufferSize,
+                grInfo.extraText.numVertices,
                 resolution,
                 extraTextVertices,
                 darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
-                tabsDisplay.reDrawIconsAndExtraText
+                grInfo.redraw
             );
 
             drawTextBuffers(
-                cbtrInfo.vao,
-                cbtrInfo.vbo,
-                cbtrInfo.bufferSize,
-                cbtrInfo.numVertices,
+                grInfo.text.vao,
+                grInfo.text.vbo,
+                grInfo.text.bufferSize,
+                grInfo.text.numVertices,
                 resolution,
-                cbTextVertices,
+                textVertices,
                 WHITE,
-                cbtrInfo.redraw
+                grInfo.redraw
             );
 
-            cbtrInfo.redraw = false;
-
-            tabsDisplay.reDrawIconsAndExtraText = false;
+            grInfo.redraw = false;
 
             tab->visibleCBLength = i - tab->firstVisibleCBIndex + 1;
 
@@ -7936,10 +7902,9 @@ inline bool renderContentBlock(
     glm::vec2 &cursor,
     uint32_t index,
     vector<float>& iconVertices,
+    vector<float>& extraTextVertices,
     vector<float>& textVertices,
-    vector<float>& cbTextVertices,
-    vector<RectangleVertexAttributes>& rva,
-    bool reDrawIconsAndExtraText
+    vector<RectangleVertexAttributes>& rva
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
         cout << "\nDEBUG: Content block " << index << " not visible";
@@ -7951,7 +7916,7 @@ inline bool renderContentBlock(
         return false;
     }
 
-    if (cbtrInfo.redraw) {
+    if (grInfo.redraw) {
         setCBDimensions(cb, cb == tab->contentBlocks.begin(), false);
     }
 
@@ -7968,7 +7933,7 @@ inline bool renderContentBlock(
 
     glm::vec2 pos = glm::vec2(left, top);
 
-    if (cbtrInfo.redraw) {
+    if (grInfo.redraw) {
         Markdown md = parseContent(cb->rope);
 
         if (index && cb->type != ContentBlockType::Code) {
@@ -7979,7 +7944,7 @@ inline bool renderContentBlock(
         switch (cb->type) {
             case ContentBlockType::Bullet:
                 if (isActive) {
-                    if (reDrawIconsAndExtraText) {
+                    if (grInfo.redraw) {
                         PUSH_ICON_VERTICES(
                             iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0
                         );
@@ -7987,7 +7952,7 @@ inline bool renderContentBlock(
                 } else {
                     pos.x += 16.0f;
 
-                    if (reDrawIconsAndExtraText) {
+                    if (grInfo.redraw) {
                         PUSH_ICON_VERTICES(
                             iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
                             4.0f, 4.0f
@@ -7998,18 +7963,18 @@ inline bool renderContentBlock(
 
             case ContentBlockType::Numbering:
                 if (isActive) {
-                    if (reDrawIconsAndExtraText) {
+                    if (grInfo.redraw) {
                         PUSH_ICON_VERTICES(
-                            textVertices, characters[(int)' '], 0, 0, 0, 0
+                            extraTextVertices, characters[(int)' '], 0, 0, 0, 0
                         );
                     }
                 } else {
                     pos.x += 16.0f;
 
-                    if (reDrawIconsAndExtraText) {
+                    if (grInfo.redraw) {
                         appendTextVertices(
                             left, top, cb->rope->substring(0, md.startIndex),
-                            textVertices
+                            extraTextVertices
                         );
                     }
                 }
@@ -8044,7 +8009,7 @@ inline bool renderContentBlock(
                     pos.x += 8.0f;
                 }
 
-                if (reDrawIconsAndExtraText) {
+                if (grInfo.redraw) {
                     if (isActive) {
                         addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
                     } else {
@@ -8101,7 +8066,7 @@ inline bool renderContentBlock(
                                     contentRight - dimensions.width - 8.0f,
                                     top,
                                     languageText,
-                                    textVertices
+                                    extraTextVertices
                                 );
                             }
                         }
@@ -8117,7 +8082,7 @@ inline bool renderContentBlock(
                 cb->rope,
                 isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
-                cbTextVertices
+                textVertices
             );
 
             cb->height = (res.height == 0.0f && glyphDescender < 0) ?
@@ -8130,7 +8095,7 @@ inline bool renderContentBlock(
     } else {
         switch (cb->type) {
             case ContentBlockType::Bullet:
-                if (reDrawIconsAndExtraText) {
+                if (grInfo.redraw) {
                     PUSH_ICON_VERTICES(
                         iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
                         4.0f, 4.0f
@@ -8141,10 +8106,10 @@ inline bool renderContentBlock(
             case ContentBlockType::Numbering: {
                     Markdown md = parseContent(cb->rope);
 
-                    if (reDrawIconsAndExtraText) {
+                    if (grInfo.redraw) {
                         appendTextVertices(
                             left, top, cb->rope->substring(0, md.startIndex),
-                            textVertices
+                            extraTextVertices
                         );
                     }
                 }
@@ -8176,7 +8141,7 @@ inline bool renderContentBlock(
                     pos.x += 8.0f;
                 }
 
-                if (reDrawIconsAndExtraText) {
+                if (grInfo.redraw) {
                     if (isActive) {
                         addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
                     } else {
@@ -8231,7 +8196,7 @@ inline bool renderContentBlock(
                                     contentRight - dimensions.width - 8.0f,
                                     top,
                                     languageText,
-                                    textVertices
+                                    extraTextVertices
                                 );
                             }
                         }
@@ -8604,7 +8569,7 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
 
     tab->initialCursorPosition = sd.cursorPosition;
     tab->cbTextMouseDown = true;
-    tabsDisplay.reDrawIconsAndExtraText = true;
+    grInfo.redraw = true;
     updateCBCursor(CURRENT_TAB, sd);
 }
 
@@ -8711,10 +8676,7 @@ void hideCBMoveMarker() {
     cbMove.targetIndex = 0;
 }
 
-void reDrawCBs() {
-    tabsDisplay.reDrawIconsAndExtraText = true;
-    cbtrInfo.redraw = true;
-}
+void reDrawCBs() { grInfo.redraw = true; }
 
 bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex) {
     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
