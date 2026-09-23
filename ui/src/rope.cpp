@@ -305,6 +305,8 @@ string Rope::substring(uint32_t offset, uint32_t length) {
     return ss.str();
 }
 
+string Rope::substring(RopeViewData rvd) { return substring(rvd.startIndex, rvd.length); }
+
 Rope* Rope::split(uint32_t index) {
     if (isLeaf()) {
         string secondText = text.substr(index, text.length() - index);

@@ -6,6 +6,11 @@
 
 using namespace std;
 
+struct RopeViewData {
+    uint32_t startIndex;
+    uint32_t length;
+};
+
 class Rope {
     private:
         void propagateLenLeft(Rope* node, int64_t change);
@@ -46,6 +51,7 @@ class Rope {
         void append(string s);
         void prepend(string s);
         string substring(uint32_t offset, uint32_t length);
+        string substring(RopeViewData rvd);
         Rope* split(uint32_t index);
         void pick(Rope* leaf);
         void remove(uint32_t startIndex, uint32_t length);
@@ -56,14 +62,20 @@ class Rope {
         void print(uint32_t depth = 0);
 };
 
+struct RopeView {
+    uint32_t startIndex;
+    uint32_t length;
+    Rope* rope;
+};
+
 class RopeTraverser {
-    private:
+    public:
         Rope* root;
         Rope* current;
         Rope* nextInQueue;
 
-    public:
         RopeTraverser(Rope* root);
+        RopeTraverser(RopeTraverser&);
         bool hasNext();
         Rope* next();
         void reset();
