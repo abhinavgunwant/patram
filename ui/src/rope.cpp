@@ -868,7 +868,11 @@ void ReverseRopeTraverser::reset() {
 
 RopeCharIterator::RopeCharIterator(Rope* root): rt(root) {
     this->root = root;
-    current = root;
+    if (rt.hasNext()) {
+        current = rt.next();
+    } else {
+        current = nullptr;
+    }
     currentRopeIndex = 0;
     globalIndex = 0;
     newIterator = true;
@@ -890,7 +894,7 @@ char RopeCharIterator::next() {
     if (newIterator) {
         newIterator = false;
 
-        if (current->text.length() > 1) {
+        if (current->text.length() > 0) {
             return current->text[0];
         }
     }
