@@ -749,6 +749,12 @@ RopeTraverser::RopeTraverser(Rope* root) {
     reset();
 }
 
+RopeTraverser::RopeTraverser(RopeTraverser& rt) {
+    root = rt.root;
+    current = rt.current;
+    nextInQueue = rt.nextInQueue;
+}
+
 inline bool RopeTraverser::hasNext() { return nextInQueue != nullptr; }
 
 Rope* RopeTraverser::next() {
@@ -927,9 +933,10 @@ char RopeCharIterator::peekNext() {
     if (newIndex < current->text.length()) {
         return current->text[newIndex];
     } else if (rt.hasNext()) {
-        current = rt.next();
+        RopeTraverser rt2(rt);
+        Rope* newCurrent = rt2.next();
 
-        return current->text[0];
+        return newCurrent->text[0];
     }
 
     return 0;
