@@ -4,12 +4,8 @@
 #include "ui.hpp"
 #include "logger.hpp"
 
-using namespace std;
-
 int main(int argc, char ** argv) {
     initLogging();
-
-    info("Startup");
 
     processCmdLineArgs(argc, argv);
 

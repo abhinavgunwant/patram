@@ -42,6 +42,8 @@ void initLogging() {
 
     loggingFile.open(loggingPath, ios::trunc | ios::out);
     loggingFile << "patram v0.1.0 logs";
+
+    info("Startup");
 }
 
 void destroyLogging() {
