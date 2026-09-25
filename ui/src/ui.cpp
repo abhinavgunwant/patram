@@ -182,6 +182,26 @@ GlobalRenderInfo grInfo;
     uint32_t textTimeCalculated = 0;
 #endif
 
+void showOpenGLRequiredError() {
+    stringstream errorSS;
+
+    errorSS << "Patram requires OpenGL to draw it's UI."
+        << " Please make sure your system supports OpenGL and has graphics"
+        << " driver with atleast OpenGL version "
+        << OPENGL_MAJOR << "." << OPENGL_MINOR << " installed.";
+
+#ifdef _WIN32
+    MessageBoxA(
+        NULL,
+        errorSS.str().c_str(),
+        "Error initializing OpenGL",
+        MB_OK | MB_ICONERROR
+    );
+#else
+    cerr << "Error initializing OpenGL. " << errorSS.str();
+#endif
+}
+
 void showUnsupportedOpenGLVersionError(string currentVersion) {
     stringstream errorSS;
 
@@ -231,7 +251,7 @@ void showWindow() {
     window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "patram", NULL, NULL);
 
     if (window == NULL) {
-        cout << "\nFailed to create GLFW window";
+        showOpenGLRequiredError();
         glfwTerminate();
         exit(-1);
     }
