@@ -51,7 +51,7 @@ void tracev__(const source_location& location, format_string<Args...> fmt, Args&
     loggingFile << "\nTRACE "
         << logger_current_time() << " - "
         << p.filename().string() << ":" << location.line() << ": "
-        << format(fmt, forward<Args>(args)...);
+        << format(fmt, std::forward<Args>(args)...);
 }
 
 void debug(string s, const source_location& location = source_location::current());
@@ -66,7 +66,7 @@ void debugv__(const source_location& location, format_string<Args...> fmt, Args&
     loggingFile << "\nDEBUG "
         << logger_current_time() << " - "
         << p.filename().string() << ":" << location.line() << ": "
-        << format(fmt, forward<Args>(args)...);
+        << format(fmt, std::forward<Args>(args)...);
 }
 
 void info(string s, const source_location& location = source_location::current());
@@ -81,7 +81,7 @@ void infov__(const source_location& location, format_string<Args...> fmt, Args&&
     loggingFile << "\nINFO  "
         << logger_current_time() << " - "
         << p.filename().string() << ":" << location.line() << ": "
-        << format(fmt, forward<Args>(args)...);
+        << format(fmt, std::forward<Args>(args)...);
 }
 
 void warn(string s, const source_location& location = source_location::current());
@@ -96,7 +96,7 @@ void warnv__(const source_location& location, format_string<Args...> fmt, Args&&
     loggingFile << "\nWARN  "
         << logger_current_time() << " - "
         << p.filename().string() << ":" << location.line() << ": "
-        << format(fmt, forward<Args>(args)...);
+        << format(fmt, std::forward<Args>(args)...);
 }
 
 void error(string s, const source_location& location = source_location::current());
@@ -109,7 +109,7 @@ void errorv__(const source_location& location, format_string<Args...> fmt, Args&
     loggingFile << "\nERROR "
         << logger_current_time() << " - "
         << p.filename().string() << ":" << location.line() << ": "
-        << format(fmt, forward<Args>(args)...);
+        << format(fmt, std::forward<Args>(args)...);
 }
 
 #endif // PATRAM_CORE_LOGGER

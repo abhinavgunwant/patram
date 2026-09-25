@@ -5,7 +5,10 @@
 #include <filesystem>
 #include <algorithm>
 
+#include <curl/curl.h>
+
 #include "include/files.hpp"
+#include "include/http.hpp"
 #include "../lib/stb_image_write.h"
 
 #ifdef _WIN32
@@ -847,5 +850,27 @@ FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode
 
     cerr << "\nError: Opening file is not supported for this platform!";
     return { false, "" };
+}
+
+string downloadFileToTemp(string url) {
+    string location = filesystem::temp_directory_path().string();
+
+    downloadToFile(url, location);
+
+    return location;
+}
+
+LocationType getLocationType(string location) {
+    if (isValidURL(location)) {
+        return LocationType::URL;
+    }
+
+    filesystem::path p(location);
+
+    if (filesystem::exists(p)) {
+        return LocationType::File;
+    }
+
+    return LocationType::Invalid;
 }
 

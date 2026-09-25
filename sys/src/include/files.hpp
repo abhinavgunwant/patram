@@ -69,6 +69,12 @@ struct VaultIndexEntry {
     vector<VaultIndexEntry> children;
 };
 
+enum class LocationType {
+    File,
+    URL,
+    Invalid,
+};
+
 filesystem::path getHomeDirectoryPath();
 string getHomeDirectory();
 
@@ -125,6 +131,9 @@ void createFolder(filesystem::path p);
 bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
 FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode);
+
+string downloadFileToTemp(string url);
+LocationType getLocationType(string location);
 
 #endif // PATRAM_SYS_FILES
 
