@@ -18,8 +18,6 @@ add_library(ui
     src/md.cpp
 )
 
-target_compile_definitions(ui PRIVATE CURL_STATICLIB)
-
 target_include_directories(ui
     PUBLIC
     src/include
@@ -29,13 +27,6 @@ target_include_directories(ui
 target_link_libraries(ui
     sys
     ${LIB_DIR}
-    ws2_32
-    crypt32
-    wldap32
-    normaliz
-    bcrypt
-    iphlpapi
-    secur32
 )
 
 target_link_libraries(rope sys ${LIB_DIR})
