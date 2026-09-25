@@ -27,6 +27,11 @@
 #include "../lib/stb_image.h"
 #include "md.hpp"
 
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#endif
+
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
 
@@ -177,10 +182,49 @@ GlobalRenderInfo grInfo;
     uint32_t textTimeCalculated = 0;
 #endif
 
+void showUnsupportedOpenGLVersionError(string currentVersion) {
+    stringstream errorSS;
+
+    errorSS << "\nYour OpenGL version \""
+        << currentVersion
+        << "\" is not supported. Please install latest graphics driver with OpenGL version \""
+        << OPENGL_MAJOR << "." << OPENGL_MINOR << "\".";
+#ifdef _WIN32
+    MessageBoxA(NULL, errorSS.str().c_str(), "Error: Unsupported OpenGL version", MB_OK | MB_ICONERROR);
+#else
+    cerr << "Error: " << errorSS.str();
+#endif
+
+    exit(1);
+}
+
+void verifyOpenGLVersion() {
+    string version;
+    istringstream versionStream((const char *) glGetString(GL_VERSION));
+    versionStream >> version;
+
+    info("OpenGL version: " + version);
+
+    versionStream.seekg(0);
+
+    string majorStr;
+    string minorStr;
+
+    std::getline(versionStream, majorStr, '.');
+    std::getline(versionStream, minorStr, '.');
+
+    uint32_t major = std::stoul(majorStr);
+    uint32_t minor = std::stoul(minorStr);
+
+    if (major < OPENGL_MAJOR || major >= OPENGL_MAJOR && minor < OPENGL_MINOR) {
+        showUnsupportedOpenGLVersionError(version);
+    }
+}
+
 void showWindow() {
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, OPENGL_MAJOR);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, OPENGL_MINOR);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     primaryMonitor = glfwGetPrimaryMonitor();
@@ -198,6 +242,8 @@ void showWindow() {
         cerr << "\nFailed to initialize GLAD";
         exit(1);
     }
+
+    verifyOpenGLVersion();
 
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 

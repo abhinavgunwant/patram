@@ -15,6 +15,9 @@
 #include "rope.hpp"
 #include "arena.hpp"
 
+#define OPENGL_MAJOR 4
+#define OPENGL_MINOR 6
+
 #define WINDOW_WIDTH 550
 #define WINDOW_HEIGHT 600
 
