@@ -5,6 +5,10 @@
 
 #include "include/shader.hpp"
 
+#ifdef DEBUG_SHADER
+    #include <chrono>
+#endif
+
 using namespace std;
 
 uint32_t uniforms[TOTAL_UNIFORMS];
@@ -321,7 +325,16 @@ string fragmentShaders[] = {
     "out vec4 FragColor;\n"
     "void main() {\n"
         "FragColor = vec4(color.rgb, color.a / 2);\n"
-    "}\0"
+    "}\0",
+
+    // Image Shader
+    "#version 330 core\n"
+    "in vec2 TexCoords;\n"
+    "out vec4 color;\n"
+    "uniform sampler2D imageTexture;\n"
+    "void main() {\n"
+        "color = vec4(texture(imageTexture, TexCoords).rgb, 1.0f);\n"
+    "}\0",
 };
 
 Shader shaders[] = {
@@ -333,6 +346,7 @@ Shader shaders[] = {
     { 0, 0, 5 }, // SHADER_TEXT_CURSOR
     { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
     { 0, 4, 6 }, // SHADER_RECTANGLE
+    { 0, 1, 7 }, // SHADER_IMAGE
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
@@ -421,9 +435,20 @@ uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
 }
 
 void initShaders() {
+    #ifdef DEBUG_SHADER
+        auto t0 = chrono::high_resolution_clock::now();
+    #endif
+
     for (uint8_t i=0; i<TOTAL_SHADERS; ++i) {
         shaders[i].programId = compile(i, shaders[i].vsIndex, shaders[i].fsIndex);
     }
+
+    #ifdef DEBUG_SHADER
+        auto now = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::microseconds>(now - t0);
+
+        cout << "\nDEBUG: took " << duration << " to compile all shaders.";
+    #endif
 
     uint32_t id = shaders[SHADER_DEFAULT].programId;
     uniforms[U_DEFAULT_COLOR] = glGetUniformLocation(id, "solidColor");

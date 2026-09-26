@@ -4,9 +4,9 @@
 #include <string>
 
 // #define DEBUG_SHADER
-#define TOTAL_SHADERS 8
+#define TOTAL_SHADERS 9
 #define TOTAL_VERTEX_SHADERS 5
-#define TOTAL_FRAGMENT_SHADERS 7
+#define TOTAL_FRAGMENT_SHADERS 8
 #define TOTAL_UNIFORMS 27
 
 #define U_DEFAULT_COLOR             0
@@ -52,6 +52,7 @@ enum Shaders {
     SHADER_TEXT_CURSOR,
     SHADER_CB_TEXT_HIGHLIGHT,
     SHADER_RECTANGLE,
+    SHADER_IMAGE,
 };
 
 struct Shader {
