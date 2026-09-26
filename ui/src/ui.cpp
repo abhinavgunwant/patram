@@ -1031,9 +1031,6 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
-    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2), glm::value_ptr(resolution));
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     ROOT_CONTAINER.width = width;
     ROOT_CONTAINER.height = height;
@@ -1053,6 +1050,11 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     highlightedContentBlock.updated = true;
 
     resolution = glm::vec2(width, height);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2), glm::value_ptr(resolution));
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
     if (CONTENT_CONTAINER.show && !tabs.empty()) {
