@@ -205,12 +205,6 @@ void initIconTexture() {
 void initTextRendering(uint16_t width, uint16_t height) {
     glUseProgram(shaders[SHADER_TEXT].programId);
 
-    glUniform2f(
-        uniforms[U_TEXT_RESOLUTION],
-        static_cast<float>(width),
-        static_cast<float>(height)
-    );
-
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
     glBindVertexArray(textVAO);
@@ -231,8 +225,6 @@ void initTextRendering(uint16_t width, uint16_t height) {
         color.g,
         color.b
     );
-
-    glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
 }
 
 inline bool getCharParams(
@@ -357,7 +349,6 @@ inline void drawTextBuffers(
 
     if (redraw && bufferSize > 0) {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
 
         numVertices = vertices.size();
         uint32_t requiredBufferSize = numVertices * sizeof(float);
@@ -945,7 +936,6 @@ glm::vec4 renderText(
         color.g,
         color.b
     );
-    glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 
@@ -1066,7 +1056,6 @@ glm::vec4 renderText(
     glUseProgram(shaders[SHADER_TEXT].programId);
 
     glUniform3f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b);
-    glUniform2f(uniforms[U_TEXT_RESOLUTION], res.x, res.y);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 

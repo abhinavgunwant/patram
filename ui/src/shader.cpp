@@ -13,7 +13,9 @@ string vertexShaders[] = {
     // Default Shader
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "void main() {\n"
         "vec2 uv = aPos / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
@@ -23,7 +25,9 @@ string vertexShaders[] = {
     "#version 330 core\n"
     "layout (location = 0) in vec4 aPos;\n"
     "out vec2 TexCoords;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "void main() {\n"
         "vec2 uv = aPos.xy / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
@@ -34,7 +38,9 @@ string vertexShaders[] = {
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in vec2 aTexCoords;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "uniform vec2 topLeft;\n"
     "out vec2 TexCoords;\n"
     "void main() {\n"
@@ -46,7 +52,9 @@ string vertexShaders[] = {
     // CB Text Highlight
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "uniform float scrollOffsetY;\n"
     "void main() {\n"
         "vec2 uv = vec2(aPos.x, aPos.y - scrollOffsetY) / resolution * 2;\n"
@@ -101,7 +109,9 @@ string fragmentShaders[] = {
     "uniform float width;\n"
     "uniform float height;\n"
     "uniform vec2 topLeft;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "uniform vec2 cursor;\n"
     "uniform sampler2D iconTexture;\n"
 
@@ -163,7 +173,9 @@ string fragmentShaders[] = {
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "uniform vec2 dimensions;\n" // width, height
     "uniform vec2 cursor;\n"
 
@@ -241,7 +253,9 @@ string fragmentShaders[] = {
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "uniform vec2 resolution;\n"
+    "layout (std140) uniform CommonUniforms {\n"
+        "vec2 resolution;"
+    "};\n"
     "uniform vec2 dimensions;\n" // width, height
     "uniform vec2 cursor;\n"
 
@@ -414,15 +428,12 @@ void initShaders() {
 
     uint32_t id = shaders[SHADER_DEFAULT].programId;
     uniforms[U_DEFAULT_COLOR] = glGetUniformLocation(id, "solidColor");
-    uniforms[U_DEFAULT_RESOLUTION] = glGetUniformLocation(id, "resolution");
 
     id = shaders[SHADER_TEXT].programId;
     uniforms[U_TEXT_COLOR] = glGetUniformLocation(id, "textColor");
-    uniforms[U_TEXT_RESOLUTION] = glGetUniformLocation(id, "resolution");
 
     id = shaders[SHADER_ICON_BUTTON].programId;
     uniforms[U_ICON_BUTTON_COLOR] = glGetUniformLocation(id, "solidColor");
-    uniforms[U_ICON_BUTTON_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_ICON_BUTTON_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
     uniforms[U_ICON_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
     uniforms[U_ICON_BUTTON_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
@@ -433,7 +444,6 @@ void initShaders() {
 
     id = shaders[SHADER_BUTTON].programId;
     uniforms[U_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
-    uniforms[U_BUTTON_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_BUTTON_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
     uniforms[U_BUTTON_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
     uniforms[U_BUTTON_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
@@ -442,23 +452,19 @@ void initShaders() {
 
     id = shaders[SHADER_TEXT_INPUT].programId;
     uniforms[U_TEXT_INPUT_COLOR] = glGetUniformLocation(id, "color");
-    uniforms[U_TEXT_INPUT_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_TEXT_INPUT_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
     uniforms[U_TEXT_INPUT_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
     uniforms[U_TEXT_INPUT_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
     uniforms[U_TEXT_INPUT_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
-    uniforms[U_TEXT_INPUT_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_TEXT_INPUT_DIMENSIONS] = glGetUniformLocation(id, "dimensions");
     uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
 
     id = shaders[SHADER_TEXT_CURSOR].programId;
     uniforms[U_TEXT_CURSOR_COLOR] = glGetUniformLocation(id, "color");
-    uniforms[U_TEXT_CURSOR_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_TEXT_CURSOR_TIME] = glGetUniformLocation(id, "time");
 
     id = shaders[SHADER_CB_TEXT_HIGHLIGHT].programId;
     uniforms[U_TEXT_HL_COLOR] = glGetUniformLocation(id, "solidColor");
-    uniforms[U_TEXT_HL_RESOLUTION] = glGetUniformLocation(id, "resolution");
     uniforms[U_TEXT_HL_SCROLL_OFFSET_Y] = glGetUniformLocation(id, "scrollOffsetY");
 
     id = shaders[SHADER_RECTANGLE].programId;

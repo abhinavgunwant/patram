@@ -69,7 +69,6 @@
         glBindVertexArray(vao);\
         glUseProgram(shaders[SHADER_DEFAULT].programId);\
         glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);\
-        glUniform2f(uniforms[U_DEFAULT_RESOLUTION], resolution.x, resolution.y);\
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
     } while (false)
 
@@ -6428,7 +6427,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
                     glUniform2f(uniforms[U_BUTTON_CURSOR], -5, -5);
                     glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
-                    glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
 
                     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
                 } else {
@@ -6661,7 +6659,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
-                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
                 glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tab->lastCursorTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -6905,7 +6902,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_BUTTON].programId);
 
-            glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
             glm::vec4 bg = darkTheme ? BUTTON_BG_DARK : BUTTON_BG;
             glm::vec4 hv = darkTheme ? BUTTON_HOVER_BG_DARK : BUTTON_HOVER_BG;
             glm::vec4 color = darkTheme ? BUTTON_COLOR_DARK : BUTTON_COLOR;
@@ -7099,7 +7095,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
 
                 glUseProgram(shaders[SHADER_BUTTON].programId);
-                glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
                 glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
                 glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
                 glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
@@ -7153,7 +7148,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 glBindVertexArray(elem.vao);
                 glUseProgram(shaders[SHADER_BUTTON].programId);
-                glUniform2f(uniforms[U_BUTTON_RESOLUTION], resolution.x, resolution.y);
                 glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
                 glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
                 glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
@@ -7258,8 +7252,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glBindVertexArray(elem.vao);
 
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
-
-            glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
 
             glm::vec4 color = darkTheme ? WHITE : BLACK;
             glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
@@ -7404,7 +7396,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.r, color.g, color.b, color.a);
-                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
                 glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -7449,7 +7440,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glBindVertexArray(elem.vao);
             glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
 
-            glUniform2f(uniforms[U_TEXT_INPUT_RESOLUTION], resolution.x, resolution.y);
             glm::vec4 color = darkTheme ? WHITE : BLACK;
             glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
             glm::vec4 hv = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_BG;
@@ -7469,7 +7459,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glUseProgram(shaders[SHADER_TEXT].programId);
 
             glUniform4f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b, color.a);
-            glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);
             glActiveTexture(GL_TEXTURE0);
             glBindVertexArray(textVAO);
             glBindBuffer(GL_ARRAY_BUFFER, textVBO);
@@ -7637,7 +7626,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
                 glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
-                glUniform2f(uniforms[U_TEXT_CURSOR_RESOLUTION], resolution.x, resolution.y);
                 glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -8580,7 +8568,6 @@ void renderCBTextSelection(ContentTab* tab) {
 
     glUseProgram(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId);
 
-    glUniform2f(uniforms[U_TEXT_HL_RESOLUTION], resolution.x, resolution.y);
     glUniform1f(uniforms[U_TEXT_HL_SCROLL_OFFSET_Y], tab->scrollOffsetY);
 
     glm::vec4 textSelColor = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
