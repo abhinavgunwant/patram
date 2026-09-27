@@ -57,7 +57,6 @@ extern bool debugTextFirstRenderPrint;
         glBindTexture(GL_TEXTURE_2D, iconTextureID);\
         glUseProgram(shaders[SHADER_TEXT].programId);\
         glUniform4fv(uniforms[U_TEXT_COLOR], 4, color);\
-        glUniform2f(uniforms[U_TEXT_RESOLUTION], resolution.x, resolution.y);\
         glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);\
     } while(false)
 
