@@ -5136,10 +5136,8 @@ void tabBarMouseDownCallback(
 
                 ContentTab* tab = CURRENT_TAB;
 
-                if (tab->scrollbarUpdated == false) {
-                    tab->redrawCursor = true;
-                    reDrawCBs();
-                }
+                tab->redrawCursor = true;
+                reDrawCBs();
 
                 clearRectangles();
             }
