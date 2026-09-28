@@ -243,13 +243,33 @@ void MarkdownParser::parseImage() {
         return;
     }
 
-    uint32_t urlStartIndex = rci.index();
-    uint32_t urlLength = 0;
+    uint32_t altTextStartIndex = rci.index();
+    uint32_t altTextLength = 0;
 
-    bool foundUrl = false;
+    bool foundText = false;
 
     while (!isAtEnd()) {
         if (match(']')) {
+            foundText = true;
+            break;
+        }
+
+        ++altTextLength;
+        advance();
+    }
+
+    if (!foundText || !match('(')) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
+    uint32_t urlStartIndex = rci.index();
+    uint32_t urlLength = 0;
+    bool foundUrl = false;
+
+    while (!isAtEnd()) {
+        if (match(')')) {
             foundUrl = true;
             break;
         }
@@ -258,15 +278,28 @@ void MarkdownParser::parseImage() {
         advance();
     }
 
-    if (!foundUrl || !match('(')) {
+    if (!foundUrl) {
         rci.setIndex(beginIndex);
         parseNormalText();
         return;
     }
 
-    uint32_t altTextStartIndex = rci.index();
-    uint32_t altTextLength = 0;
-    bool foundAltText = false;
+    cbType = ContentBlockType::Image;
+
+    fragments.push_back({
+        .fragType = MarkdownFragmentType::Image,
+        .imgOrLink = {
+            .url = { .startIndex = urlStartIndex, .length = urlLength },
+            .text = { .startIndex = altTextStartIndex, .length = altTextLength }
+        },
+    });
+
+    while (!isAtEnd() && match(' ')) { advance(); }
+
+    if (!isAtEnd()) {
+        parseNormalText();
+    }
+}
 
     while (!isAtEnd()) {
         if (match(')')) {

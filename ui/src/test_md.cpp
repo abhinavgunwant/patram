@@ -88,7 +88,6 @@ TEST_END
 
 TEST_START(imageParsing, "Markdown Image Parsing Test")
     Rope* testRope = new Rope("![someImage.jpg](Some Image!)");
-    // Markdown md = parseContent(testRope);
     MarkdownParser parser(testRope);
     Markdown md = parser.parse();
 
@@ -96,10 +95,10 @@ TEST_START(imageParsing, "Markdown Image Parsing Test")
     ASSERT_EQ(md.fragments.size(), 1);
     ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Image);
 
-    ASSERT_EQ(md.fragments[0].image.url.startIndex, 2); 
-    ASSERT_EQ(md.fragments[0].image.url.length, 13); 
-    ASSERT_EQ(md.fragments[0].image.altText.startIndex, 17); 
-    ASSERT_EQ(md.fragments[0].image.altText.length, 11); 
+    ASSERT_EQ(md.fragments[0].imgOrLink.url.startIndex, 2);
+    ASSERT_EQ(md.fragments[0].imgOrLink.url.length, 13);
+    ASSERT_EQ(md.fragments[0].imgOrLink.text.startIndex, 17);
+    ASSERT_EQ(md.fragments[0].imgOrLink.text.length, 11);
 TEST_END
 
 int main() {
