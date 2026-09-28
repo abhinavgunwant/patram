@@ -12,16 +12,17 @@ enum class MarkdownFragmentType: uint8_t {
     Strikethrough,
     Code,
     Image,
+    Link,
 };
 
-struct MarkdownImage {
+struct MarkdownImageOrLink {
     RopeViewData url;
-    RopeViewData altText;
+    RopeViewData text;
 };
 
-union MarkdownContent {
+struct MarkdownLink {
+    RopeViewData url;
     RopeViewData text;
-    MarkdownImage image;
 };
 
 struct MarkdownFragment {
@@ -29,7 +30,7 @@ struct MarkdownFragment {
 
     union {
         RopeViewData text;
-        MarkdownImage image;
+        MarkdownImageOrLink imgOrLink;
     };
 };
 
@@ -66,6 +67,7 @@ class MarkdownParser {
     void parseStrikethrough();
     void parseCode();
     void parseImage();
+    void parseLink();
     void parseNormalText();
 public:
     MarkdownParser(Rope* rope);

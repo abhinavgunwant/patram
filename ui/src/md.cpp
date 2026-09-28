@@ -301,35 +301,60 @@ void MarkdownParser::parseImage() {
     }
 }
 
+// TODO: parse [[Such Links]]
+void MarkdownParser::parseLink() {
+    uint32_t beginIndex = rci.index();
+
+    advance();
+
+    uint32_t textStartIndex = rci.index();
+    uint32_t textLength = 0;
+
+    bool foundText = false;
+
     while (!isAtEnd()) {
-        if (match(')')) {
-            foundAltText = true;
+        if (match(']')) {
+            foundText = true;
             break;
         }
 
-        ++altTextLength;
+        ++textLength;
         advance();
     }
 
-    if (!foundAltText) {
+    if (!foundText || !match('(')) {
         rci.setIndex(beginIndex);
         parseNormalText();
         return;
     }
 
-    cbType = ContentBlockType::Image;
+    uint32_t urlStartIndex = rci.index();
+    uint32_t urlLength = 0;
+    bool foundUrl = false;
+
+    while (!isAtEnd()) {
+        if (match(')')) {
+            foundUrl = true;
+            break;
+        }
+
+        ++urlLength;
+        advance();
+    }
+
+    if (!foundUrl) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
+    cbType = ContentBlockType::Link;
 
     fragments.push_back({
-        .fragType = MarkdownFragmentType::Image,
-        .image = {
-            .url = {
-                .startIndex = urlStartIndex,
-                .length = urlLength,
-            },
-            .altText = {
-                .startIndex = altTextStartIndex,
-                .length = altTextLength,
-            }
+        .fragType = MarkdownFragmentType::Link,
+        .imgOrLink = {
+            .url = { .startIndex = urlStartIndex, .length = urlLength },
+            .text = { .startIndex = textStartIndex, .length = textLength }
         },
     });
 
@@ -414,6 +439,8 @@ Markdown MarkdownParser::parse() {
                     parseNormalText();
                 }
                 break;
+            case '[':
+                parseLink();
             case '|': parseTableRow(); break;
             default:
                 _start = false;
