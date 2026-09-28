@@ -1,481 +1,6 @@
 #include "include/md.hpp"
-
-ContentBlockType getCBTypeAndStartIndexString(string inputText, uint32_t& startIndex) {
-    uint8_t hashCount = 0;
-    uint8_t dashCount = 0;
-    uint8_t tickCount = 0;
-
-    uint32_t i = 0;
-
-    for (char ch: inputText) {
-        if (ch == ' ' || isalnum(ch)) { ++i; break; }
-        if (ch == '#') { ++hashCount; }
-        if (ch == '-') { ++dashCount; }
-        if (ch == '`') { ++tickCount; }
-
-        ++i;
-    }
-
-    startIndex = i;
-
-    if (hashCount && !dashCount && !tickCount) {
-        switch (hashCount) {
-            case 1: return ContentBlockType::Heading1;
-            case 2: return ContentBlockType::Heading2;
-            case 3: return ContentBlockType::Heading3;
-            case 4: return ContentBlockType::Heading4;
-            case 5: return ContentBlockType::Heading5;
-            default: return ContentBlockType::Heading6;
-        }
-    }
-
-    // if (dashCount == 1 && hashCount == 0 && tickCount == 0) {
-    //     return ContentBlockType::Bullet;
-    // }
-    //
-    // if (tickCount == 3 && hashCount == 0 && dashCount == 0) {
-    //     return ContentBlockType::Code;
-    // }
-
-    return ContentBlockType::Paragraph;
-}
-
-ContentBlockType getCBTypeString(string inputText) {
-    uint32_t _;
-    return getCBTypeAndStartIndexString(inputText, _);
-}
-
-inline void parseNormalString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t i = currentIndex;
-
-    for (; itr!=inputStr.end(); ++itr, ++i) {
-        if (*itr == '*' || *itr == '~' || *itr == '`') {
-            frags.push_back({
-                MarkdownFragmentType::Normal,
-                inputStr.substr(currentIndex, i-currentIndex)
-            });
-            --itr;
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        inputStr.substr(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseBoldString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t i = currentIndex;
-
-    for (; itr!=inputStr.end(); ++itr, ++i) {
-        if (
-            *itr == '*'
-            && (itr + 1) != inputStr.end()
-            && *(itr + 1) == '*'
-        ) {
-            frags.push_back({
-                MarkdownFragmentType::Bold,
-                inputStr.substr(currentIndex, i-currentIndex)
-            });
-            itr += 2;
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        inputStr.substr(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseItalicString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t i = currentIndex;
-
-    for (; itr != inputStr.end(); ++itr, ++i) {
-        if (*itr == '*') {
-            frags.push_back({
-                MarkdownFragmentType::Italic,
-                inputStr.substr(currentIndex, i-currentIndex)
-            });
-            ++itr;
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        inputStr.substr(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseUnderlineString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    // TODO: implement!
-}
-
-inline void parseStrikethroughString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t i = currentIndex;
-
-    for (; itr != inputStr.end(); ++itr, ++i) {
-        if (*itr == '~') {
-            frags.push_back({
-                MarkdownFragmentType::Strikethrough,
-                inputStr.substr(currentIndex, i-currentIndex)
-            });
-            ++itr;
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        inputStr.substr(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseCodeString(
-    string::iterator& itr,
-    string& inputStr,
-    uint32_t currentIndex,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t i = currentIndex;
-
-    for (uint32_t i=currentIndex; itr!=inputStr.end(); ++itr, ++i) {
-        if (*itr == '`') {
-            frags.push_back({
-                MarkdownFragmentType::Strikethrough,
-                inputStr.substr(currentIndex, i-currentIndex)
-            });
-            ++itr;
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        inputStr.substr(currentIndex, i-currentIndex)
-    });
-}
-
-Markdown parseContentString(string inputText) {
-    uint32_t startIndex = 0;
-    ContentBlockType cbType = getCBTypeAndStartIndexString(inputText, startIndex);
-    Markdown md = { cbType, startIndex, 0, 0, vector<MarkdownFragment>() };
-
-    uint32_t i = startIndex;
-
-    for (
-        string::iterator itr = inputText.begin() + startIndex;
-        itr != inputText.end();
-        ++itr, ++i
-    ) {
-        switch (*itr) {
-            case '*': 
-                if ((itr + 1) != inputText.end() && *(itr + 1) == '*') {
-                    parseBoldString(itr, inputText, i, md.fragments);
-                } else {
-                    parseItalicString(itr, inputText, i, md.fragments);
-                }
-                break;
-
-            case '~': parseStrikethroughString(itr, inputText, i, md.fragments); break;
-            case '`': parseCodeString(itr, inputText, i, md.fragments); break;
-            default: parseNormalString(itr, inputText, i, md.fragments);
-        }
-
-        if (itr >= inputText.end()) { break; }
-    }
-
-    return md;
-}
-
-ContentBlockType getCBTypeAndStartIndex(Rope* rope, uint32_t& startIndex) {
-    uint8_t hashCount = 0;
-    uint8_t dashCount = 0;
-    uint8_t tickCount = 0;
-    uint8_t asteriskCount = 0;
-    uint8_t numberCount = 0;
-
-    uint32_t i = 0;
-
-    RopeCharIterator rci(rope);
-
-    bool shouldBreak = false;
-    bool numbering = false;
-    bool success = false;
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-
-        if (ch >= '0' && ch <= '9') {
-            if (i == 0) { numbering = true; }
-
-            if (numbering) { ++numberCount; }
-
-            ++i;
-            continue;
-        }
-
-        if (numbering && ch == '.') {
-            ++i;
-            continue;
-        }
-
-        switch (ch) {
-            case '#': ++hashCount; break;
-            case '-': ++dashCount; break;
-            case '*': ++asteriskCount; break;
-            case '`':
-                ++tickCount;
-
-                if (tickCount == 3) {
-                  shouldBreak = true;
-                  success = true;
-                  ++i;
-                }
-
-                break;
-        }
-
-        if (shouldBreak || isalnum(ch)) { break; }
-        if (ch == ' ') { success = true; break; }
-
-        ++i;
-    }
-
-    if (success) {
-        if (hashCount && !dashCount && !tickCount && !asteriskCount && !numberCount) {
-            startIndex = i;
-
-            switch (hashCount) {
-                case 1: return ContentBlockType::Heading1;
-                case 2: return ContentBlockType::Heading2;
-                case 3: return ContentBlockType::Heading3;
-                case 4: return ContentBlockType::Heading4;
-                case 5: return ContentBlockType::Heading5;
-                default: return ContentBlockType::Heading6;
-            }
-        }
-
-        if (
-            dashCount == 1 && !hashCount && !tickCount && !asteriskCount && !numberCount
-            || asteriskCount == 1 && !dashCount && !hashCount && !tickCount && !numberCount
-        ) {
-            startIndex = i;
-            return ContentBlockType::Bullet;
-        }
-
-        if (numberCount && !dashCount && !hashCount && !tickCount && !asteriskCount) {
-            startIndex = i;
-            return ContentBlockType::Numbering;
-        }
-
-        if (tickCount == 3 && !hashCount && !dashCount && !numberCount && !asteriskCount) {
-            startIndex = i;
-            return ContentBlockType::Code;
-        }
-    }
-
-    return ContentBlockType::Paragraph;
-}
-
-ContentBlockType getCBType(Rope* rope) {
-    uint32_t _;
-    return getCBTypeAndStartIndex(rope, _);
-}
-
-inline void parseBoldText(
-    RopeCharIterator& rci,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t currentIndex = rci.index();
-    uint32_t i = currentIndex;
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-        char nextChar = rci.peekNext();
-
-        if (ch == '*' && nextChar == '*') {
-            frags.push_back({
-                MarkdownFragmentType::Bold,
-                rci.getRootRope()->substring(currentIndex, i-currentIndex)
-            });
-            rci.next();
-            rci.next();
-            return;
-        }
-
-        ++i;
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        rci.getRootRope()->substring(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseItalicText(
-    RopeCharIterator& rci,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t currentIndex = rci.index();
-    uint32_t i = currentIndex;
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-
-        if (ch == '*') {
-            frags.push_back({
-                MarkdownFragmentType::Italic,
-                rci.getRootRope()->substring(currentIndex, i-currentIndex)
-            });
-            rci.next();
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        rci.getRootRope()->substring(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseStrikethroughText(
-    RopeCharIterator& rci,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t currentIndex = rci.index();
-    uint32_t i = currentIndex;
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-
-        if (ch == '~') {
-            frags.push_back({
-                MarkdownFragmentType::Strikethrough,
-                rci.getRootRope()->substring(currentIndex, i-currentIndex)
-            });
-            rci.next();
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        rci.getRootRope()->substring(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseCodeText(
-    RopeCharIterator& rci,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t currentIndex = rci.index();
-    uint32_t i = currentIndex;
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-
-        if (ch == '`') {
-            frags.push_back({
-                MarkdownFragmentType::Strikethrough,
-                rci.getRootRope()->substring(currentIndex, i-currentIndex)
-            });
-            rci.next();
-            return;
-        }
-    }
-
-    frags.push_back({
-        MarkdownFragmentType::Normal,
-        rci.getRootRope()->substring(currentIndex, i-currentIndex)
-    });
-}
-
-inline void parseNormalText(
-    RopeCharIterator& rci,
-    vector<MarkdownFragment>& frags
-) {
-    uint32_t currentIndex = rci.index();
-    uint32_t i = currentIndex;
-
-    while (rci.hasNext()) {
-        char ch = rci.peekNext();
-
-        if (ch == '*' || ch == '~' || ch == '`') {
-            frags.push_back({
-                MarkdownFragmentType::Normal,
-                rci.getRootRope()->substring(currentIndex, i-currentIndex)
-            });
-            return;
-        }
-
-        rci.next();
-        ++i;
-    }
-
-    if (i > currentIndex) {
-        frags.push_back({
-            MarkdownFragmentType::Normal,
-            rci.getRootRope()->substring(currentIndex, i-currentIndex)
-        });
-    }
-}
-
-Markdown parseContent(Rope* rope) {
-    uint32_t startIndex = 0;
-    ContentBlockType cbType = getCBTypeAndStartIndex(rope, startIndex);
-    Markdown md = { cbType, startIndex, 0, 0, vector<MarkdownFragment>() };
-
-    RopeCharIterator rci(rope);
-    rci.setIndex(startIndex);
-
-    while (rci.hasNext()) {
-        char ch = rci.next();
-
-        switch (ch) {
-            case '*':
-                if (rci.peekNext() == '*') {
-                    parseBoldText(rci, md.fragments);
-                } else {
-                    parseItalicText(rci, md.fragments);
-                }
-                break;
-
-            case '~': parseStrikethroughText(rci, md.fragments); break;
-            case '`': parseCodeText(rci, md.fragments); break;
-            default: parseNormalText(rci, md.fragments);
-        }
-    }
-
-    return md;
-}
+#include <cctype>
+#include <stack>
 
 bool containsCodeBlockBound(Rope* rope) {
     uint32_t consecutiveTickCount = 0;
@@ -504,5 +29,373 @@ bool containsCodeBlockBound(Rope* rope) {
     }
 
     return maxConsecutiveTickCount == 3;
+}
+
+MarkdownParser::MarkdownParser(Rope* rope): rope(rope), rci(rope), error(false), start(true) {}
+
+char MarkdownParser::peek() {
+    if (start) {
+        start = false;
+
+        if (rci.hasNext()) {
+            current = rci.next();
+        } else {
+            error = true;
+        }
+    }
+
+    return current;
+}
+
+char MarkdownParser::peekNext() { return rci.peekNext(); }
+
+bool MarkdownParser::match(char c) {
+    if (current == c) {
+        advance();
+        return true;
+    }
+
+    return false;
+}
+
+bool MarkdownParser::isAtEnd() {
+    return !rci.hasNext();
+}
+
+void MarkdownParser::advance() {
+    if (rci.hasNext()) {
+        current = rci.next();
+        return;
+    }
+
+    error = true;
+}
+
+void MarkdownParser::parseHeading() {
+    uint32_t hashes = 0;
+
+    while (!isAtEnd()) {
+        if (match('#')) {
+            ++hashes;
+        } else {
+            break;
+        }
+    }
+
+    if (match(' ')) {
+        switch (hashes) {
+            case 1: cbType = ContentBlockType::Heading1; break;
+            case 2: cbType = ContentBlockType::Heading2; break;
+            case 3: cbType = ContentBlockType::Heading3; break;
+            case 4: cbType = ContentBlockType::Heading4; break;
+            case 5: cbType = ContentBlockType::Heading5; break;
+            case 6: cbType = ContentBlockType::Heading6; break;
+        }
+
+        if (hashes > 0 && hashes < 7) {
+            startIndex = rci.index();
+        }
+    }
+
+    parseNormalText();
+}
+
+void MarkdownParser::parseTableRow() {
+    // TODO: Implement!
+}
+
+void MarkdownParser::parseBullets() {
+    uint32_t index = rci.index();
+
+    if ((match('-') || match('*')) && match(' ')) {
+        startIndex = rci.index();
+        cbType = ContentBlockType::Bullet;
+    } else {
+        rci.setIndex(index);
+    }
+
+    parseNormalText();
+}
+
+void MarkdownParser::parseBold() {
+    uint32_t initialIndex = rci.index();
+    uint32_t index = initialIndex;
+    std::stack<uint32_t> asteriskStack;
+
+    bool foundAsterisk = false;
+    bool foundSpace = false;
+    bool prevChar = false;
+    bool prevCharAsterisk = false;
+    uint32_t asteriskCount = 0;
+
+    while (!isAtEnd()) {
+        if (match('*')) {
+            if (!foundAsterisk) {
+                index = rci.index();
+                foundAsterisk = true;
+            }
+
+            if (prevChar) {
+                prevCharAsterisk = true;
+                prevChar = false;
+            }
+
+            ++asteriskCount;
+        } else {
+            if (!prevCharAsterisk && peek() == ' ') {
+                foundSpace = true;
+            } else if (foundAsterisk) {
+                if (prevCharAsterisk) {
+                    if (!asteriskStack.empty()) {
+                        uint32_t startIndex = asteriskStack.top() + 1;
+                        uint32_t lastIndex = asteriskStack.top();
+                        uint32_t popped = 1;
+
+                        asteriskStack.pop();
+
+                        for (uint32_t i=0; i<asteriskCount && !asteriskStack.empty(); ++i) {
+                            if (asteriskStack.top() - lastIndex == 1) {
+                                lastIndex = asteriskStack.top();
+                                asteriskStack.pop();
+                                ++popped;
+                            } else {
+                                // TODO: create new fragment here...
+                            }
+
+                            if (popped == 2) {
+                                // TODO: create a new bold fragment here...
+                                popped = 0;
+                            }
+                        }
+
+                        uint32_t length = index - asteriskCount - startIndex;
+                    }
+
+                    prevCharAsterisk = false;
+                } else {
+                    for (uint32_t i=0; i<asteriskCount; ++i) {
+                        asteriskStack.push(i + index);
+                    }
+                }
+
+                prevChar = false;
+            } else {
+                foundSpace = false;
+                prevChar = true;
+            }
+
+            asteriskCount = 0;
+            foundAsterisk = false;
+            advance();
+        }
+    }
+
+    // TODO: At the end of line... maybe use the lines below...
+    for (uint32_t i=0; i<asteriskCount; ++i) {
+        asteriskStack.push(i + index);
+    }
+}
+
+void MarkdownParser::parseItalics() {
+    while (!isAtEnd()) {
+    }
+}
+
+void MarkdownParser::parseStrikethrough() {
+    while (!isAtEnd()) {
+    }
+}
+
+void MarkdownParser::parseCode() {
+    uint32_t indexBefore = rci.index();
+
+    if (!match('`')) { return; }
+
+    uint32_t index = rci.index();
+    uint32_t length = 0;
+
+    while (!isAtEnd()) {
+        if (match('`')) {
+            fragments.push_back({
+                MarkdownFragmentType::Code,
+                { index, length },
+            });
+            return;
+        }
+
+        advance();
+
+        ++length;
+    }
+
+    fragments.push_back({
+        MarkdownFragmentType::Code,
+        { index, length },
+    });
+}
+
+void MarkdownParser::parseImage() {
+    uint32_t beginIndex = rci.index();
+
+    if (!(match('!') && match('['))) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
+    uint32_t urlStartIndex = rci.index();
+    uint32_t urlLength = 0;
+
+    bool foundUrl = false;
+
+    while (!isAtEnd()) {
+        if (match(']')) {
+            foundUrl = true;
+            break;
+        }
+
+        ++urlLength;
+        advance();
+    }
+
+    if (!foundUrl || !match('(')) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
+    uint32_t altTextStartIndex = rci.index();
+    uint32_t altTextLength = 0;
+    bool foundAltText = false;
+
+    while (!isAtEnd()) {
+        if (match(')')) {
+            foundAltText = true;
+            break;
+        }
+
+        ++altTextLength;
+        advance();
+    }
+
+    if (!foundAltText) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
+    cbType = ContentBlockType::Image;
+
+    fragments.push_back({
+        .fragType = MarkdownFragmentType::Image,
+        .image = {
+            .url = {
+                .startIndex = urlStartIndex,
+                .length = urlLength,
+            },
+            .altText = {
+                .startIndex = altTextStartIndex,
+                .length = altTextLength,
+            }
+        },
+    });
+
+    while (!isAtEnd() && match(' ')) { advance(); }
+
+    if (!isAtEnd()) {
+        parseNormalText();
+    }
+}
+
+void MarkdownParser::parseNormalText() {
+    uint32_t length = 0;
+
+    if (rci.index() == 0) { startIndex = 0; }
+
+    while (!isAtEnd()) {
+        advance();
+        ++length;
+    }
+
+    fragments.push_back({ MarkdownFragmentType::Normal, { startIndex, length } });
+}
+
+Markdown MarkdownParser::parse() {
+    cbType = ContentBlockType::Paragraph;
+    bool _start = true;
+
+    uint32_t hashes = 0;
+    uint32_t dashes = 0;
+    uint32_t indent = 0;
+    uint32_t spaces = 0;
+
+    uint32_t count = 0;
+
+    while (!isAtEnd()) {
+        if (_start && isspace(peek())) {
+            ++spaces;
+
+            if (spaces % 4 == 0) {
+                ++indent;
+            }
+
+            advance();
+            continue;
+        }
+
+        switch (peek()) {
+            cout << "\nscanning: " << peek();
+            case '#':
+                if (_start) {
+                    parseHeading();
+                } else {
+                    parseNormalText();
+                }
+                _start = false;
+                break;
+
+            case '-':
+                if (_start && isspace(peekNext())) {
+                    parseBullets();
+                } else {
+                    parseNormalText();
+                }
+                _start = false;
+                break;
+
+            case '*':
+                if (_start && peekNext() != '*') {
+                    _start = false;
+                    parseBullets();
+                } else {
+                    parseNormalText();
+                }
+                break;
+
+            case '~': parseStrikethrough(); break;
+            case '`': parseCode(); break;
+            case '!':
+                if (peekNext() == '[') {
+                    parseImage();
+                } else {
+                    parseNormalText();
+                }
+                break;
+            case '|': parseTableRow(); break;
+            default:
+                _start = false;
+                parseNormalText();
+        }
+
+        count++;
+
+        if (count > 100) {
+            break;
+        }
+
+        advance();
+    }
+
+    return { cbType, startIndex, 0, 0, fragments };
 }
 

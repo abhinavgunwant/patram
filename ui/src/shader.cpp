@@ -333,7 +333,7 @@ string fragmentShaders[] = {
     "out vec4 color;\n"
     "uniform sampler2D imageTexture;\n"
     "void main() {\n"
-        "color = vec4(texture(imageTexture, TexCoords).rgb, 1.0f);\n"
+        "color = texture(imageTexture, TexCoords);\n"
     "}\0",
 };
 

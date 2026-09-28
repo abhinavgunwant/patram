@@ -4,6 +4,8 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <thread>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -33,13 +35,14 @@
 #define TAB_HORIZONTAL_PADDING      16.0f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f
+#define CONTENT_IMAGE_MAX_HEIGHT    980.0f
 #define CONTENT_BREAKPOINT          800
 #define CONTENT_HORIZONTAL_MARGIN   20.0f
 
 #define CONTENT_BLOCK_VISIBLE       0b00000001
 #define CONTENT_BLOCK_REDRAW        0b00000010 // This has been moved to CBTextRenderInfo.redraw
-#define CONTENT_BLOCK_DRAGGING      0b00000100
-#define CONTENT_BLOCK_EDITING       0b00001000
+#define CONTENT_BLOCK_DRAGGING      0b00000100 // This is being set but not used
+#define CONTENT_BLOCK_EDITING       0b00001000 // This is never set or used.
 
 #define CURRENT_TAB                 (&tabs[activeTabIndex])
 
@@ -166,7 +169,6 @@
 #define SCROLL_BAR_THICKNESS        10.0f
 #define SCROLL_DEBOUNCE_DELAY       0.00833f
 
-
 #define THROTTLE_FAST               0.1
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
@@ -180,6 +182,7 @@
 // #define DEBUG_SCROLL_AREA
 // #define DEBUG_LAYOUT
 // #define DEBUG_RENDER
+#define DEBUG_CB_IMAGES
 #define DEBUG_CONTENT_BLOCKS
 // #define DEBUG_SCROLL
 // #define DEBUG_CURSOR_SHAPE
@@ -309,6 +312,7 @@ enum class ContentBlockType: uint8_t {
     Bullet,
     Numbering,
     Code,
+    Image,
 };
 
 enum class UIAlignment : uint8_t {
@@ -507,6 +511,7 @@ struct ContentBlock {
     ContentBlockType type;
 
     uint8_t flags;
+    uint16_t imgID;
 
     float top;
     float left;
@@ -531,6 +536,12 @@ struct GlobalRenderInfo {
     RenderInfo extraText;
     RenderInfo icon;
     RenderInfo rect;
+    RenderInfo image;
+
+    uint32_t imageTexture;
+    uint32_t imagePBO[2];
+    uint32_t imagePBOIndex;
+    uint32_t imagePBOBufferSize;
 };
 
 struct HighlightedContentBlock {
@@ -700,6 +711,66 @@ struct Explorer {
     vector<ExplorerNode> nodes;
 };
 
+enum class CBImageLocationType: uint8_t {
+    Disk,
+    Internet,
+    NotFound,
+};
+
+enum class CBImageError : uint8_t {
+    None,
+    NotFound,
+    OutOfMemory,
+    Unsupported,
+    TooLarge,
+    UnknownError,
+};
+
+struct CBImage {
+    CBImageLocationType locationType;
+    CBImageError error;
+    bool loaded;
+    bool stale;
+    uint32_t id;
+    uint32_t imageSize;
+    float width;
+    float height;
+    float lastRendered; // Seconds since out of view
+    string location;
+    string diskLocation; // for files that are downloaded
+    uint8_t* data;
+};
+
+struct CBImageRenderQueueEntry {
+    float x;
+    float y;
+    uint32_t imageIndex;
+    uint32_t vertexOffset;
+    uint32_t bufferOffset;
+};
+
+struct CBImageRenderQueueResult {
+    bool loaded;
+    float height;
+};
+
+struct CBImageBufferSwapResult {
+    bool imageLoaded;
+    bool shouldLoad;
+    uint32_t nextBufferIndex;
+};
+
+struct CBImageLoader {
+    atomic<bool> workerRunning;
+    atomic<bool> rerunWorker; // set to true when loadCBImages() is called mid loop
+    atomic<bool> imagesUpdated; // TODO: when images are added or marked stale, update this flag!
+    atomic<bool> lockImageAccess;
+
+    uint32_t currentId;
+    vector<CBImage> images;
+    vector<CBImageRenderQueueEntry> renderQueue;
+};
+
 void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
 void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
@@ -758,6 +829,13 @@ void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void renderCBMoveMarker();
+uint16_t addCBImage(string location, uint16_t id = 0);
+void loadCBImages();
+CBImageRenderQueueResult queueImageForRender(float x, float y, uint32_t imageID);
+inline CBImageBufferSwapResult loadCBImageIntoPBOBuffer(CBImage* image, uint32_t bufferIndex);
+inline void renderCBImage(CBImageRenderQueueEntry imgEntry, CBImage* img, uint32_t pboIndex, uint32_t len);
+void renderCBImages();
+void removeOldCBImages(std::stop_token stopToken);
 void hideCBMoveMarker();
 void reDrawAllContentBlocks();
 inline void reDrawCBs();

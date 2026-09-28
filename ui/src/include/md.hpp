@@ -4,8 +4,6 @@
 #include <vector>
 #include "ui.hpp"
 
-using namespace std;
-
 enum class MarkdownFragmentType: uint8_t {
     Normal,
     Bold,
@@ -13,11 +11,26 @@ enum class MarkdownFragmentType: uint8_t {
     Underline,
     Strikethrough,
     Code,
+    Image,
+};
+
+struct MarkdownImage {
+    RopeViewData url;
+    RopeViewData altText;
+};
+
+union MarkdownContent {
+    RopeViewData text;
+    MarkdownImage image;
 };
 
 struct MarkdownFragment {
     MarkdownFragmentType fragType;
-    string text;
+
+    union {
+        RopeViewData text;
+        MarkdownImage image;
+    };
 };
 
 struct Markdown {
@@ -25,11 +38,41 @@ struct Markdown {
     uint32_t startIndex;
     uint16_t columns;
     uint32_t rows;
-    vector<MarkdownFragment> fragments;
+    std::vector<MarkdownFragment> fragments;
 };
 
-ContentBlockType getCBType(Rope* rope);
-Markdown parseContent(Rope* rope);
+class MarkdownParser {
+    Rope* rope;
+    RopeCharIterator rci;
+    std::vector<MarkdownFragment> fragments;
+
+    char current;
+    bool start;
+    bool error;
+    ContentBlockType cbType;
+    uint32_t startIndex;
+
+    char peek();
+    char peekNext();
+    bool match(char c);
+    bool isAtEnd();
+    void advance();
+
+    void parseHeading();
+    void parseTableRow();
+    void parseBullets();
+    void parseBold();
+    void parseItalics();
+    void parseStrikethrough();
+    void parseCode();
+    void parseImage();
+    void parseNormalText();
+public:
+    MarkdownParser(Rope* rope);
+
+    Markdown parse();
+};
+
 bool containsCodeBlockBound(Rope* rope);
 
 #endif // PATRAM_UI_MD 

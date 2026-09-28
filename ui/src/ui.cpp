@@ -13,6 +13,12 @@
     #include <string_view>
 #endif
 
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <processthreadsapi.h>
+#endif
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -25,12 +31,8 @@
 #include "utils.hpp"
 #include "logger.hpp"
 #include "../lib/stb_image.h"
+#include "../lib/stb_image_resize2.h"
 #include "md.hpp"
-
-#ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
-#endif
 
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
@@ -87,6 +89,9 @@
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
 #define LINE_HEIGHT(fontSize) static_cast<float>(fontSize) * (1 - glyphDescender)
+
+#define SLEEP_ms(ms) std::this_thread::sleep_for(chrono::milliseconds(ms))
+#define SLEEP_s(s) std::this_thread::sleep_for(chrono::seconds(s))
 
 using namespace std;
 
@@ -173,6 +178,7 @@ Explorer explorer = {
 };
 
 GlobalRenderInfo grInfo;
+CBImageLoader cbImageLoader = { 0 };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -2255,6 +2261,9 @@ void setupUI(bool isDarkTheme) {
 
     grInfo = { 0 };
     grInfo.redraw = true;
+    grInfo.imagePBOBufferSize = CONTENT_MAX_WIDTH * CONTENT_IMAGE_MAX_HEIGHT * 3;
+    grInfo.image.numVertices = 64;
+    grInfo.image.bufferSize = 1024;
 
     float vertices[8] = { 0 };
     float vertices_24[24] = { 0 };
@@ -2305,6 +2314,41 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, vertices_2400);
     grInfo.extraText.numVertices = 600;
     grInfo.extraText.bufferSize = 2400 * sizeof(float);
+
+    glGenVertexArrays(1, &grInfo.image.vao);
+    glBindVertexArray(grInfo.image.vao);
+    glGenBuffers(1, &grInfo.image.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
+    glBufferData(GL_ARRAY_BUFFER, grInfo.image.bufferSize, nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    glGenBuffers(2, grInfo.imagePBO);
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, grInfo.imagePBO[0]);
+    glBufferData(
+        GL_PIXEL_UNPACK_BUFFER,
+        grInfo.imagePBOBufferSize,
+        nullptr,
+        GL_STREAM_DRAW
+    );
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, grInfo.imagePBO[1]);
+    glBufferData(
+        GL_PIXEL_UNPACK_BUFFER,
+        grInfo.imagePBOBufferSize,
+        nullptr,
+        GL_STREAM_DRAW
+    );
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &grInfo.imageTexture);
+    glBindTexture(GL_TEXTURE_2D, grInfo.imageTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, CONTENT_MAX_WIDTH, CONTENT_IMAGE_MAX_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
     SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
@@ -2435,6 +2479,14 @@ void enterRenderLoop() {
 
     glClearColor(color.r, color.g, color.b, 1.0);
 
+    std::jthread removeOldCBImagesWorker(removeOldCBImages);
+    #ifdef _WIN32
+        SetThreadDescription(
+            removeOldCBImagesWorker.native_handle(),
+            L"patram: removeOldCBImages Worker"
+        );
+    #endif
+
     info("Starting UI rendering.");
 
     while (!glfwWindowShouldClose(window)) {
@@ -2494,6 +2546,9 @@ void enterRenderLoop() {
         #endif
         // glfwSwapInterval(1);
     }
+
+    removeOldCBImagesWorker.request_stop();
+    removeOldCBImagesWorker.join();
 }
 
 void defaultCallback(UIElement* _elem) {
@@ -4804,7 +4859,7 @@ void openFile(bool openDialog, filesystem::path p) {
             for (string line: lines) {
                 tab->contentBlocks.emplace_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    CONTENT_BLOCK_VISIBLE,
+                    CONTENT_BLOCK_VISIBLE, 0,
                     0.0f, 0.0f, 0.0f, 1, 0, new Rope(line),
                 });
             }
@@ -4878,7 +4933,7 @@ void newNote(filesystem::path p) {
 
     tab->contentBlocks.emplace_back(ContentBlock {
         ContentBlockType::Paragraph,
-        CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE, 0,
         0.0f, 0.0f, 0.0f, 1, 0, new Rope()
     });
     tab->updated = true;
@@ -5448,7 +5503,7 @@ void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, u
 
     ContentBlock cb = ContentBlock {
         type,
-        CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE, 0,
         0.0f, 0.0f, 0.0f,
         0, 0,
         new Rope(text),
@@ -5466,7 +5521,7 @@ void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text) {
 
     tabs[tabIndex].contentBlocks.push_back(ContentBlock {
         type,
-        CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE, 0,
         0.0f, 0.0f, 0.0f,
         0, 0,
         new Rope(text),
@@ -5560,7 +5615,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
 
     content.push_back(ContentBlock {
         ContentBlockType::Title,
-        CONTENT_BLOCK_VISIBLE,
+        CONTENT_BLOCK_VISIBLE, 0,
         0.0f, 0.0f, 0.0f,
         1, 0,
         new Rope(path.filename().string()),
@@ -6544,6 +6599,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 extraTextVertices.reserve(grInfo.extraText.bufferSize > 9600 ? grInfo.extraText.bufferSize : 9600);
                 textVertices.reserve(grInfo.text.numVertices);
                 rva.reserve(grInfo.rect.numVertices);
+                cbImageLoader.renderQueue.clear();
             }
 
             bool visible = false;
@@ -6604,6 +6660,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 WHITE,
                 grInfo.redraw
             );
+
+            renderCBImages();
 
             grInfo.redraw = false;
 
@@ -7990,49 +8048,44 @@ inline bool renderContentBlock(
     glm::vec2 pos = glm::vec2(left, top);
 
     if (grInfo.redraw) {
-        Markdown md = parseContent(cb->rope);
+        MarkdownParser parser(cb->rope);
+        Markdown md = parser.parse();
 
         if (index && cb->type != ContentBlockType::Code) {
             cb->type = md.cbType;
             cb->startIndex = md.startIndex;
         }
 
+        bool renderRope = true;
+
         switch (cb->type) {
             case ContentBlockType::Bullet:
                 if (isActive) {
-                    if (grInfo.redraw) {
-                        PUSH_ICON_VERTICES(
-                            iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0
-                        );
-                    }
+                    PUSH_ICON_VERTICES(
+                        iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0
+                    );
                 } else {
                     pos.x += 16.0f;
 
-                    if (grInfo.redraw) {
-                        PUSH_ICON_VERTICES(
-                            iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
-                            4.0f, 4.0f
-                        );
-                    }
+                    PUSH_ICON_VERTICES(
+                        iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
+                        4.0f, 4.0f
+                    );
                 }
                 break;
 
             case ContentBlockType::Numbering:
                 if (isActive) {
-                    if (grInfo.redraw) {
-                        PUSH_ICON_VERTICES(
-                            extraTextVertices, characters[(int)' '], 0, 0, 0, 0
-                        );
-                    }
+                    PUSH_ICON_VERTICES(
+                        extraTextVertices, characters[(int)' '], 0, 0, 0, 0
+                    );
                 } else {
                     pos.x += 16.0f;
 
-                    if (grInfo.redraw) {
-                        appendTextVertices(
-                            left, top, cb->rope->substring(0, md.startIndex),
-                            extraTextVertices
-                        );
-                    }
+                    appendTextVertices(
+                        left, top, cb->rope->substring(0, md.startIndex),
+                        extraTextVertices
+                    );
                 }
                 // TODO: Check for the maximum width of the number characters.
                 // TODO: append the text vertices with the numbering text.
@@ -8055,83 +8108,111 @@ inline bool renderContentBlock(
 
                         if (itr->start == index) {
                             isCodeStart = true;
+                            renderRope = false;
                             bounds = *itr;
                             break;
                         }
                     }
-                }
 
-                if (!isActive) {
                     pos.x += 8.0f;
                 }
 
-                if (grInfo.redraw) {
-                    if (isActive) {
-                        addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
-                    } else {
-                        if (
-                            isCodeStart && (
-                                tab->cursorCBIndex < bounds.start
-                                || tab->cursorCBIndex > bounds.end
-                            )
-                        ) {
-                            cout << "\nFound bounds: { start: " << bounds.start
-                                << ", end: " << bounds.end << " }";
+                // if (isActive) {
+                    // addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
+                // } else {
+                    if (
+                        isCodeStart && (
+                            tab->cursorCBIndex < bounds.start
+                            || tab->cursorCBIndex > bounds.end
+                        )
+                    ) {
+                        cout << "\nFound bounds: { start: " << bounds.start
+                            << ", end: " << bounds.end << " }";
 
-                            string languageText;
+                        string languageText;
 
-                            if (md.cbType == ContentBlockType::Code) {
-                                languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
-                            }
+                        if (md.cbType == ContentBlockType::Code) {
+                            languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
+                        }
 
-                            uint32_t length;
+                        uint32_t length;
 
-                            if (bounds.end == 0) {
-                                length = tab->contentBlocks.size() - tab->cursorCBIndex;
-                            } else {
-                                length = bounds.end - bounds.start + 1;
-                            }
+                        if (bounds.end == 0) {
+                            length = tab->contentBlocks.size() - tab->cursorCBIndex;
+                        } else {
+                            length = bounds.end - bounds.start + 1;
+                        }
 
-                            float height = static_cast<float>(length)
-                                * LINE_HEIGHT(getCBFontSize(
-                                    ContentBlockType::Code
-                                ));
+                        float height = static_cast<float>(length)
+                            * LINE_HEIGHT(getCBFontSize(
+                                ContentBlockType::Code
+                            ));
 
-                            addRectangle(
-                                left,
-                                top,
+                        addRectangle(
+                            left,
+                            top,
+                            contentRight - contentLeft,
+                            height,
+                            darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+                            0,
+                            rva
+                        );
+
+                        if (!languageText.empty()) {
+                            RopeRenderResult dimensions = getTextDimensions(
+                                languageText,
+                                glm::vec2(left, top),
+                                resolution,
+                                16,
+                                contentLeft,
                                 contentRight - contentLeft,
-                                height,
-                                darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
-                                0,
-                                rva
+                                false
                             );
 
-                            if (!languageText.empty()) {
-                                RopeRenderResult dimensions = getTextDimensions(
-                                    languageText,
-                                    glm::vec2(left, top),
-                                    resolution,
-                                    16,
-                                    contentLeft,
-                                    contentRight - contentLeft,
-                                    false
-                                );
-
-                                appendTextVertices(
-                                    contentRight - dimensions.width - 8.0f,
-                                    top,
-                                    languageText,
-                                    extraTextVertices
-                                );
-                            }
+                            appendTextVertices(
+                                contentRight - dimensions.width - 8.0f,
+                                top,
+                                languageText,
+                                extraTextVertices
+                            );
                         }
                     }
-                }
+                // }
                 break;
+
+            case ContentBlockType::Image: {
+                if (!visible) { return false; }
+
+                if (isActive) {
+                    if (!md.fragments.empty()) {
+                        cout << "\nDEBUG: image url: "
+                            << cb->rope->substring(md.fragments[0].image.url)
+                            << ", altText: "
+                            << cb->rope->substring(md.fragments[0].image.altText);
+                    } else {
+                        cout << "\nDEBUG: fragments: " << md.fragments.size();
+                    }
+                    // TODO: don't render image. Set the height to the text height.
+                    cb->height = 16.0f - glyphDescender;
+                } else {
+                    renderRope = false;
+
+                    if (cb->imgID == 0) {
+                        cb->imgID = addCBImage(cb->rope->substring(md.fragments[0].image.url), cb->imgID);
+                        cout << "\nDEBUG: added CB image with ID: " << cb->imgID;
+                    }
+
+                    CBImageRenderQueueResult cirqr = queueImageForRender(contentLeft, top, cb->imgID);
+
+                    if (cirqr.loaded) {
+                        cb->height = cirqr.height;
+                    }
+                }
+            }
+            break;
         }
 
-        if (!isCodeStart) {
+        if (renderRope) {
             RopeRenderResult res = appendRopeVertices(
                 pos.x,
                 pos.y,
@@ -8148,118 +8229,20 @@ inline bool renderContentBlock(
 
             cb->rows = res.rows;
         }
-    } else {
-        switch (cb->type) {
-            case ContentBlockType::Bullet:
-                if (grInfo.redraw) {
-                    PUSH_ICON_VERTICES(
-                        iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
-                        4.0f, 4.0f
-                    );
-                }
-                break;
+    // } else {
+        // if (cb->type == ContentBlockType::Code && !isActive) {
+        //     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
+        //         if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
+        //             break;
+        //         }
 
-            case ContentBlockType::Numbering: {
-                    Markdown md = parseContent(cb->rope);
+        //         if (itr->end == index) {
+        //             return visible;
+        //         }
+        //     }
 
-                    if (grInfo.redraw) {
-                        appendTextVertices(
-                            left, top, cb->rope->substring(0, md.startIndex),
-                            extraTextVertices
-                        );
-                    }
-                }
-                break;
-
-            case ContentBlockType::Code:
-                ContentBlockBounds bounds;
-
-                if (!isActive) {
-                    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
-                        if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
-                            isActive = true;
-                            break;
-                        }
-
-                        if (itr->end == index) {
-                            return visible;
-                        }
-
-                        if (itr->start == index) {
-                            isCodeStart = true;
-                            bounds = *itr;
-                            break;
-                        }
-                    }
-                }
-
-                if (!isActive) {
-                    pos.x += 8.0f;
-                }
-
-                if (grInfo.redraw) {
-                    if (isActive) {
-                        addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
-                    } else {
-                        if (
-                            isCodeStart && (
-                                tab->cursorCBIndex < bounds.start
-                                || tab->cursorCBIndex > bounds.end
-                            )
-                        ) {
-                            Markdown md = parseContent(cb->rope);
-                            string languageText;
-
-                            if (md.cbType == ContentBlockType::Code) {
-                                languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
-                            }
-
-                            uint32_t length;
-
-                            if (bounds.end == 0) {
-                                length = tab->contentBlocks.size() - tab->cursorCBIndex;
-                            } else {
-                                length = bounds.end - bounds.start + 1;
-                            }
-
-                            float height = static_cast<float>(length)
-                                * LINE_HEIGHT(getCBFontSize(
-                                    ContentBlockType::Code
-                                ));
-
-                            addRectangle(
-                                left,
-                                top,
-                                contentRight - contentLeft,
-                                height,
-                                darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
-                                0,
-                                rva
-                            );
-
-                            if (!languageText.empty()) {
-                                RopeRenderResult dimensions = getTextDimensions(
-                                    languageText,
-                                    glm::vec2(left, top),
-                                    resolution,
-                                    16,
-                                    contentLeft,
-                                    contentRight - contentLeft,
-                                    false
-                                );
-
-                                appendTextVertices(
-                                    contentRight - dimensions.width - 8.0f,
-                                    top,
-                                    languageText,
-                                    extraTextVertices
-                                );
-                            }
-                        }
-                    }
-                }
-                break;
-        }
+        //     pos.x += 8.0f;
+        // }
     }
 
     if (tab->maxHeight < cb->top + cb->height) {
@@ -8721,6 +8704,491 @@ void renderCBMoveMarker() {
     #undef GET_TOP
 }
 
+uint16_t addCBImage(string location, uint16_t id) {
+    uint16_t newId;
+    bool oldId = false;
+
+    if (id == 0) {
+        newId = ++cbImageLoader.currentId;
+    } else {
+        oldId = true;
+        newId = id;
+    }
+
+    for (CBImage img: cbImageLoader.images) {
+        if (oldId && img.id == newId) {
+            newId = ++cbImageLoader.currentId;
+            break;
+        }
+
+        if (img.location == location) {
+            return img.id;
+        }
+    }
+
+    CBImageLocationType locationType;
+    CBImageError error = CBImageError::None;
+    LocationType lType = getLocationType(location);
+
+    switch (lType) {
+        case LocationType::File: locationType = CBImageLocationType::Disk; break;
+        case LocationType::URL: locationType = CBImageLocationType::Internet; break;
+        default:
+            locationType = CBImageLocationType::NotFound;
+            error = CBImageError::Unsupported;
+            return 0;
+    }
+
+    cbImageLoader.images.push_back({
+        locationType,
+        error,
+        false,
+        false,
+        newId,
+        0,
+        0,
+        0,
+        TIME(),
+        location,
+        "",
+        nullptr
+    });
+
+    return newId;
+}
+
+void loadCBImagesFromDisk() {
+    do {
+        if (cbImageLoader.lockImageAccess) {
+            SLEEP_ms(50);
+            cbImageLoader.rerunWorker = true;
+            continue;
+        }
+
+        cbImageLoader.rerunWorker = false;
+
+        bool loadedSomething = false;
+
+        for (
+            vector<CBImage>::iterator imgItr = cbImageLoader.images.begin();
+            imgItr != cbImageLoader.images.end();
+            ++imgItr
+        ) {
+            if (cbImageLoader.lockImageAccess) {
+                cbImageLoader.rerunWorker = true;
+                break;
+            }
+
+            if (!imgItr->loaded && !imgItr->stale && imgItr->error == CBImageError::None) {
+                if (imgItr->locationType == CBImageLocationType::Internet && imgItr->diskLocation.empty()) {
+                    cout << "\nDEBUG: Downloading file \"" << imgItr->location << "\"";
+
+                    string newLocation = downloadFileToTemp(imgItr->location);
+
+                    cout << "\nDEBUG: Downloaede file to \"" << newLocation << "\"";
+
+                    imgItr->locationType = CBImageLocationType::Disk;
+                    imgItr->diskLocation = newLocation;
+
+                    // TODO: if the location is an http(s) url, first download it into
+                    //      filesystem::temp_directory_path() and update the location
+                    //      to the temporary location
+                }
+
+                int width, height, nrChannels;
+
+                uint8_t* img = stbi_load(imgItr->location.c_str(), &width, &height, &nrChannels, 3);
+
+                if (img == nullptr) {
+                    // TODO: display the failure reason:
+                    const char* failure = stbi_failure_reason();
+
+                    cout << "\nERROR: Encountered error while loading image: " << failure;
+
+                    if (strcmp(failure, "can't fopen") == 0) {
+                        imgItr->error = CBImageError::NotFound;
+                    } else if (strcmp(failure, "outofmem") == 0) {
+                        imgItr->error = CBImageError::OutOfMemory;
+                    } else if (
+                        strcmp(failure, "bad bits_per_channel") == 0
+                        || strcmp(failure, "bad BMP") == 0
+                        || strcmp(failure, "bad bpp") == 0
+                        || strcmp(failure, "bad compression") == 0
+                        || strcmp(failure, "bad file") == 0
+                        || strcmp(failure, "bad format") == 0
+                        || strcmp(failure, "bad header") == 0
+                        || strcmp(failure, "bad Image Descriptor") == 0
+                        || strcmp(failure, "bad masks") == 0
+                        || strcmp(failure, "bad offset") == 0
+                        || strcmp(failure, "bad palette") == 0
+                        || strcmp(failure, "bad PNM") == 0
+                        || strcmp(failure, "bad req_comp") == 0
+                        || strcmp(failure, "BMP JPEG/PNG") == 0
+                        || strcmp(failure, "BMP RLE") == 0
+                        || strcmp(failure, "corrupt") == 0
+                        || strcmp(failure, "invalid") == 0
+                        || strcmp(failure, "illegal code in raster") == 0
+                        || strcmp(failure, "missing color table") == 0
+                        || strcmp(failure, "no clear code") == 0
+                        || strcmp(failure, "not BMP") == 0
+                        || strcmp(failure, "not GIF") == 0
+                        || strcmp(failure, "not PSD") == 0
+                        || strcmp(failure, "too many codes") == 0
+                        || strcmp(failure, "unknown BMP") == 0
+                        || strcmp(failure, "unknown code") == 0
+                        || strcmp(failure, "unknown image type") == 0
+                        || strcmp(failure, "unsupported bit depth") == 0
+                        || strcmp(failure, "wrong version") == 0
+                        || strcmp(failure, "wrong channel count") == 0
+                        || strcmp(failure, "wrong color format") == 0
+                    ) {
+                        imgItr->error = CBImageError::Unsupported;
+                    } else if (strcmp(failure, "too large") == 0) {
+                        imgItr->error = CBImageError::TooLarge;
+                    } else {
+                        imgItr->error = CBImageError::UnknownError;
+                    }
+
+                    continue;
+                }
+
+                float targetWidth = contentRight - contentLeft;
+
+                if (width > targetWidth || height > CONTENT_IMAGE_MAX_HEIGHT) {
+                    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+
+                    if (width > targetWidth) {
+                        imgItr->width = targetWidth;
+                        imgItr->height = static_cast<float>(width) / aspectRatio;
+                    }
+
+                    if (height > CONTENT_IMAGE_MAX_HEIGHT) {
+                        imgItr->height = CONTENT_IMAGE_MAX_HEIGHT;
+                        imgItr->width = aspectRatio * imgItr->height;
+                    }
+
+                    imgItr->imageSize = static_cast<uint32_t>(imgItr->width) * static_cast<uint32_t>(imgItr->height) * 3;
+                    imgItr->data = new uint8_t[imgItr->imageSize];
+
+                    stbir_resize_uint8_linear(
+                        img, width, height, 0, imgItr->data, static_cast<uint32_t>(imgItr->width),
+                        static_cast<uint32_t>(imgItr->height), 0, STBIR_RGB
+                    );
+
+                    delete img;
+                } else {
+                    imgItr->imageSize = width * height * 3;
+                    imgItr->data = img;
+                    imgItr->width = width;
+                    imgItr->height = static_cast<float>(height);
+                }
+
+                loadedSomething = true;
+
+                imgItr->loaded = true;
+                imgItr->stale = false;
+
+                cout << "\nDEBUG: Image \"" << imgItr->location
+                    << "\" is loaded (width: " << imgItr->width
+                    << ", height: " << height << ", channels: " << nrChannels
+                    << ", size: " << imgItr->imageSize << ")";
+            }
+        }
+
+        if (loadedSomething) {
+            grInfo.redraw = true;
+        }
+    } while (cbImageLoader.rerunWorker);
+
+    cbImageLoader.workerRunning = false;
+}
+
+void loadCBImages() {
+    if (!cbImageLoader.workerRunning) {
+        cbImageLoader.workerRunning = true;
+        jthread worker(loadCBImagesFromDisk);
+        #ifdef _WIN32
+            SetThreadDescription(worker.native_handle(), L"cbImageLoader Worker");
+        #endif
+        return;
+    }
+
+    cbImageLoader.rerunWorker = true;
+}
+
+CBImageRenderQueueResult queueImageForRender(float x, float y, uint32_t imageID) {
+    bool loaded = false;
+    float height = 0.0f;
+    uint32_t index = 0;
+    uint32_t i = 0;
+
+    cbImageLoader.lockImageAccess = true;
+
+    for (
+        vector<CBImage>::iterator imgItr = cbImageLoader.images.begin();
+        imgItr != cbImageLoader.images.end();
+        ++imgItr, ++i
+    ) {
+        if (imgItr->stale || imgItr->data == nullptr) {
+            imgItr->stale = false;
+            break;
+        }
+
+        if (imgItr->id == imageID && imgItr->loaded) {
+            height = imgItr->height;
+            loaded = true;
+            index = i;
+            break;
+        }
+    }
+
+    cbImageLoader.lockImageAccess = false;
+
+    if (loaded) {
+        CBImage img = cbImageLoader.images[index];
+        float contentWidth = contentRight - contentLeft;
+
+        x += (contentWidth - img.width) / 2;
+
+        #ifdef DEBUG_CB_IMAGES
+            cout << "\nDEBUG: Queueing image id: " << img.id << ", location: " << img.location;
+        #endif
+        cbImageLoader.renderQueue.push_back(CBImageRenderQueueEntry { x, y, index });
+    } else {
+        loadCBImages();
+    }
+
+    return { loaded, height };
+}
+
+inline CBImageBufferSwapResult loadCBImageIntoPBOBuffer(CBImage* image, uint32_t bufferIndex) {
+    uint32_t nextIndex = bufferIndex;
+    bool shouldLoad = false;
+
+    if (image->stale || image->data == nullptr) {
+        image->stale = false;
+        shouldLoad = true;
+    } else if (image->loaded) {
+        nextIndex = (bufferIndex + 1) % 2;
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, grInfo.imagePBO[bufferIndex]);
+
+        void* pboImgPtr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+
+        if (pboImgPtr != nullptr) {
+            std::memcpy(pboImgPtr, image->data, image->imageSize);
+            glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+            #ifdef DEBUG_CB_IMAGES
+                cout << "\nSwapped buffer(" << bufferIndex << ") for image: " << image->id;
+            #endif
+        } else {
+            // TODO: report error!
+        }
+
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+
+    return { image->loaded, shouldLoad, nextIndex };
+}
+
+inline void renderCBImage(
+    CBImageRenderQueueEntry imgEntry,
+    CBImage* img,
+    uint32_t pboIndex,
+    uint32_t len
+) {
+    glBindVertexArray(grInfo.image.vao);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, grInfo.imageTexture);
+    glUseProgram(shaders[SHADER_IMAGE].programId);
+
+    if (grInfo.redraw || len > 1) {
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, grInfo.imagePBO[pboIndex]);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, img->width, img->height, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+        float x2 = imgEntry.x + img->width;
+        float y2 = imgEntry.y + img->height;
+        float s = img->width / CONTENT_MAX_WIDTH;
+        float t = img->height / CONTENT_IMAGE_MAX_HEIGHT;
+
+        float vertices[16] = {
+            imgEntry.x, imgEntry.y, 0, 0,
+            imgEntry.x, y2,         0, t,
+            x2,         imgEntry.y, s, 0,
+            x2,         y2,         s, t,
+        };
+
+        glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, imgEntry.bufferOffset, sizeof(vertices), vertices);
+
+        #ifdef DEBUG_CB_IMAGES
+            cout << "\nDEBUG: rendered image: " << img->id << " in buffer index: "
+                << pboIndex << ", width: " << img->width << ", height: " << img->height;
+        #endif
+    }
+
+    img->lastRendered = TIME();
+
+    glDrawArrays(GL_TRIANGLE_STRIP, imgEntry.vertexOffset, 4);
+}
+
+void renderCBImages() {
+    if (cbImageLoader.images.empty() || cbImageLoader.renderQueue.empty()) { return; }
+
+    uint32_t totalLen = cbImageLoader.renderQueue.size();
+
+    vector<CBImageRenderQueueEntry>::iterator lastItr = cbImageLoader.renderQueue.begin();
+
+    CBImageRenderQueueEntry lastEntry = *lastItr;
+    CBImage* prevImg = &cbImageLoader.images[lastEntry.imageIndex];
+
+    if (totalLen == 1 && !grInfo.redraw) {
+        renderCBImage(lastEntry, prevImg, 0, totalLen);
+        return;
+    }
+
+    if (totalLen == 2 && !grInfo.redraw) {
+        renderCBImage(lastEntry, prevImg, 0, totalLen);
+        lastEntry = cbImageLoader.renderQueue[1];
+        prevImg = &cbImageLoader.images[lastEntry.imageIndex];
+        renderCBImage(lastEntry, prevImg, 1, totalLen);
+        return;
+    }
+
+    if (grInfo.redraw) {
+        uint32_t reqSize = 4 * totalLen;
+
+        if (reqSize > grInfo.image.numVertices) {
+            while (grInfo.image.numVertices < reqSize) {
+                grInfo.image.numVertices *= 2;
+            }
+
+            grInfo.image.bufferSize = grInfo.image.numVertices * 4 * sizeof(float);
+
+            glBindVertexArray(grInfo.image.vao);
+            glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
+            glBufferData(GL_ARRAY_BUFFER, grInfo.image.bufferSize, nullptr, GL_DYNAMIC_DRAW);
+        }
+    }
+
+    CBImageBufferSwapResult cibsr = loadCBImageIntoPBOBuffer(prevImg, 0);
+    CBImageBufferSwapResult prevCibsr = cibsr;
+
+    uint32_t pboIndex = 0;
+    uint32_t vertexOffset = 0;
+    uint32_t bufferOffset = 0;
+    bool shouldLoad = cibsr.shouldLoad;
+
+    for (
+        vector<CBImageRenderQueueEntry>::iterator itr = cbImageLoader.renderQueue.begin() + 1;
+        itr != cbImageLoader.renderQueue.end();
+        ++itr
+    ) {
+        if (itr->imageIndex < totalLen) {
+            CBImage* img = &*(cbImageLoader.images.begin() + itr->imageIndex);
+            shouldLoad = shouldLoad || cibsr.shouldLoad;
+
+            if (prevCibsr.imageLoaded) {
+                uint32_t prevIndex = pboIndex;
+                pboIndex = prevCibsr.nextBufferIndex;
+
+                if (grInfo.redraw) {
+                    lastItr->bufferOffset = bufferOffset;
+                    lastItr->vertexOffset = vertexOffset;
+                    vertexOffset += 4;
+                    bufferOffset += 64;
+                }
+
+                cibsr = loadCBImageIntoPBOBuffer(img, pboIndex);
+                renderCBImage(*lastItr, prevImg, prevIndex, totalLen);
+            } else {
+                cibsr = loadCBImageIntoPBOBuffer(img, pboIndex);
+                shouldLoad = true;
+            }
+
+            prevCibsr = cibsr;
+            prevImg = img;
+            lastEntry = *itr;
+            lastItr = itr;
+        }
+    }
+
+    if (prevCibsr.imageLoaded) {
+        if (grInfo.redraw) {
+            lastItr->bufferOffset = bufferOffset;
+            lastItr->vertexOffset = vertexOffset;
+        }
+
+        renderCBImage(*lastItr, prevImg, pboIndex, totalLen);
+    }
+
+    if (shouldLoad) {
+        loadCBImages();
+    }
+}
+
+void removeOldCBImages(std::stop_token stopToken) {
+    #ifdef DEBUG_CB_IMAGES
+        cout << "\nDEBUG: Running the remove old cb images thread.";
+    #endif
+
+    while (true) {
+        if (stopToken.stop_requested()) {
+            #ifdef DEBUG_CB_IMAGES
+                cout << "\nDEBUG: Stop requested on remove old cb images thread.";
+            #endif
+            return;
+        }
+
+        if (cbImageLoader.workerRunning || cbImageLoader.lockImageAccess) {
+            SLEEP_ms(100);
+            continue;
+        }
+
+        float time = TIME();
+
+        for (
+            vector<CBImage>::iterator imgItr = cbImageLoader.images.begin();
+            imgItr != cbImageLoader.images.end();
+        ) {
+            if (cbImageLoader.lockImageAccess) { break; }
+
+            if (imgItr->stale) {
+                if (time - imgItr->lastRendered > 300) {
+                    imgItr = cbImageLoader.images.erase(imgItr);
+                    continue;
+                }
+            } else {
+                if (time - imgItr->lastRendered > 10) {
+                    imgItr->loaded = false;
+                    imgItr->stale = true;
+                    imgItr->imageSize = 0;
+
+                    if (imgItr->data) {
+                        delete imgItr->data;
+                        imgItr->data = nullptr;
+                    }
+
+                    #ifdef DEBUG_CB_IMAGES
+                        cout << "\nDEBUG: Image \"" << imgItr->location
+                            << "\" cleared from memory since it was last rendered "
+                            << imgItr->lastRendered
+                            << " seconds ago.";
+                    #endif
+                }
+            }
+
+            ++imgItr;
+        }
+
+        if (minimized) {
+            SLEEP_s(1);
+        } else {
+            SLEEP_ms(200);
+        }
+    }
+}
+
 void hideCBMoveMarker() {
     cbMove.show = false;
     glDeleteVertexArrays(1, &cbMove.vao);
@@ -8781,7 +9249,7 @@ void deleteCBsToDeletedBlocks(
         delete (*cbIter).rope;
 
         extCmd->deletedBlocks.emplace_back(ContentBlock {
-            (*cbIter).type, 0,
+            (*cbIter).type, 0, 0,
             0.0f, 0.0f, 0.0f, 0, 0, Rope::deepCopy((*cbIter).rope)
         });
     }
@@ -9070,7 +9538,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*itr).type,
-            0, 0.0f, 0.0f, 0.0f, 0, 0,
+            0, 0, 0.0f, 0.0f, 0.0f, 0, 0,
             new Rope((*itr).rope->getString().substr(
                 cmd->startCursorPos,
                 extCmd->endCursorPos - cmd->startCursorPos
@@ -9093,7 +9561,7 @@ ContentDeletionType deleteSelectedCBText(
         tab->contentBlocks.erase(START, END + 1);
         tab->contentBlocks.insert(START, ContentBlock {
             ContentBlockType::Paragraph,
-            CONTENT_BLOCK_VISIBLE,
+            CONTENT_BLOCK_VISIBLE, 0,
             0.0f, 0.0f, 0.0f, 1, 0, new Rope()
         });
         return ContentDeletionType::DeleteMultipleCBs;
@@ -9111,7 +9579,7 @@ ContentDeletionType deleteSelectedCBText(
 
         extCmd->deletedBlocks.push_back(ContentBlock {
             lastBlockType,
-            0, 0.0f, 0.0f, 0.0f, 0, 0,
+            0, 0, 0.0f, 0.0f, 0.0f, 0, 0,
             new Rope(ropeString),
         });
         return ContentDeletionType::DeleteMultipleCBsPartialLast;
@@ -9126,7 +9594,7 @@ ContentDeletionType deleteSelectedCBText(
         string ropeString = (*firstCB).rope->getString();
         extCmd->deletedBlocks.push_back(ContentBlock {
             (*firstCB).type,
-            (*firstCB).flags,
+            (*firstCB).flags, 0,
             0.0f, 0.0f, 0.0f, 0, 0,
             new Rope(ropeString.substr(cmd->startCursorPos, ropeString.length() - cmd->startCursorPos))
         });
@@ -9149,7 +9617,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*firstCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0,
+        0, 0, 0.0f, 0.0f, 0.0f, 0, 0,
         new Rope(firstRopeString.substr(cmd->startCursorPos, firstRopeString.length() - cmd->startCursorPos))
     });
 
@@ -9157,7 +9625,7 @@ ContentDeletionType deleteSelectedCBText(
 
     extCmd->deletedBlocks.push_back(ContentBlock {
         (*lastCB).type,
-        0, 0.0f, 0.0f, 0.0f, 0, 0,
+        0, 0, 0.0f, 0.0f, 0.0f, 0, 0,
         new Rope(lastRopeString.substr(0, extCmd->endCursorPos))
     });
 
@@ -9180,7 +9648,7 @@ vector<ContentBlock> textToCB(string& text) {
             if (!str.empty()) {
                 blocks.push_back(ContentBlock {
                     ContentBlockType::Paragraph,
-                    0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
+                    0, 0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
                 });
             }
 
@@ -9199,7 +9667,7 @@ vector<ContentBlock> textToCB(string& text) {
         if (!str.empty()) {
             blocks.push_back(ContentBlock {
                 ContentBlockType::Paragraph,
-                0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
+                0, 0, 0.0f, 0.0f, 0.0f, 1, 0, new Rope(str)
             });
         }
     }
@@ -9235,10 +9703,11 @@ bool processCBTypeCommand(
         }
 
         if (cmd->startCBIndex != 0) {
-            ContentBlockType cbType = getCBType(cb->rope);
+            MarkdownParser parser(cb->rope);
+            Markdown md = parser.parse();
 
             if (
-                cb->type != ContentBlockType::Code && cbType == ContentBlockType::Code
+                cb->type != ContentBlockType::Code && md.cbType == ContentBlockType::Code
                 || cb->type == ContentBlockType::Code && cmd->str == "`"
                     && containsCodeBlockBound(cb->rope)
             ) {
@@ -9572,7 +10041,7 @@ bool processCBNewLineCommand(
             tab->contentBlocks.begin() + tab->cursorCBIndex,
             ContentBlock {
                 type,
-                CONTENT_BLOCK_VISIBLE,
+                CONTENT_BLOCK_VISIBLE, 0,
                 0.0f, 0.0f, 0.0f,
                 0, 0,
                 new Rope()
@@ -9591,7 +10060,7 @@ bool processCBNewLineCommand(
                     tab->contentBlocks.begin() + tab->cursorCBIndex,
                     ContentBlock {
                         cb->type,
-                        CONTENT_BLOCK_VISIBLE,
+                        CONTENT_BLOCK_VISIBLE, 0,
                         0.0f, 0.0f, 0.0f,
                         0, 0,
                         rope
@@ -9609,7 +10078,7 @@ bool processCBNewLineCommand(
             tab->contentBlocks.begin() + tab->cursorCBIndex,
             ContentBlock {
                 cb->type,
-                CONTENT_BLOCK_VISIBLE,
+                CONTENT_BLOCK_VISIBLE, 0,
                 0.0f, 0.0f, 0.0f,
                 0, 0,
                 nullptr
