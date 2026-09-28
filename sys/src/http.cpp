@@ -1,6 +1,18 @@
 #include <atomic>
 #include <fstream>
 
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <shellapi.h>
+#endif
+
+#ifdef __linux__
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/wait.h>
+#endif
+
 #include <curl/curl.h>
 
 #include "include/http.hpp"
@@ -75,5 +87,23 @@ bool isValidURL(std::string location) {
     curl_url_cleanup(u);
 
     return isUrl;
+}
+
+void openLink(std::string url) {
+    if (isValidURL(url)) {
+
+    #ifdef _WIN32
+        ShellExecute(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    #endif
+
+    #ifdef __linux__
+        pid_t pid = fork();
+
+        if (pid == 0) {
+            execlp("xdg-open", "xdg-open", url.c_str(), nullptr);
+            _exit(1);
+        }
+    #endif
+    }
 }
 

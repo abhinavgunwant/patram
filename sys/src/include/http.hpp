@@ -9,6 +9,7 @@ void cleanupCURL();
 void downloadToU8Vector(std::string url, std::vector<uint8_t>& output);
 void downloadToFile(std::string url, std::string location);
 bool isValidURL(std::string location);
+void openLink(std::string url);
 
 #endif // PATRAM_SYS_HTTP
 
