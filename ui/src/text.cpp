@@ -209,9 +209,11 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glGenBuffers(1, &textVBO);
     glBindVertexArray(textVAO);
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-    glBufferData(GL_ARRAY_BUFFER, 1048576, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 1200, NULL, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -319,18 +321,10 @@ inline void drawTextBuffers(
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
-    glm::vec2& res,
-    vector<float>& vertices,
-    glm::vec4 color,
+    vector<TextVertex>& vertices,
     bool redraw,
     uint32_t texture
 ) {
-    glUseProgram(shaders[SHADER_TEXT].programId);
-
-    glUniform4f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b, color.a);
-
-    glActiveTexture(GL_TEXTURE0);
-
     if (vao == 0 && !vertices.empty()) {
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
@@ -338,12 +332,16 @@ inline void drawTextBuffers(
         glGenBuffers(1, &vbo);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-        bufferSize = vertices.size() * sizeof(float);
+        bufferSize = vertices.size() * sizeof(TextVertex);
         glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
         glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
     }
 
+    glUseProgram(shaders[SHADER_TEXT].programId);
+    glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(vao);
     glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -351,12 +349,12 @@ inline void drawTextBuffers(
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
         numVertices = vertices.size();
-        uint32_t requiredBufferSize = numVertices * sizeof(float);
+        uint32_t requiredBufferSize = numVertices * sizeof(TextVertex);
 
         if (bufferSize >= requiredBufferSize) {
-            uint32_t zeros = (bufferSize - requiredBufferSize) / sizeof(float);
+            uint32_t zeros = (bufferSize - requiredBufferSize) / sizeof(TextVertex);
 
-            for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(0.0f); }
+            for (uint32_t i=0; i<zeros; ++i) { vertices.push_back(TextVertex { 0 }); }
 
             glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, &vertices[0]);
         } else {
@@ -365,20 +363,19 @@ inline void drawTextBuffers(
         }
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);
+    glDrawArrays(GL_TRIANGLES, 0, numVertices);
 }
 
 RopeRenderResult renderContentRope(
     Rope* rope,
     uint32_t startIndex,
     glm::vec2 pos,
-    glm::vec2& res,
     uint32_t& cbTextVAO,
     uint32_t& cbTextVBO,
     uint32_t& bufferSize,
     float parentWidth,
-    glm::fvec3 color,
     uint8_t fontSize,
+    uint32_t colorIndex,
     bool redraw
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
@@ -394,7 +391,7 @@ RopeRenderResult renderContentRope(
     float ypos_plus_h = 0.0f;
     float advance = 0.0f;
 
-    vector<float> vertices;
+    vector<TextVertex> vertices;
 
     if (redraw) {
         vertices.reserve(48000);
@@ -467,12 +464,12 @@ RopeRenderResult renderContentRope(
 
             if (redraw && c != ' ') {
                 vertices.insert(vertices.end(), {
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos,           ypos,           texX1, texY2,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
+                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+                    TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
                 });
             }
 
@@ -480,7 +477,7 @@ RopeRenderResult renderContentRope(
         }
     }
 
-    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, res, vertices, WHITE, redraw);
+    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, vertices, redraw);
 
     result.width = pos.x;
 
@@ -492,15 +489,14 @@ RopeRenderResult renderContentRope(
 RopeRenderResult renderTextCached(
     string str,
     glm::vec2 pos,
-    glm::vec2& res,
     uint32_t& vao,
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
     float parentLeft,
     float parentWidth,
-    glm::vec4 color,
     uint8_t fontSize,
+    uint32_t colorIndex,
     bool redraw,
     bool lineBreak
 ) {
@@ -517,19 +513,15 @@ RopeRenderResult renderTextCached(
     float ypos_plus_h = 0.0f;
     float advance = 0.0f;
 
-    vector<float> vertices;
+    vector<TextVertex> vertices;
 
     if (redraw) {
-        vertices.reserve(800);
+        vertices.reserve(240);
     } else {
         vertices.reserve(0);
     }
 
-    uint32_t _numVertices = 0;
-
-    if (!redraw) {
-        _numVertices += str.length() * 24;
-    }
+    uint32_t _numVertices = redraw ? 0 : str.length() * 6;
 
     float glyphHeight, glyphWidth, bearingTop, bearingLeft;
 
@@ -564,12 +556,12 @@ RopeRenderResult renderTextCached(
 
             if (redraw && c != ' ') {
                 vertices.insert(vertices.end(), {
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos,           ypos,           texX1, texY2,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
+                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+                    TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+                    TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
                 });
             }
 
@@ -577,7 +569,7 @@ RopeRenderResult renderTextCached(
         }
     }
 
-    drawTextBuffers(vao, vbo, bufferSize, _numVertices, res, vertices, color, redraw);
+    drawTextBuffers(vao, vbo, bufferSize, _numVertices, vertices, redraw);
 
     numVertices = _numVertices;
 
@@ -591,7 +583,7 @@ RopeRenderResult renderTextCached(
 }
 
 RopeRenderResult getTextDimensions(
-    string str, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
+    string str, glm::vec2 pos, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine
 ) {
     RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
@@ -746,7 +738,8 @@ float appendCharVertices(
     float x,
     float y,
     Character c,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 ) {
     float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
         glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
@@ -780,12 +773,12 @@ float appendCharVertices(
     );
 
     vertices.insert(vertices.end(), {
-        xpos,           ypos_plus_h,    texX1, texY1,
-        xpos,           ypos,           texX1, texY2,
-        xpos_plus_w,    ypos,           texX2, texY2,
-        xpos,           ypos_plus_h,    texX1, texY1,
-        xpos_plus_w,    ypos,           texX2, texY2,
-        xpos_plus_w,    ypos_plus_h,    texX2, texY1
+        TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+        TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
+        TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+        TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+        TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+        TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
     });
 
     return glyphWidth;
@@ -795,7 +788,8 @@ float appendTextVertices(
     float x,
     float y,
     string text,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 ) {
     float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
         glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
@@ -834,12 +828,12 @@ float appendTextVertices(
         );
 
         vertices.insert(vertices.end(), {
-            xpos,           ypos_plus_h,    texX1, texY1,
-            xpos,           ypos,           texX1, texY2,
-            xpos_plus_w,    ypos,           texX2, texY2,
-            xpos,           ypos_plus_h,    texX1, texY1,
-            xpos_plus_w,    ypos,           texX2, texY2,
-            xpos_plus_w,    ypos_plus_h,    texX2, texY1
+            TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+            TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
+            TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+            TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
+            TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
+            TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
         });
 
         xpos += advance;
@@ -854,7 +848,8 @@ RopeRenderResult appendRopeVertices(
     Rope* rope,
     uint32_t startIndex,
     uint8_t fontSize,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 ) {
     RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
 
@@ -902,12 +897,12 @@ RopeRenderResult appendRopeVertices(
 
             if (c != ' ') {
                 vertices.insert(vertices.end(), {
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos,           ypos,           texX1, texY2,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos,           ypos_plus_h,    texX1, texY1,
-                    xpos_plus_w,    ypos,           texX2, texY2,
-                    xpos_plus_w,    ypos_plus_h,    texX2, texY1
+                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
+                    TextVertex { xpos,        ypos,        texX1, texY2, colorIndex },
+                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
+                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
+                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
+                    TextVertex { xpos_plus_w, ypos_plus_h, texX2, texY1, colorIndex },
                 });
             }
 
@@ -923,19 +918,12 @@ RopeRenderResult appendRopeVertices(
 
 // render line of text
 glm::vec4 renderText(
-    string text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
-    uint8_t fontSize, UIElement* parent
+    string text, glm::vec2 pos, uint8_t fontSize,
+    uint32_t colorIndex, UIElement* parent
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
 
     glUseProgram(shaders[SHADER_TEXT].programId);
-
-    glUniform3f(
-        uniforms[U_TEXT_COLOR],
-        color.r,
-        color.g,
-        color.b
-    );
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 
@@ -1015,13 +1003,13 @@ glm::vec4 renderText(
         }
         #endif
 
-        float vertices[6][4] = {
-            { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
-            { xpos,         ypos,           ch->textureX1, ch->textureY2 },
-            { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
-            { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1 },
-            { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2 },
-            { xpos_plus_w,  ypos_plus_h,    ch->textureX2, ch->textureY1 },
+        TextVertex vertices[6] = {
+            TextVertex { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1, colorIndex },
+            TextVertex { xpos,         ypos,           ch->textureX1, ch->textureY2, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2, colorIndex },
+            TextVertex { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2, colorIndex },
+            TextVertex { xpos_plus_w,  ypos_plus_h,    ch->textureX2, ch->textureY1, colorIndex },
         };
 
         // render glyph texture over quad
@@ -1048,14 +1036,13 @@ glm::vec4 renderText(
 // render line of text
 // TODO: update to be consistent with above function.
 glm::vec4 renderText(
-    wstring text, glm::vec2 pos, glm::vec2& res, glm::fvec3 color,
-    uint8_t fontSize, UIElement* parent
+    wstring text, glm::vec2 pos, uint8_t fontSize,
+    uint32_t colorIndex, UIElement* parent
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
 
     glUseProgram(shaders[SHADER_TEXT].programId);
 
-    glUniform3f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 
@@ -1069,13 +1056,13 @@ glm::vec4 renderText(
         float xpos_plus_w = xpos - ch.width; // xpos + w
         float ypos_plus_h = ypos + ch.height; // ypos + h
         // update textVBO for each character
-        float vertices[6][4] = {
-            { xpos,         ypos_plus_h,    0.0f, 0.0f },
-            { xpos,         ypos,           0.0f, 1.0f },
-            { xpos_plus_w,  ypos,           1.0f, 1.0f },
-            { xpos,         ypos_plus_h,    0.0f, 0.0f },
-            { xpos_plus_w,  ypos,           1.0f, 1.0f },
-            { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f },
+        TextVertex vertices[6] = {
+            TextVertex { xpos,         ypos_plus_h,    0.0f, 0.0f, colorIndex },
+            TextVertex { xpos,         ypos,           0.0f, 1.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,           1.0f, 1.0f, colorIndex },
+            TextVertex { xpos,         ypos_plus_h,    0.0f, 0.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,           1.0f, 1.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f, colorIndex },
         };
         // render glyph texture over quad
         // glBindTexture(GL_TEXTURE_2D, ch.textureID);
@@ -1096,7 +1083,7 @@ glm::vec4 renderText(
     return dimensions;
 }
 
-GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize) {
+GlyphDimensions getGlyphDimensions(char c, float x, float y, uint8_t fontSize) {
     Character ch = characters[(int)c];
 
     float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
@@ -1161,8 +1148,8 @@ GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uin
     };
 }
 
-uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize) {
-    GlyphDimensions gd = getGlyphDimensions(c, x, y, res, fontSize);
+uint32_t renderGlyph(char c, float x, float y, uint8_t fontSize) {
+    GlyphDimensions gd = getGlyphDimensions(c, x, y, fontSize);
 
     // update textVBO for each character
     // float vertices[4][4] = {

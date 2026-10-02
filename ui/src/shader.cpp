@@ -15,9 +15,9 @@ uint32_t uniforms[TOTAL_UNIFORMS];
 
 string vertexShaders[] = {
     // Default Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "void main() {\n"
@@ -26,23 +26,29 @@ string vertexShaders[] = {
     "}\0",
 
     // Text Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "layout (location = 0) in vec4 aPos;\n"
+    "layout (location = 1) in uint colorIndex;\n"
     "out vec2 TexCoords;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "out vec4 textColor;\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
+    "};\n"
+    "layout (std140, binding = 1) uniform ColorsUniforms {\n"
+        "vec4 colors[8];\n"
     "};\n"
     "void main() {\n"
         "vec2 uv = aPos.xy / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
         "TexCoords = aPos.zw;\n"
+        "textColor = colors[colorIndex];\n"
     "}\0",
 
     // Icon Button Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in vec2 aTexCoords;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "uniform vec2 topLeft;\n"
@@ -54,9 +60,9 @@ string vertexShaders[] = {
     "}\0",
 
     // CB Text Highlight
-    "#version 330 core\n"
+    "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "uniform float scrollOffsetY;\n"
@@ -66,13 +72,13 @@ string vertexShaders[] = {
     "}\0",
 
     // Rectangle shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in uint colorIndex;\n"
-    "layout (std140) uniform ColorsUniforms {\n"
-        "vec4 colors[4];\n"
+    "layout (std140, binding = 1) uniform ColorsUniforms {\n"
+        "vec4 colors[8];\n"
     "};\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "out vec4 color;"
@@ -85,7 +91,7 @@ string vertexShaders[] = {
 
 string fragmentShaders[] = {
     // Default Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "out vec4 FragColor;\n"
     "uniform vec4 solidColor;\n"
     "void main() {\n"
@@ -93,17 +99,17 @@ string fragmentShaders[] = {
     "}\0",
 
     // Text Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "in vec2 TexCoords;\n"
+    "in vec4 textColor;\n"
     "out vec4 color;\n"
     "uniform sampler2D text;\n"
-    "uniform vec4 textColor;\n"
     "void main() {\n"
         "color = vec4(textColor.rgb, texture(text, TexCoords).r);\n"
     "}\0",
 
     // Icon Button Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "in vec2 TexCoords;\n"
     "out vec4 FragColor;\n"
     "uniform vec4 solidColor;\n"
@@ -112,7 +118,7 @@ string fragmentShaders[] = {
     "uniform float width;\n"
     "uniform float height;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "uniform vec2 cursor;\n"
@@ -164,19 +170,19 @@ string fragmentShaders[] = {
             "return;\n"
         "}\n"
 
-        "float radians = clamp(d_cursor_uv / (width * 0.9), 0, 1.5708);\n"
+        "float radians = clamp((d_cursor_uv / (width * 0.9)), 0.0f, 1.5708f);\n"
         "FragColor = mix(backgroundColor, hoverColor, cos(radians));\n"
     "}\0",
 
     // Button rounded border shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "out vec4 FragColor;\n"
 
     "uniform vec4 backgroundColor;\n"
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "uniform vec2 dimensions;\n" // width, height
@@ -248,7 +254,7 @@ string fragmentShaders[] = {
     "}\0",
 
     // Text input shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "out vec4 FragColor;\n"
 
     "uniform vec4 color;\n"
@@ -256,7 +262,7 @@ string fragmentShaders[] = {
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform CommonUniforms {\n"
         "vec2 resolution;"
     "};\n"
     "uniform vec2 dimensions;\n" // width, height
@@ -309,7 +315,7 @@ string fragmentShaders[] = {
     "}\0",
 
     // Pulse Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "out vec4 FragColor;\n"
     "uniform vec4 color;\n"
     "uniform float time;\n"
@@ -320,7 +326,7 @@ string fragmentShaders[] = {
     "}\0",
 
     // Rectangle Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "in vec4 color;\n"
     "out vec4 FragColor;\n"
     "void main() {\n"
@@ -328,7 +334,7 @@ string fragmentShaders[] = {
     "}\0",
 
     // Image Shader
-    "#version 330 core\n"
+    "#version 460 core\n"
     "in vec2 TexCoords;\n"
     "out vec4 color;\n"
     "uniform sampler2D imageTexture;\n"
@@ -494,6 +500,15 @@ void initShaders() {
     id = shaders[SHADER_RECTANGLE].programId;
     uint32_t commonUniformsIndex = glGetUniformBlockIndex(id, "CommonUniforms");
     uint32_t colorUniformsIndex = glGetUniformBlockIndex(id, "ColorsUniforms");
+
+    if (commonUniformsIndex == 0) {
+        cout << "\nError: commonUniformsIndex = 0";
+    }
+
+    if (colorUniformsIndex == 0) {
+        cout << "\nError: colorUniformsIndex = 0";
+    }
+
     glUniformBlockBinding(id, commonUniformsIndex, COMMON_UNIFORMS_UBO_INDEX);
     glUniformBlockBinding(id, colorUniformsIndex, RECTANGLE_COLOR_INDEX_UBO_INDEX);
 }

@@ -29,6 +29,7 @@
 #include "include/text.hpp"
 #include "files.hpp"
 #include "utils.hpp"
+#include "http.hpp"
 #include "logger.hpp"
 #include "../lib/stb_image.h"
 #include "../lib/stb_image_resize2.h"
@@ -63,8 +64,10 @@
         glGenBuffers(1, &vbo);\
         glBindBuffer(GL_ARRAY_BUFFER, vbo);\
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);\
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);\
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*)0);\
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
         glEnableVertexAttribArray(0);\
+        glEnableVertexAttribArray(1);\
     } while (false)
 
 #define DRAW_RECT(vao, color) do {\
@@ -74,14 +77,14 @@
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
     } while (false)
 
-#define PUSH_ICON_VERTICES(vec, ch, x, y, w, h) do {\
+#define PUSH_ICON_VERTICES(vec, ch, x, y, w, h, colorIndex) do {\
     vec.insert(vec.end(), {\
-        x,     y,     ch.textureX1, ch.textureY1,\
-        x + w, y,     ch.textureX2, ch.textureY1,\
-        x,     y + h, ch.textureX1, ch.textureY2,\
-        x,     y + h, ch.textureX1, ch.textureY2,\
-        x + w, y,     ch.textureX2, ch.textureY1,\
-        x + w, y + h, ch.textureX2, ch.textureY2,\
+        TextVertex { x,     y,     ch.textureX1, ch.textureY1, colorIndex },\
+        TextVertex { x + w, y,     ch.textureX2, ch.textureY1, colorIndex },\
+        TextVertex { x,     y + h, ch.textureX1, ch.textureY2, colorIndex },\
+        TextVertex { x,     y + h, ch.textureX1, ch.textureY2, colorIndex },\
+        TextVertex { x + w, y,     ch.textureX2, ch.textureY1, colorIndex },\
+        TextVertex { x + w, y + h, ch.textureX2, ch.textureY2, colorIndex },\
     });\
 } while (false)
 
@@ -1825,8 +1828,8 @@ inline void appendTextVerticesForExplorerNode(
     float x,
     float& y,
     vector<ExplorerNode>& nodes,
-    vector<float>& vertices,
-    vector<float>& iVertices
+    vector<TextVertex>& vertices,
+    vector<TextVertex>& iVertices
 ) {
     float initialY = y;
 
@@ -1835,7 +1838,7 @@ inline void appendTextVerticesForExplorerNode(
         itr != nodes.end();
         ++itr, y += EXPLORER_ELEMENT_HEIGHT
     ) {
-        appendTextVertices(x, y, (*itr).name, vertices);
+        appendTextVertices(x, y, (*itr).name, darkTheme ? WHITE_INDEX : BLACK_INDEX, vertices);
         (*itr).top = y;
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
@@ -1856,11 +1859,23 @@ inline void appendTextVerticesForExplorerNode(
                 GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
                 && !(*itr).children.empty()
             ) {
-                appendCharVertices(x - 16.0f, y - 8.0f, icons[ICON_CHEVRON_DOWN], iVertices);
+                appendCharVertices(
+                    x - 16.0f,
+                    y - 8.0f,
+                    icons[ICON_CHEVRON_DOWN],
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    iVertices
+                );
                 y += EXPLORER_ELEMENT_HEIGHT;
                 appendTextVerticesForExplorerNode(x + 24.0f, y, (*itr).children, vertices, iVertices);
             } else {
-                appendCharVertices(x - 12.0f, y - 10.0f, icons[ICON_CHEVRON_RIGHT], iVertices);
+                appendCharVertices(
+                    x - 12.0f,
+                    y - 10.0f,
+                    icons[ICON_CHEVRON_RIGHT],
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    iVertices
+                );
             }
         }
     }
@@ -1870,9 +1885,11 @@ inline void appendTextVerticesForExplorerNode(
     }
 }
 
-void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
+void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) {
     float x = TAB_BAR.left;
     uint32_t i = 0;
+
+    uint32_t textIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
     for (ContentTab& tab: tabs) {
         float prevX = x;
@@ -1892,12 +1909,16 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
         tab.xOffset = static_cast<uint16_t>(x);
 
         x += TAB_HORIZONTAL_PADDING;
-        x += appendTextVertices(x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING, tabtext, textVertices);
+        x += appendTextVertices(x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING,
+                tabtext, textIndex, textVertices
+        );
         x += TAB_HORIZONTAL_PADDING;
 
         tab.closeX = static_cast<uint16_t>(x - prevX);
 
-        x += appendCharVertices(x - tabsDisplay.xOffset, 5, icons[ICON_CLOSE], xVertices);
+        x += appendCharVertices(
+            x - tabsDisplay.xOffset, 5, icons[ICON_CLOSE], textIndex, xVertices
+        );
         x += TAB_HORIZONTAL_PADDING;
 
         tab.width = static_cast<uint16_t>(x - prevX);
@@ -1933,7 +1954,7 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
 
     if (x > windowWidth - 2 * TAB_BAR_HEIGHT && TAB_BAR.totalChildren == 0) {
         float vertices[8] = { 0 };
-        float vertices24[24] = { 0 };
+        TextVertex textVertices[6] = { 0 };
 
         UIElement* buttons = new UIElement[2];
 
@@ -1941,19 +1962,19 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
         initElement(buttons[1], UIElementType::IconButton, 0.0f, windowWidth - TAB_BAR_HEIGHT, TAB_BAR_HEIGHT, TAB_BAR_HEIGHT);
 
         SETUP_BUFFERS_DYNAMIC(buttons[0].vao, buttons[0].vbo, vertices);
-        SETUP_BUFFERS_TEXT(buttons[0].textVAO, buttons[0].textVBO, vertices24);
+        SETUP_BUFFERS_TEXT(buttons[0].textVAO, buttons[0].textVBO, textVertices);
         SETUP_BUFFERS_DYNAMIC(buttons[1].vao, buttons[1].vbo, vertices);
-        SETUP_BUFFERS_TEXT(buttons[1].textVAO, buttons[1].textVBO, vertices24);
+        SETUP_BUFFERS_TEXT(buttons[1].textVAO, buttons[1].textVBO, textVertices);
 
         buttons[0].icon = Icon::ChevronLeft;
         buttons[1].icon = Icon::ChevronRight;
         buttons[0].id = TAB_BAR_PREV_TAB_ID;
         buttons[1].id = TAB_BAR_NEXT_TAB_ID;
 
-        buttons[0].textBufferSize = 24 * sizeof(float);
-        buttons[1].textBufferSize = 24 * sizeof(float);
-        buttons[0].textVerticesCount = 24;
-        buttons[1].textVerticesCount = 24;
+        buttons[0].textBufferSize = 6 * sizeof(TextVertex);
+        buttons[1].textBufferSize = 6 * sizeof(TextVertex);
+        buttons[0].textVerticesCount = 6;
+        buttons[1].textVerticesCount = 6;
 
         initializeCapacity(&TAB_BAR, 2);
         addChild(&TAB_BAR, &buttons[0]);
@@ -1961,7 +1982,7 @@ void setupTabs(vector<float>& textVertices, vector<float>& xVertices) {
     }
 }
 
-void setupExplorer(vector<float>& vertices, vector<float>& iVertices) {
+void setupExplorer(vector<TextVertex>& vertices, vector<TextVertex>& iVertices) {
     if (explorer.nodes.empty()) { return; }
     explorer.elementActive = false;
 
@@ -2196,6 +2217,57 @@ void createFolderInActiveExplorerNode() {
     explorerLoadThread.join();
 }
 
+void setupUBO() {
+    glm::vec4 rectangleColors[] = {
+        WHITE,
+        BLACK,
+        CODE_COLOR,
+        CODE_COLOR_DARK,
+        LINK_COLOR,
+        LINK_COLOR_DARK,
+        LIGHT_TEXT_COLOR,
+        LIGHT_TEXT_COLOR_DARK,
+    };
+
+    float colors[32] = { 0 };
+
+    for (uint32_t i=0; i<8; ++i) {
+        colors[i * 4] = rectangleColors[i].r;
+        colors[i * 4 + 1] = rectangleColors[i].g;
+        colors[i * 4 + 2] = rectangleColors[i].b;
+        colors[i * 4 + 3] = rectangleColors[i].a;
+
+        cout << "\n  Color: R: " << rectangleColors[i].r
+            << ", G: " << rectangleColors[i].g
+            << ", B: " << rectangleColors[i].b
+            << ", A: " << rectangleColors[i].a;
+    }
+
+    glGenBuffers(1, &rectangleColorIndexUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, rectangleColorIndexUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+    // glBindBufferRange(
+    //     GL_UNIFORM_BUFFER,
+    //     RECTANGLE_COLOR_INDEX_UBO_INDEX,
+    //     rectangleColorIndexUBO,
+    //     0,
+    //     sizeof(colors)
+    // );
+    glBindBufferBase(GL_UNIFORM_BUFFER, RECTANGLE_COLOR_INDEX_UBO_INDEX, rectangleColorIndexUBO);
+
+    glGenBuffers(1, &commonUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2), glm::value_ptr(resolution), GL_STATIC_DRAW);
+    // glBindBufferRange(
+    //     GL_UNIFORM_BUFFER,
+    //     COMMON_UNIFORMS_UBO_INDEX,
+    //     commonUBO,
+    //     0,
+    //     sizeof(glm::vec2)
+    // );
+    glBindBufferBase(GL_UNIFORM_BUFFER, COMMON_UNIFORMS_UBO_INDEX, commonUBO);
+}
+
 void setupUI(bool isDarkTheme) {
     if (darkTheme) {
         info("Setting dark theme");
@@ -2211,6 +2283,12 @@ void setupUI(bool isDarkTheme) {
     pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
     hResizeCursor = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
 
+    grInfo = { 0 };
+    grInfo.redraw = true;
+    grInfo.imagePBOBufferSize = CONTENT_MAX_WIDTH * CONTENT_IMAGE_MAX_HEIGHT * 3;
+    grInfo.image.numVertices = 64;
+    grInfo.image.bufferSize = 1024;
+
     initShaders();
     initTextRendering(windowWidth, windowHeight);
 
@@ -2218,34 +2296,7 @@ void setupUI(bool isDarkTheme) {
     glEnable(GL_SAMPLE_SHADING);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glm::vec4 rectangleColors[] = {
-        WHITE,
-        BLACK,
-        CODE_COLOR,
-        CODE_COLOR_DARK,
-    };
-
-    glGenBuffers(1, &rectangleColorIndexUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, rectangleColorIndexUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(rectangleColors), rectangleColors, GL_STATIC_DRAW);
-    glBindBufferRange(
-        GL_UNIFORM_BUFFER,
-        RECTANGLE_COLOR_INDEX_UBO_INDEX,
-        rectangleColorIndexUBO,
-        0,
-        sizeof(glm::vec4) * RECTANGLE_COLOR_INDEX_COUNT
-    );
-
-    glGenBuffers(1, &commonUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2), glm::value_ptr(resolution), GL_STATIC_DRAW);
-    glBindBufferRange(
-        GL_UNIFORM_BUFFER,
-        COMMON_UNIFORMS_UBO_INDEX,
-        commonUBO,
-        0,
-        sizeof(glm::vec2)
-    );
+    setupUBO();
 
     glGenVertexArrays(1, &grInfo.rect.vao);
     glBindVertexArray(grInfo.rect.vao);
@@ -2259,19 +2310,17 @@ void setupUI(bool isDarkTheme) {
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
 
-    grInfo = { 0 };
-    grInfo.redraw = true;
-    grInfo.imagePBOBufferSize = CONTENT_MAX_WIDTH * CONTENT_IMAGE_MAX_HEIGHT * 3;
-    grInfo.image.numVertices = 64;
-    grInfo.image.bufferSize = 1024;
-
     float vertices[8] = { 0 };
     float vertices_24[24] = { 0 };
     float vertices_2400[2400] = { 0 };
+    float vertices_12k[12000] = { 0 };
+    TextVertex textVertices[6] = { 0 };
+    TextVertex textVertices_10[60] = { 0 };
+    TextVertex textVertices_100[600] = { 0 };
 
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
-    SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, vertices_24);
+    SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, textVertices);
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
@@ -2291,29 +2340,29 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
-    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, vertices_2400);
-    explorer.textVerCap = 2400 * sizeof(float);
+    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, textVertices_100);
     explorer.textVertices = 600;
+    explorer.textVerCap = sizeof(textVertices_100);
 
-    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, vertices_2400);
-    explorer.iconsVerCap = 1200 * sizeof(float);
-    explorer.iconsVertices = 300;
+    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, textVertices_100);
+    explorer.iconsVertices = 600;
+    explorer.iconsVerCap = sizeof(textVertices_100);
 
-    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, vertices_24);
-    tabsDisplay.xBufferSize = 96;
-    tabsDisplay.xVertices = 24;
+    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, textVertices_10);
+    tabsDisplay.xBufferSize = sizeof(textVertices_10);
+    tabsDisplay.xVertices = 60;
 
-    SETUP_BUFFERS_TEXT(grInfo.icon.vao, grInfo.icon.vbo, vertices_2400);
+    SETUP_BUFFERS_TEXT(grInfo.icon.vao, grInfo.icon.vbo, textVertices_100);
     grInfo.icon.numVertices = 600;
-    grInfo.icon.bufferSize = 2400 * sizeof(float);
+    grInfo.icon.bufferSize = sizeof(textVertices_100);
 
-    SETUP_BUFFERS_TEXT(grInfo.text.vao, grInfo.text.vbo, vertices_2400);
+    SETUP_BUFFERS_TEXT(grInfo.text.vao, grInfo.text.vbo, textVertices_100);
     grInfo.text.numVertices = 600;
-    grInfo.text.bufferSize = 2400 * sizeof(float);
+    grInfo.text.bufferSize = sizeof(textVertices_100);
 
-    SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, vertices_2400);
+    SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, textVertices_100);
     grInfo.extraText.numVertices = 600;
-    grInfo.extraText.bufferSize = 2400 * sizeof(float);
+    grInfo.extraText.bufferSize = sizeof(textVertices_100);
 
     glGenVertexArrays(1, &grInfo.image.vao);
     glBindVertexArray(grInfo.image.vao);
@@ -2528,14 +2577,7 @@ void enterRenderLoop() {
                 ++newFps;
             }
 
-            renderText(
-                "FPS: " + to_string(fps),
-                glm::vec2(0.0f, 0.0f),
-                resolution,
-                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
-                16,
-                nullptr
-            );
+            renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
         }
 
         glfwSwapBuffers(window);
@@ -2549,10 +2591,6 @@ void enterRenderLoop() {
 
     removeOldCBImagesWorker.request_stop();
     removeOldCBImagesWorker.join();
-}
-
-void defaultCallback(UIElement* _elem) {
-    cout << "\nDefault callback executed!";
 }
 
 void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
@@ -2586,10 +2624,6 @@ void defaultKeyCallback(UIElement* elem, int key, int action, int mod) {
             case GLFW_KEY_F11: toggleFullscreen(); break;
         }
     }
-}
-
-void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2) {
-    cout << "\nDefault mouse up/down callback executed!";
 }
 
 void cbKeyCallback(int key, int action, int mod) {
@@ -4962,7 +4996,6 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
         RopeRenderResult rRes = getTextDimensions(
             elem->text,
             glm::vec2(x, y),
-            resolution,
             elem->fontSize,
             elem->parent->left,
             elem->parent->width
@@ -6587,9 +6620,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 i = offset;
             }
 
-            vector<float> iconVertices;
-            vector<float> extraTextVertices;
-            vector<float> textVertices;
+            vector<TextVertex> iconVertices;
+            vector<TextVertex> extraTextVertices;
+            vector<TextVertex> textVertices;
             vector<RectangleVertexAttributes> rva;
 
             if (grInfo.redraw) {
@@ -6630,9 +6663,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.icon.vbo,
                 grInfo.icon.bufferSize,
                 grInfo.icon.numVertices,
-                resolution,
                 iconVertices,
-                darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
                 grInfo.redraw,
                 iconTextureID
             );
@@ -6642,9 +6673,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.extraText.vbo,
                 grInfo.extraText.bufferSize,
                 grInfo.extraText.numVertices,
-                resolution,
                 extraTextVertices,
-                darkTheme ? BULLET_NUMBERING_COLOR_DARK : BULLET_NUMBERING_COLOR,
                 grInfo.redraw
             );
 
@@ -6653,9 +6682,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.text.vbo,
                 grInfo.text.bufferSize,
                 grInfo.text.numVertices,
-                resolution,
                 textVertices,
-                WHITE,
                 grInfo.redraw
             );
 
@@ -6768,7 +6795,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (elem.reDraw) {
                 RopeRenderResult rRes = getTextDimensions(
-                    elem.text, glm::vec2(left, top), resolution, elem.fontSize,
+                    elem.text, glm::vec2(left, top), elem.fontSize,
                     elem.parent->left, elem.parent->width, false
                 );
 
@@ -6796,15 +6823,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             renderTextCached(
                 elem.text,
                 glm::vec2(left, top),
-                resolution,
                 elem.textVAO,
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                darkTheme ? WHITE : BLACK,
                 elem.fontSize,
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
                 false
             );
@@ -6881,7 +6907,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     glm::vec2 pos = glm::vec2(elem.left + padding, top + padding);
 
                     RopeRenderResult rRes = getTextDimensions(
-                        elem.text, pos, resolution, elem.fontSize,
+                        elem.text, pos, elem.fontSize,
                         elem.parent->left, elem.parent->width, false
                     );
 
@@ -6962,7 +6988,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             glm::vec4 bg = darkTheme ? BUTTON_BG_DARK : BUTTON_BG;
             glm::vec4 hv = darkTheme ? BUTTON_HOVER_BG_DARK : BUTTON_HOVER_BG;
-            glm::vec4 color = darkTheme ? BUTTON_COLOR_DARK : BUTTON_COLOR;
 
             if (elem.id == SWITCH_VAULT_OPTION_ID) {
                 bg = TRANSPARENT_COLOR;
@@ -6988,15 +7013,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             renderTextCached(
                 elem.text,
                 pos,
-                resolution,
                 elem.textVAO,
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                color,
                 elem.fontSize,
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
                 false
             );
@@ -7138,10 +7162,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             if (elem.reDraw) {
-                vector<float> vertices;
-                vertices.reserve(24);
+                vector<float> elemVertices;
+                elemVertices.reserve(16);
 
-                vertices.insert(vertices.end(), {
+                elemVertices.insert(elemVertices.end(), {
                     elem.left,              elem.top,
                     elem.left + elem.width, elem.top,
                     elem.left,              elem.top + elem.height,
@@ -7150,7 +7174,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 glBindVertexArray(elem.vao);
                 glBindBuffer(GL_ARRAY_BUFFER, elem.vao);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float), &vertices[0]);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, elemVertices.size() * sizeof(float), &elemVertices[0]);
 
                 glUseProgram(shaders[SHADER_BUTTON].programId);
                 glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
@@ -7161,9 +7185,10 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-                vertices.clear();
-
                 Character c;
+
+                vector<TextVertex> vertices;
+                vertices.reserve(6);
 
                 switch (elem.icon) {
                     case Icon::ChevronRight:    c = icons[ICON_CHEVRON_RIGHT]; break;
@@ -7180,14 +7205,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 float left = elem.left + (dimension - width) / 2;
                 float top = elem.top + (dimension - height)/2;
+                uint32_t colorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
                 vertices.insert(vertices.end(), {
-                    left,         top,          c.textureX1, c.textureY1,
-                    left + width, top,          c.textureX2, c.textureY1,
-                    left,         top + height, c.textureX1, c.textureY2,
-                    left,         top + height, c.textureX1, c.textureY2,
-                    left + width, top,          c.textureX2, c.textureY1,
-                    left + width, top + height, c.textureX2, c.textureY2,
+                    TextVertex { left,         top,          c.textureX1, c.textureY1, colorIndex },
+                    TextVertex { left + width, top,          c.textureX2, c.textureY1, colorIndex },
+                    TextVertex { left,         top + height, c.textureX1, c.textureY2, colorIndex },
+                    TextVertex { left,         top + height, c.textureX1, c.textureY2, colorIndex },
+                    TextVertex { left + width, top,          c.textureX2, c.textureY1, colorIndex },
+                    TextVertex { left + width, top + height, c.textureX2, c.textureY2, colorIndex },
                 });
 
                 drawTextBuffers(
@@ -7195,14 +7221,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textVBO,
                     elem.textBufferSize,
                     elem.textVerticesCount,
-                    resolution,
                     vertices,
-                    darkTheme ? WHITE : BLACK,
                     true,
                     iconTextureID
                 );
             } else {
-                vector<float> _v;
+                vector<TextVertex> _v;
 
                 glBindVertexArray(elem.vao);
                 glUseProgram(shaders[SHADER_BUTTON].programId);
@@ -7219,9 +7243,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textVBO,
                     elem.textBufferSize,
                     elem.textVerticesCount,
-                    resolution,
                     _v,
-                    darkTheme ? WHITE : BLACK,
                     false,
                     iconTextureID
                 );
@@ -7418,15 +7440,14 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             renderTextCached(
                 text,
                 pos,
-                resolution,
                 elem.textVAO,
                 elem.textVBO,
                 elem.textBufferSize,
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
-                darkTheme ? WHITE : BLACK,
                 elem.fontSize,
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
                 false
             );
@@ -7616,7 +7637,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     }
                 }
 
-                x += renderGlyph(c, x, y, resolution, elem.fontSize);
+                x += renderGlyph(c, x, y, elem.fontSize);
                 ++col;
 
                 ++currentIndex;
@@ -7748,11 +7769,11 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             glEnable(GL_SCISSOR_TEST);
 
             if (elem.reDraw) {
-                vector<float> textVertices;
-                vector<float> xVertices;
+                vector<TextVertex> textVertices;
+                vector<TextVertex> xVertices;
 
-                textVertices.reserve(2000);
-                xVertices.reserve(1000);
+                textVertices.reserve(960);
+                xVertices.reserve(60);
 
                 setupTabs(textVertices, xVertices);
 
@@ -7761,9 +7782,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textVBO,
                     elem.textBufferSize, 
                     elem.textVerticesCount,
-                    resolution,
                     textVertices,
-                    darkTheme ? WHITE : BLACK,
                     true
                 );
 
@@ -7772,23 +7791,19 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     tabsDisplay.xVbo,
                     tabsDisplay.xBufferSize, 
                     tabsDisplay.xVertices,
-                    resolution,
                     xVertices,
-                    darkTheme ? WHITE : BLACK,
                     true,
                     iconTextureID
                 );
             } else {
-                vector<float> _;
+                vector<TextVertex> _;
 
                 drawTextBuffers(
                     elem.textVAO,
                     elem.textVBO,
                     elem.textBufferSize, 
                     elem.textVerticesCount,
-                    resolution,
-                    _,
-                    darkTheme ? WHITE : BLACK
+                    _
                 );
 
                 drawTextBuffers(
@@ -7796,9 +7811,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     tabsDisplay.xVbo,
                     tabsDisplay.xBufferSize, 
                     tabsDisplay.xVertices,
-                    resolution,
                     _,
-                    darkTheme ? WHITE : BLACK,
                     false,
                     iconTextureID
                 );
@@ -7876,8 +7889,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             if (elem.reDraw) {
-                vector<float> vertices;
-                vector<float> iVertices;
+                vector<TextVertex> vertices;
+                vector<TextVertex> iVertices;
 
                 setupExplorer(vertices, iVertices);
 
@@ -7886,9 +7899,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.vbo,
                     explorer.textVerCap,
                     explorer.textVertices,
-                    resolution,
                     vertices,
-                    darkTheme ? WHITE : BLACK,
                     true
                 );
 
@@ -7897,15 +7908,13 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.iconsVBO,
                     explorer.iconsVerCap,
                     explorer.iconsVertices,
-                    resolution,
                     iVertices,
-                    darkTheme ? WHITE : BLACK,
                     true,
                     iconTextureID
                 );
             } else {
                 glm::vec2 ___;
-                vector<float> _;
+                vector<TextVertex> _;
                 uint32_t __ = 0;
 
                 drawTextBuffers(
@@ -7913,9 +7922,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.vbo,
                     __,
                     explorer.textVertices,
-                    resolution,
                     _,
-                    darkTheme ? WHITE : BLACK,
                     false
                 );
 
@@ -7924,9 +7931,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.iconsVBO,
                     __,
                     explorer.iconsVertices,
-                    resolution,
                     _,
-                    darkTheme ? WHITE : BLACK,
                     false,
                     iconTextureID
                 );
@@ -7997,7 +8002,7 @@ inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool 
         RopeRenderResult rRes = getTextDimensions(
             cb->rope->getString(),
             glm::vec2(contentLeft, cb->top),
-            resolution, getCBFontSize(cb->type),
+            getCBFontSize(cb->type),
             contentLeft,
             contentRight - contentLeft,
             false
@@ -8013,9 +8018,9 @@ inline bool renderContentBlock(
     glm::vec2 &resolution,
     glm::vec2 &cursor,
     uint32_t index,
-    vector<float>& iconVertices,
-    vector<float>& extraTextVertices,
-    vector<float>& textVertices,
+    vector<TextVertex>& iconVertices,
+    vector<TextVertex>& extraTextVertices,
+    vector<TextVertex>& textVertices,
     vector<RectangleVertexAttributes>& rva
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
@@ -8044,6 +8049,7 @@ inline bool renderContentBlock(
     bool isCodeStart = false;
 
     glm::vec2 pos = glm::vec2(left, top);
+    uint32_t textColorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
     if (grInfo.redraw) {
         MarkdownParser parser(cb->rope);
@@ -8055,19 +8061,21 @@ inline bool renderContentBlock(
         }
 
         bool renderRope = true;
+        uint32_t lightTextIndex = darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX;
 
         switch (cb->type) {
             case ContentBlockType::Bullet:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
-                        iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0
+                        iconVertices, icons[ICON_BULLET_CIRCLE], 0, 0, 0, 0,
+                        lightTextIndex
                     );
                 } else {
                     pos.x += 16.0f;
 
                     PUSH_ICON_VERTICES(
                         iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
-                        4.0f, 4.0f
+                        4.0f, 4.0f, lightTextIndex
                     );
                 }
                 break;
@@ -8075,14 +8083,15 @@ inline bool renderContentBlock(
             case ContentBlockType::Numbering:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
-                        extraTextVertices, characters[(int)' '], 0, 0, 0, 0
+                        extraTextVertices, characters[(int)' '], 0, 0, 0, 0,
+                        lightTextIndex
                     );
                 } else {
                     pos.x += 16.0f;
 
                     appendTextVertices(
                         left, top, cb->rope->substring(0, md.startIndex),
-                        extraTextVertices
+                        lightTextIndex, extraTextVertices
                     );
                 }
                 // TODO: Check for the maximum width of the number characters.
@@ -8160,7 +8169,6 @@ inline bool renderContentBlock(
                             RopeRenderResult dimensions = getTextDimensions(
                                 languageText,
                                 glm::vec2(left, top),
-                                resolution,
                                 16,
                                 contentLeft,
                                 contentRight - contentLeft,
@@ -8171,6 +8179,7 @@ inline bool renderContentBlock(
                                 contentRight - dimensions.width - 8.0f,
                                 top,
                                 languageText,
+                                lightTextIndex,
                                 extraTextVertices
                             );
                         }
@@ -8184,9 +8193,9 @@ inline bool renderContentBlock(
                 if (isActive) {
                     if (!md.fragments.empty()) {
                         cout << "\nDEBUG: image url: "
-                            << cb->rope->substring(md.fragments[0].image.url)
+                            << cb->rope->substring(md.fragments[0].imgOrLink.url)
                             << ", altText: "
-                            << cb->rope->substring(md.fragments[0].image.altText);
+                            << cb->rope->substring(md.fragments[0].imgOrLink.text);
                     } else {
                         cout << "\nDEBUG: fragments: " << md.fragments.size();
                     }
@@ -8196,7 +8205,7 @@ inline bool renderContentBlock(
                     renderRope = false;
 
                     if (cb->imgID == 0) {
-                        cb->imgID = addCBImage(cb->rope->substring(md.fragments[0].image.url), cb->imgID);
+                        cb->imgID = addCBImage(cb->rope->substring(md.fragments[0].imgOrLink.url), cb->imgID);
                         cout << "\nDEBUG: added CB image with ID: " << cb->imgID;
                     }
 
@@ -8204,6 +8213,38 @@ inline bool renderContentBlock(
 
                     if (cirqr.loaded) {
                         cb->height = cirqr.height;
+                    }
+                }
+            }
+            break;
+
+            case ContentBlockType::Link: {
+                if (isActive) {
+                    if (!md.fragments.empty()) {
+                        cout << "\nDEBUG: link url: "
+                            << cb->rope->substring(md.fragments[0].imgOrLink.url)
+                            << ", text: "
+                            << cb->rope->substring(md.fragments[0].imgOrLink.text);
+                    } else {
+                        cout << "\nDEBUG: fragments: " << md.fragments.size();
+                    }
+                    cb->height = 16.0f - glyphDescender;
+                } else {
+                    renderRope = false;
+
+                    if (!md.fragments.empty()) {
+                        cout << "\nDEBUG: link url: "
+                            << cb->rope->substring(md.fragments[0].imgOrLink.url)
+                            << ", text: "
+                            << cb->rope->substring(md.fragments[0].imgOrLink.text);
+
+                        appendTextVertices(
+                            pos.x,
+                            pos.y,
+                            cb->rope->substring(md.fragments[0].imgOrLink.text),
+                            darkTheme ? LINK_COLOR_DARK_INDEX : LINK_COLOR_INDEX,
+                            textVertices
+                        );
                     }
                 }
             }
@@ -8217,6 +8258,7 @@ inline bool renderContentBlock(
                 cb->rope,
                 isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
+                textColorIndex,
                 textVertices
             );
 
@@ -8296,7 +8338,7 @@ void renderContentBlockHighlight() {
 
     DRAW_RECT(highlightedContentBlock.dragTabVAO, color);
 
-    vector<float> iVertices;
+    vector<TextVertex> iVertices;
 
     if (highlightedContentBlock.updated) {
         glBindVertexArray(highlightedContentBlock.iconVAO);
@@ -8311,15 +8353,16 @@ void renderContentBlockHighlight() {
             highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH/2,
             highlightedContentBlock.top + height / 2 - iconHeight,
             icons[ICON_MORE_VERTICAL],
+            darkTheme ? WHITE_INDEX : BLACK_INDEX,
             iVertices
         );
 
-        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(float), &iVertices[0]);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(TextVertex), &iVertices[0]);
     }
 
     color = WHITE;
 
-    DRAW_ICON(highlightedContentBlock.iconVAO, glm::value_ptr(color), 24);
+    DRAW_ICON(highlightedContentBlock.iconVAO, glm::value_ptr(color), 6);
 
     highlightedContentBlock.updated = false;
 }

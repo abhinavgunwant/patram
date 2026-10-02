@@ -56,8 +56,7 @@ extern bool debugTextFirstRenderPrint;
         glActiveTexture(GL_TEXTURE0);\
         glBindTexture(GL_TEXTURE_2D, iconTextureID);\
         glUseProgram(shaders[SHADER_TEXT].programId);\
-        glUniform4fv(uniforms[U_TEXT_COLOR], 4, color);\
-        glDrawArrays(GL_TRIANGLES, 0, numVertices / 4);\
+        glDrawArrays(GL_TRIANGLES, 0, numVertices);\
     } while(false)
 
 using namespace std;
@@ -144,9 +143,7 @@ inline void drawTextBuffers(
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
-    glm::vec2& res,
-    vector<float>& vertices,
-    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+    vector<TextVertex>& vertices,
     bool redraw = false,
     uint32_t texture = fontTextureID
 );
@@ -168,21 +165,20 @@ RopeRenderResult renderContentRope(
 RopeRenderResult renderTextCached(
     string str,
     glm::vec2 pos,
-    glm::vec2& res,
     uint32_t& vao,
     uint32_t& vbo,
     uint32_t& bufferSize,
     uint32_t& numVertices,
     float parentLeft,
     float parentWidth,
-    glm::fvec4 color = glm::fvec4(1.0f, 1.0f, 1.0f, 1.0f),
     uint8_t fontSize = 16,
+    uint32_t colorIndex = WHITE_INDEX,
     bool redraw = true,
     bool lineBreak = true
 );
 
 RopeRenderResult getTextDimensions(
-    string text, glm::vec2 pos, glm::vec2& res, uint8_t fontSize,
+    string text, glm::vec2 pos, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine = true
 );
 
@@ -195,14 +191,16 @@ float appendCharVertices(
     float x,
     float y,
     Character c,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 );
 
 float appendTextVertices(
     float x,
     float y,
     string text,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 );
 
 RopeRenderResult appendRopeVertices(
@@ -211,7 +209,8 @@ RopeRenderResult appendRopeVertices(
     Rope *rope,
     uint32_t startIndex,
     uint8_t fontSize,
-    vector<float>& vertices
+    uint32_t colorIndex,
+    vector<TextVertex>& vertices
 );
 
 /**
@@ -222,23 +221,21 @@ RopeRenderResult appendRopeVertices(
 glm::vec4 renderText(
     string text,
     glm::vec2 pos,
-    glm::vec2& res,
-    glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0),
     uint8_t fontSize = 16,
+    uint32_t colorIndex = WHITE_INDEX,
     UIElement* parent = nullptr
 );
 
 glm::vec4 renderText(
     wstring text,
     glm::vec2 pos,
-    glm::vec2& res,
-    glm::fvec3 color = glm::fvec3(1.0, 1.0, 1.0),
     uint8_t fontSize = 16,
+    uint32_t colorIndex = WHITE_INDEX,
     UIElement* parent = nullptr
 );
 
 GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
-uint32_t renderGlyph(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
+uint32_t renderGlyph(char c, float x, float y, uint8_t fontSize);
 void initFontTexture(string path);
 void initIconTexture();
 

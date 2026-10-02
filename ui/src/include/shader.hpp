@@ -39,7 +39,7 @@
 
 #define COMMON_UNIFORMS_UBO_INDEX           0
 #define RECTANGLE_COLOR_INDEX_UBO_INDEX     1
-#define RECTANGLE_COLOR_INDEX_COUNT         4
+#define RECTANGLE_COLOR_INDEX_COUNT         8
 
 using namespace std;
 

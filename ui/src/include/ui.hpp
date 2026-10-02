@@ -80,8 +80,9 @@
 #define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
 
-#define BULLET_NUMBERING_COLOR      glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
+#define LIGHT_TEXT_COLOR            glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
 #define CODE_COLOR                  glm::vec4(0.9f, 0.9f, 0.9f, 1.0)
+#define LINK_COLOR                  glm::vec4(0.06f, 0.0f, 0.88f, 1.0f)
 
 //// Dark theme colors
 #define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
@@ -110,13 +111,18 @@
 #define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.22f, 0.2f, 0.2f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.32f, 0.3f, 0.3f, 1.0)
 
-#define BULLET_NUMBERING_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
+#define LIGHT_TEXT_COLOR_DARK       glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
 #define CODE_COLOR_DARK             glm::vec4(0.1f, 0.1f, 0.1f, 1.0)
+#define LINK_COLOR_DARK             glm::vec4(0.18f, 0.44f, 0.98f, 1.0f)
 
 #define WHITE_INDEX                 0
 #define BLACK_INDEX                 1
 #define CODE_INDEX                  2
 #define CODE_DARK_INDEX             3
+#define LINK_COLOR_INDEX            4
+#define LINK_COLOR_DARK_INDEX       5
+#define LIGHT_TEXT_COLOR_INDEX      6
+#define LIGHT_TEXT_COLOR_DARK_INDEX 7
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -249,6 +255,14 @@ struct RectangleVertexAttributes {
     uint32_t borderRadius;
 };
 
+struct TextVertex {
+    float x;
+    float y;
+    float s;
+    float t;
+    uint32_t colorIndex;
+};
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods);
 void resizeCallback(GLFWwindow* window, int width, int height);
@@ -313,6 +327,7 @@ enum class ContentBlockType: uint8_t {
     Numbering,
     Code,
     Image,
+    Link,
 };
 
 enum class UIAlignment : uint8_t {
@@ -771,9 +786,7 @@ struct CBImageLoader {
     vector<CBImageRenderQueueEntry> renderQueue;
 };
 
-void defaultCallback(UIElement* elem);
 void defaultKeyCallback(UIElement*, int, int, int);
-void defaultOnMouseUpDownCallback(UIElement*, float, float, glm::vec2);
 
 void cbKeyCallback(int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
@@ -819,9 +832,9 @@ bool renderContentBlock(
     glm::vec2 &resolution,
     glm::vec2 &cursor,
     uint32_t index,
-    vector<float>& iconVertices,
-    vector<float>& textVertices,
-    vector<float>& cbTextVertices,
+    vector<TextVertex>& iconVertices,
+    vector<TextVertex>& textVertices,
+    vector<TextVertex>& cbTextVertices,
     vector<RectangleVertexAttributes>& rva
 );
 void renderContentBlockHighlight();
