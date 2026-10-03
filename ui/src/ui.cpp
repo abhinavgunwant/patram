@@ -4295,6 +4295,7 @@ inline uint8_t getCBFontSize(ContentBlockType cbType) {
 
 inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
     switch (cbType) {
+        case ContentBlockType::Link:
         case ContentBlockType::Paragraph: return { 4.0f, 4.0f };
         case ContentBlockType::Title: return { 24.0f, 16.0f };
         case ContentBlockType::Heading1: return { 8.0f, 8.0f };
