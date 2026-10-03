@@ -181,6 +181,7 @@ Explorer explorer = {
 };
 
 GlobalRenderInfo grInfo;
+GlobalMouseEventInfo gmei;
 CBImageLoader cbImageLoader = { 0 };
 
 #ifdef DEBUG_TEXT
@@ -307,32 +308,26 @@ inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
     glBindVertexArray(grInfo.rect.vao);
 
     if (grInfo.redraw) {
-        if (rva.empty()) { return; }
-
         glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
 
         if (grInfo.rect.numVertices < rva.size()) {
             grInfo.rect.numVertices = rva.size();
             glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectangleVertexAttributes), &rva[0], GL_DYNAMIC_DRAW);
         } else {
+            for (uint32_t i=0; i<grInfo.rect.numVertices - rva.size(); ++i) {
+                rva.push_back(RectangleVertexAttributes { 0 });
+            }
+
             glBufferSubData(GL_ARRAY_BUFFER, 0, rva.size() * sizeof(RectangleVertexAttributes), &rva[0]);
         }
     }
 
     glUseProgram(shaders[SHADER_RECTANGLE].programId);
 
-    glDrawArrays(GL_TRIANGLES, 0, rva.size() / 4);
-}
+    glDrawArrays(GL_TRIANGLES, 0, rva.size());
 
-void clearRectangles() {
-    uint32_t length = sizeof(RectangleVertexAttributes) * grInfo.rect.numVertices;
-    vector<RectangleVertexAttributes> rva;
-    rva.reserve(grInfo.rect.numVertices);
-    memset(rva.data(), 0, length);
-
-    glBindVertexArray(grInfo.rect.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, length, rva.data());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 void toggleFullscreen() {
@@ -1115,6 +1110,34 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseY = ypos;
 
     CursorShape cShape = CursorShape::Default;
+    uint32_t boundsIndex = 0;
+    bool updated = false;
+    bool hover = false;
+
+    for (
+        vector<Bounds>::iterator b = gmei.bounds.begin();
+        b != gmei.bounds.end();
+        ++b, ++boundsIndex
+    ) {
+        if (xpos > b->x1 && xpos < b->x2 && ypos > b->y1 && ypos < b->y2) {
+            hover = true;
+
+            if (!(gmei.hover && gmei.hoverIndex == boundsIndex)) {
+                gmei.hoverIndex = boundsIndex;
+                updated = true;
+            }
+
+            break;
+        }
+    }
+
+    if (updated) {
+        grInfo.redraw = true;
+        gmei.hover = hover;
+    } else if (gmei.hover && !hover) {
+        grInfo.redraw = true;
+        gmei.hover = false;
+    }
 
     if (!highlightedContentBlock.mouseDown && !tabs.empty()) {
         ContentTab* tab = CURRENT_TAB;
@@ -1909,9 +1932,10 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         tab.xOffset = static_cast<uint16_t>(x);
 
         x += TAB_HORIZONTAL_PADDING;
-        x += appendTextVertices(x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING,
-                tabtext, textIndex, textVertices
-        );
+        x += appendTextVertices(
+            x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING, tabtext, textIndex,
+            textVertices
+        ).width;
         x += TAB_HORIZONTAL_PADDING;
 
         tab.closeX = static_cast<uint16_t>(x - prevX);
@@ -2289,6 +2313,10 @@ void setupUI(bool isDarkTheme) {
     grInfo.image.numVertices = 64;
     grInfo.image.bufferSize = 1024;
 
+    gmei.hover = false;
+    gmei.mouseDown = false;
+    gmei.bounds.reserve(100);
+
     initShaders();
     initTextRendering(windowWidth, windowHeight);
 
@@ -2309,6 +2337,9 @@ void setupUI(bool isDarkTheme) {
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+
+    grInfo.rect.numVertices = 96;
+    grInfo.rect.bufferSize = sizeof(RectangleVertexAttributes) * 96;
 
     float vertices[8] = { 0 };
     float vertices_24[24] = { 0 };
@@ -3208,7 +3239,6 @@ void cbKeyCallback(int key, int action, int mod) {
                 recalculateLayout(&MAIN_CONTAINER);
                 recalculateContentWidth();
                 updateWindowTitle();
-                clearRectangles();
                 break;
 
             case GLFW_KEY_ENTER:
@@ -5171,8 +5201,6 @@ void tabBarMouseDownCallback(
 
                 tab->redrawCursor = true;
                 reDrawCBs();
-
-                clearRectangles();
             }
 
             break;
@@ -5684,7 +5712,6 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
     }
     activeElement = &CONTENT_CONTAINER;
     CONTENT_CONTAINER.active = true;
-    clearRectangles();
 }
 
 void closeCurrentTab() {
@@ -5789,7 +5816,6 @@ void closeTab(uint32_t index) {
     }
 
     updateWindowTitle();
-    clearRectangles();
     grInfo.redraw = true;
 }
 
@@ -6631,9 +6657,12 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 textVertices.reserve(grInfo.text.numVertices);
                 rva.reserve(grInfo.rect.numVertices);
                 cbImageLoader.renderQueue.clear();
+                gmei.bounds.clear();
             }
 
             bool visible = false;
+
+            // addRectangle(200, 200, 50, 50, 0, 0, rva);
 
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
@@ -8238,13 +8267,31 @@ inline bool renderContentBlock(
                             << ", text: "
                             << cb->rope->substring(md.fragments[0].imgOrLink.text);
 
-                        appendTextVertices(
+                        uint32_t colorIndex = darkTheme ? LINK_COLOR_DARK_INDEX : LINK_COLOR_INDEX;
+
+                        RopeRenderResult r = appendTextVertices(
                             pos.x,
                             pos.y,
                             cb->rope->substring(md.fragments[0].imgOrLink.text),
-                            darkTheme ? LINK_COLOR_DARK_INDEX : LINK_COLOR_INDEX,
+                            colorIndex,
                             textVertices
                         );
+
+                        gmei.bounds.push_back(Bounds {
+                            pos.x, pos.y, pos.x + r.width, pos.y + r.height,
+                            BoundSourceType::Link, BOUNDS_ENABLE_HOVER | BOUNDS_ENABLE_CLICK,
+                            { .cb = { .tabIndex = activeTabIndex, .index = index } },
+                        });
+
+                        if (
+                            gmei.hover && cursor.x > pos.x && cursor.x < pos.x + r.width
+                            && cursor.y > pos.y && cursor.y < pos.y + r.height
+                        ) {
+                            float fontSize = static_cast<float>(getCBFontSize(ContentBlockType::Link));
+                            float newY = pos.y + fontSize
+                                - static_cast<float>(getCBFontSize(ContentBlockType::Link) * glyphDescender);
+                            addRectangle(pos.x, newY, r.width, 1, colorIndex, 0, rva);
+                        }
                     }
                 }
             }
@@ -8283,6 +8330,10 @@ inline bool renderContentBlock(
 
         //     pos.x += 8.0f;
         // }
+    } else {
+        if (cb->type == ContentBlockType::Link) {
+            addRectangle(0, 0, 0, 0, 0, 0, rva);
+        }
     }
 
     if (tab->maxHeight < cb->top + cb->height) {

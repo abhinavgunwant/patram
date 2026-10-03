@@ -71,7 +71,7 @@ string vertexShaders[] = {
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
     "}\0",
 
-    // Rectangle shader
+    // Rectangle Shader
     "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in uint colorIndex;\n"
@@ -330,7 +330,7 @@ string fragmentShaders[] = {
     "in vec4 color;\n"
     "out vec4 FragColor;\n"
     "void main() {\n"
-        "FragColor = vec4(color.rgb, color.a / 2);\n"
+        "FragColor = vec4(color.rgb, color.a);\n"
     "}\0",
 
     // Image Shader

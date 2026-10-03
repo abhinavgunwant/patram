@@ -218,6 +218,9 @@
 #define SET_FLAG(x, flag)   x = x | flag
 #define UNSET_FLAG(x, flag) x = x & ~(flag)
 
+#define BOUNDS_ENABLE_HOVER     0b00000001
+#define BOUNDS_ENABLE_CLICK     0b00000010
+
 using namespace std;
 
 struct ContentTab;
@@ -243,6 +246,35 @@ extern bool focused;
 extern bool showFps;
 
 extern uint8_t* moveCursorBitmap;
+
+enum class BoundSourceType : uint8_t {
+    Element,
+    ContentBlock,
+    Tab,
+    TabClose,
+    Link,
+};
+
+union BoundSource {
+    UIElement* elem;
+    uint32_t tabIndex;
+    struct {
+        uint32_t tabIndex;
+        uint32_t index;
+    } cb;
+};
+
+struct Bounds {
+    float x1;
+    float y1;
+    float x2;
+    float y2;
+
+    BoundSourceType type;
+    uint8_t flags;
+
+    BoundSource source;
+};
 
 struct CommonUniforms {
     glm::vec2 resolution;
@@ -543,6 +575,16 @@ struct RenderInfo {
     uint32_t vbo;
     uint32_t bufferSize;
     uint32_t numVertices;
+};
+
+struct GlobalMouseEventInfo {
+    bool hover;
+    bool mouseDown;
+
+    uint16_t hoverIndex;
+    uint16_t mouseDownIndex;
+
+    vector<Bounds> bounds;
 };
 
 struct GlobalRenderInfo {

@@ -195,7 +195,7 @@ float appendCharVertices(
     vector<TextVertex>& vertices
 );
 
-float appendTextVertices(
+RopeRenderResult appendTextVertices(
     float x,
     float y,
     string text,

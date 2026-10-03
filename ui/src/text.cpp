@@ -784,7 +784,7 @@ float appendCharVertices(
     return glyphWidth;
 }
 
-float appendTextVertices(
+RopeRenderResult appendTextVertices(
     float x,
     float y,
     string text,
@@ -839,7 +839,7 @@ float appendTextVertices(
         xpos += advance;
     }
 
-    return xpos - x;
+    return { x, y, totalHeight, xpos - x, rows, renderNextContentBlock };
 }
 
 RopeRenderResult appendRopeVertices(
