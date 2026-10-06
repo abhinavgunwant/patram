@@ -38,6 +38,9 @@
 #define CONTENT_IMAGE_MAX_HEIGHT    980.0f
 #define CONTENT_BREAKPOINT          800
 #define CONTENT_HORIZONTAL_MARGIN   20.0f
+#define TOOLTIP_PADDING             4.0f
+#define TOOLTIP_ARROW_WIDTH         4.0f
+#define TOOLTIP_DELAY_TIME          0.4f
 
 #define CONTENT_BLOCK_VISIBLE       0b00000001
 #define CONTENT_BLOCK_REDRAW        0b00000010 // This has been moved to CBTextRenderInfo.redraw
@@ -244,6 +247,7 @@ extern GLFWwindow* window;
 extern bool minimized;
 extern bool focused;
 extern bool showFps;
+extern bool ctrlKeyDown;
 
 extern uint8_t* moveCursorBitmap;
 
@@ -587,6 +591,31 @@ struct GlobalMouseEventInfo {
     vector<Bounds> bounds;
 };
 
+enum class TooltipDirection {
+    Top,
+    Right,
+    Bottom,
+    Left,
+};
+
+struct Tooltip {
+    bool show;
+    bool showArrow;
+    bool delayShowing;
+    TooltipDirection direction;
+    float x;
+    float y;
+    float width;
+    float height;
+    float arrowX;
+    float arrowY;
+    float time;
+    float opacity;
+    RenderInfo box;
+    RenderInfo txt;
+    string text;
+};
+
 struct GlobalRenderInfo {
     bool redraw;
     RenderInfo text;
@@ -840,6 +869,13 @@ void textInputUnselect(TextInputData * tid, string token = "");
 
 void scrollAreaMouseDownCallback(UIElement*, float, float, glm::vec2);
 void scrollAreaMouseDragCallback(UIElement*, float, float, glm::vec2);
+
+void showTooltip(
+    float bbx1, float bby1, float bbx2, float bby2,
+    TooltipDirection direction, bool showArrow, string text
+);
+void hideTooltip();
+void renderTooltip();
 
 /** Creates a command to replace the selected text in a text input. */
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);

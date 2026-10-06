@@ -70,6 +70,20 @@
         glEnableVertexAttribArray(1);\
     } while (false)
 
+#define SETUP_BUFFERS_RECT(vao, vbo, vertices, bufferSize) do {\
+        glGenVertexArrays(1, &vao);\
+        glBindVertexArray(vao);\
+        glGenBuffers(1, &vbo);\
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);\
+        glBufferData(GL_ARRAY_BUFFER, bufferSize, vertices, GL_DYNAMIC_DRAW);\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectangleVertexAttributes), (void*)0);\
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2));\
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2 + sizeof(uint32_t)));\
+        glEnableVertexAttribArray(0);\
+        glEnableVertexAttribArray(1);\
+        glEnableVertexAttribArray(2);\
+    } while (false)
+
 #define DRAW_RECT(vao, color) do {\
         glBindVertexArray(vao);\
         glUseProgram(shaders[SHADER_DEFAULT].programId);\
@@ -145,6 +159,7 @@ bool focused = true;
 bool mouse1Down = false;
 bool ignoreMouse1Up = false;
 bool showFps = false;
+bool ctrlKeyDown = false;
 bool vaultSelected = false;
 bool cbTextDragging = false;
 CursorShape currentCursorShape = CursorShape::Default;
@@ -182,6 +197,7 @@ Explorer explorer = {
 
 GlobalRenderInfo grInfo;
 GlobalMouseEventInfo gmei;
+Tooltip tooltip = { 0 };
 CBImageLoader cbImageLoader = { 0 };
 
 #ifdef DEBUG_TEXT
@@ -307,15 +323,35 @@ void addRectangle(
 inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
     glBindVertexArray(grInfo.rect.vao);
 
+    uint32_t vertices = grInfo.rect.numVertices;
+
     if (grInfo.redraw) {
         glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
+
+        if (rva.empty()) {
+            glBufferData(GL_ARRAY_BUFFER, 0, NULL, GL_STATIC_DRAW);
+        }
 
         if (grInfo.rect.numVertices < rva.size()) {
             grInfo.rect.numVertices = rva.size();
             glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectangleVertexAttributes), &rva[0], GL_DYNAMIC_DRAW);
         } else {
-            for (uint32_t i=0; i<grInfo.rect.numVertices - rva.size(); ++i) {
-                rva.push_back(RectangleVertexAttributes { 0 });
+            vertices = rva.size();
+
+            for (uint32_t i=rva.size(); i<grInfo.rect.numVertices; ++i) {
+                rva.insert(rva.begin(), {
+                    RectangleVertexAttributes { 0 },
+                    RectangleVertexAttributes { 0 },
+                    RectangleVertexAttributes { 0 },
+                    RectangleVertexAttributes { 0 },
+                    RectangleVertexAttributes { 0 },
+                    RectangleVertexAttributes { 0 },
+                });
+            }
+
+            if (rva.size() > grInfo.rect.numVertices) {
+                grInfo.rect.numVertices = rva.size();
+                grInfo.rect.bufferSize = rva.size() * sizeof(RectangleVertexAttributes);
             }
 
             glBufferSubData(GL_ARRAY_BUFFER, 0, rva.size() * sizeof(RectangleVertexAttributes), &rva[0]);
@@ -324,10 +360,7 @@ inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
 
     glUseProgram(shaders[SHADER_RECTANGLE].programId);
 
-    glDrawArrays(GL_TRIANGLES, 0, rva.size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    glDrawArrays(GL_TRIANGLES, 0, vertices);
 }
 
 void toggleFullscreen() {
@@ -768,6 +801,60 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouseDownX = mouseX;
             mouseDownY = mouseY;
 
+            uint32_t boundsIndex = 0;
+            bool updated = false;
+            bool mouseDown = false;
+
+            for (
+                vector<Bounds>::iterator b = gmei.bounds.begin();
+                b != gmei.bounds.end();
+                ++b, ++boundsIndex
+            ) {
+                if (mouseX > b->x1 && mouseX < b->x2 && mouseY > b->y1 && mouseY < b->y2) {
+                    mouseDown = true;
+
+                    if (!(gmei.mouseDown && gmei.mouseDownIndex == boundsIndex)) {
+                        gmei.mouseDownIndex = boundsIndex;
+                        updated = true;
+                    }
+
+                    break;
+                }
+            }
+
+            if (updated) {
+                grInfo.redraw = true;
+                gmei.mouseDown = mouseDown;
+            } else if (gmei.mouseDown && !mouseDown) {
+                grInfo.redraw = true;
+                gmei.mouseDown = false;
+            }
+
+            if (gmei.mouseDown && gmei.bounds.size() > gmei.mouseDownIndex) {
+                Bounds b = gmei.bounds[gmei.mouseDownIndex];
+
+                if (b.type == BoundSourceType::Link && ctrlKeyDown) {
+                    ContentTab tab = tabs[b.source.cb.tabIndex];
+                    ContentBlock cb = tab.contentBlocks[b.source.cb.index];
+                    MarkdownParser mp(cb.rope);
+                    Markdown md = mp.parse();
+
+                    if (
+                        md.cbType == ContentBlockType::Link && !md.fragments.empty()
+                        && md.fragments[0].fragType == MarkdownFragmentType::Link
+                    ) {
+                        string url = cb.rope->substring(md.fragments[0].imgOrLink.url);
+                        info("Opening URL");
+
+                        if (!openLink(url)) {
+                            error("Could not open the URL since this is not a web URL!");
+                        }
+                    }
+
+                    return;
+                }
+            }
+
             if (highlightedContentBlock.show && !tabs.empty()) {
                 if (
                     mouseX >= highlightedContentBlock.left - 20.0f
@@ -1016,6 +1103,12 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
         #endif
     #endif
 
+    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL && action == GLFW_PRESS) {
+        ctrlKeyDown = true;
+    } else {
+        ctrlKeyDown = false;
+    }
+
     if (activeElement != nullptr) {
         switch (activeElement->type) {
             case UIElementType::ContentContainer: cbKeyCallback(key, action, mods); break;
@@ -1137,6 +1230,34 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     } else if (gmei.hover && !hover) {
         grInfo.redraw = true;
         gmei.hover = false;
+    }
+
+    if (gmei.hover && gmei.bounds.size() > gmei.hoverIndex) {
+        Bounds b = gmei.bounds[gmei.hoverIndex];
+
+        if (b.type == BoundSourceType::Link && !tooltip.show) {
+            ContentTab tab = tabs[b.source.cb.tabIndex];
+            ContentBlock cb = tab.contentBlocks[b.source.cb.index];
+            MarkdownParser mp(cb.rope);
+            Markdown md = mp.parse();
+
+            if (
+                md.cbType == ContentBlockType::Link && !md.fragments.empty()
+                && md.fragments[0].fragType == MarkdownFragmentType::Link
+            ) {
+                string url = cb.rope->substring(md.fragments[0].imgOrLink.url);
+                cout << "\nDEBUG: Showing tooltip!";
+                showTooltip(
+                    b.x1, b.y1,
+                    b.x2, b.y2,
+                    TooltipDirection::Top,
+                    true,
+                    url + " (Ctrl + click)"
+                );
+            }
+        }
+    } else {
+        hideTooltip();
     }
 
     if (!highlightedContentBlock.mouseDown && !tabs.empty()) {
@@ -2326,22 +2447,14 @@ void setupUI(bool isDarkTheme) {
 
     setupUBO();
 
-    glGenVertexArrays(1, &grInfo.rect.vao);
-    glBindVertexArray(grInfo.rect.vao);
-    glGenBuffers(1, &grInfo.rect.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(RectangleVertexAttributes) * 96, NULL, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectangleVertexAttributes), (void*)0);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2));
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2 + sizeof(uint32_t)));
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
+    RectangleVertexAttributes rva[96] = { 0 };
+    SETUP_BUFFERS_RECT(grInfo.rect.vao, grInfo.rect.vbo, rva, sizeof(rva));
 
     grInfo.rect.numVertices = 96;
     grInfo.rect.bufferSize = sizeof(RectangleVertexAttributes) * 96;
 
     float vertices[8] = { 0 };
+    float vertices_6[6] = { 0 };
     float vertices_24[24] = { 0 };
     float vertices_2400[2400] = { 0 };
     float vertices_12k[12000] = { 0 };
@@ -2585,6 +2698,10 @@ void enterRenderLoop() {
         float _ = 0.0f;
 
         renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+
+        if (tooltip.show) {
+            renderTooltip();
+        }
 
         #ifdef DEBUG_TEXT
             if (glfwGetTime() - prevTextTime >= 1.0f) {
@@ -5441,6 +5558,212 @@ void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, gl
     scrollAreaMouseDownCallback(elem, mouseX, mouseY, res);
 }
 
+void setTooltipDirection(
+    float bbx1,
+    float bby1,
+    float bbx2,
+    float bby2,
+    bool showArrow,
+    RectangleVertexAttributes* arrow,
+    uint32_t colorIndex,
+    TooltipDirection direction
+) {
+    tooltip.direction = direction;
+    switch (direction) {
+        case TooltipDirection::Top:
+            tooltip.arrowX = (bbx1 + bbx2) / 2;
+            tooltip.arrowY = bby1;
+            tooltip.x = tooltip.arrowX - tooltip.width / 2;
+            tooltip.y = bby1 - TOOLTIP_ARROW_WIDTH - tooltip.height;
+
+            if (showArrow) {
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+            }
+            break;
+
+        case TooltipDirection::Right:
+            tooltip.arrowX = bbx2;
+            tooltip.arrowY = (bby1 + bby2) / 2;
+            tooltip.x = bbx2 + TOOLTIP_ARROW_WIDTH;
+            tooltip.y = tooltip.arrowY - tooltip.height / 2;
+
+            if (showArrow) {
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
+                arrow[1] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+            }
+            break;
+
+        case TooltipDirection::Bottom:
+            tooltip.arrowX = (bbx1 + bby1) / 2;
+            tooltip.arrowY = bby2;
+            tooltip.x = tooltip.arrowX - tooltip.width / 2;
+            tooltip.y = bby2 + TOOLTIP_ARROW_WIDTH;
+
+            if (showArrow) {
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+            }
+            break;
+
+        case TooltipDirection::Left:
+            tooltip.arrowX = bbx1;
+            tooltip.arrowY = (bby1 + bby2) / 2;
+            tooltip.x = bbx2 - TOOLTIP_ARROW_WIDTH;
+            tooltip.y = tooltip.arrowY - tooltip.height / 2;
+
+            if (showArrow) {
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[2] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+            }
+            break;
+    }
+}
+
+void showTooltip(
+    float bbx1, float bby1, float bbx2, float bby2,
+    TooltipDirection direction, bool showArrow, string text
+) {
+    tooltip.show = true;
+    tooltip.delayShowing = true;
+    tooltip.showArrow = showArrow;
+    tooltip.text = text;
+    tooltip.time = TIME();
+    tooltip.opacity = 0.0f;
+
+    RopeRenderResult r = getTextDimensions(
+        text,
+        glm::vec2(contentLeft, 0),
+        16,
+        contentLeft,
+        contentRight - contentLeft
+    );
+
+    tooltip.width = r.width + 2 * TOOLTIP_PADDING;
+    tooltip.height = r.height + 2 * TOOLTIP_PADDING;
+
+    uint32_t colorIndex = darkTheme ? BLACK_INDEX : CODE_INDEX;
+    uint32_t textVertices = text.length() * 6;
+    uint32_t textBufferSize = sizeof(TextVertex) * textVertices;
+
+    RectangleVertexAttributes box[9] = { 0 };
+
+    vector<TextVertex> txt;
+    txt.reserve(textVertices);
+
+    setTooltipDirection(bbx1, bby1, bbx2, bby2, showArrow, box, colorIndex, direction);
+
+    if (tooltip.x < 0.0f) {
+        tooltip.x = 0.0f;
+    }
+
+    if (tooltip.y < 0.0f) {
+        if (direction == TooltipDirection::Top) {
+            direction = TooltipDirection::Bottom;
+        } else {
+            direction = TooltipDirection::Top;
+        }
+
+        setTooltipDirection(bbx1, bby1, bbx2, bby2, showArrow, box, colorIndex, direction);
+    }
+
+    box[3] = { tooltip.x,                 tooltip.y,                  colorIndex, 3 };
+    box[4] = { tooltip.x + tooltip.width, tooltip.y,                  colorIndex, 3 };
+    box[5] = { tooltip.x,                 tooltip.y + tooltip.height, colorIndex, 3 };
+    box[6] = { tooltip.x,                 tooltip.y + tooltip.height, colorIndex, 3 };
+    box[7] = { tooltip.x + tooltip.width, tooltip.y,                  colorIndex, 3 };
+    box[8] = { tooltip.x + tooltip.width, tooltip.y + tooltip.height, colorIndex, 3 };
+
+    appendTextVertices(
+        tooltip.x + TOOLTIP_PADDING,
+        tooltip.y + 2*TOOLTIP_PADDING,
+        text,
+        darkTheme ? WHITE_INDEX : BLACK_INDEX,
+        txt
+    );
+
+    if (tooltip.box.vao == 0) {
+        SETUP_BUFFERS_RECT(tooltip.box.vao, tooltip.box.vbo, box, sizeof(box));
+    } else {
+        glBindVertexArray(tooltip.box.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, tooltip.box.vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(box), box);
+    }
+
+    if (tooltip.txt.vao == 0) {
+        glGenVertexArrays(1, &tooltip.txt.vao);
+        glBindVertexArray(tooltip.txt.vao);
+        glGenBuffers(1, &tooltip.txt.vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, tooltip.txt.vbo);
+        glBufferData(GL_ARRAY_BUFFER, textBufferSize, &txt[0], GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)0);
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void *)(4 * sizeof(float)));
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+
+        tooltip.txt.numVertices = textVertices;
+        tooltip.txt.bufferSize = textBufferSize;
+    } else {
+        glBindVertexArray(tooltip.txt.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, tooltip.txt.vbo);
+
+        if (tooltip.txt.bufferSize != textBufferSize) {
+            glBufferData(GL_ARRAY_BUFFER, textBufferSize, &txt[0], GL_STATIC_DRAW);
+            tooltip.txt.bufferSize = textBufferSize;
+            tooltip.txt.numVertices = textVertices;
+        } else {
+            glBufferSubData(GL_ARRAY_BUFFER, 0, textBufferSize, &txt[0]);
+        }
+    }
+}
+
+void hideTooltip() {
+    tooltip.show = false;
+}
+
+void renderTooltip() {
+    if (!tooltip.show) { return; }
+
+    float time = TIME();
+
+    if (tooltip.delayShowing) {
+        if (time > tooltip.time + TOOLTIP_DELAY_TIME) {
+            tooltip.delayShowing = false;
+            tooltip.time = time;
+            cout << "\nDEBUG: delay time finished!";
+        } else {
+            return;
+        }
+    }
+
+    glUseProgram(shaders[SHADER_RECTANGLE_FADEIN].programId);
+
+    float timeDiff = time - tooltip.time;
+
+    if (timeDiff < 1.0f) {
+        glUniform1f(uniforms[U_RECTANGLE_FADEIN_TIME], timeDiff);
+    }
+
+    if (tooltip.showArrow) {
+        glBindVertexArray(tooltip.box.vao);
+        glDrawArrays(GL_TRIANGLES, 0, 9);
+    } else {
+        glBindVertexArray(tooltip.box.vao);
+        glDrawArrays(GL_TRIANGLES, 3, 6);
+    }
+
+    vector<TextVertex> _;
+
+    drawTextBuffers(
+        tooltip.txt.vao, tooltip.txt.vbo, tooltip.txt.bufferSize,
+        tooltip.txt.numVertices, _, 1.0f, false
+    );
+}
+
 void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
     uint8_t borderRadius = 0;
     UIPositioning positioning = UIPositioning::Absolute;
@@ -6694,6 +7017,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.icon.bufferSize,
                 grInfo.icon.numVertices,
                 iconVertices,
+                1.0f,
                 grInfo.redraw,
                 iconTextureID
             );
@@ -6704,6 +7028,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.extraText.bufferSize,
                 grInfo.extraText.numVertices,
                 extraTextVertices,
+                1.0f,
                 grInfo.redraw
             );
 
@@ -6713,6 +7038,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 grInfo.text.bufferSize,
                 grInfo.text.numVertices,
                 textVertices,
+                1.0f,
                 grInfo.redraw
             );
 
@@ -6859,6 +7185,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
+                1.0f,
                 elem.fontSize,
                 darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
@@ -7049,6 +7376,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
+                1.0f,
                 elem.fontSize,
                 darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
@@ -7252,6 +7580,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textBufferSize,
                     elem.textVerticesCount,
                     vertices,
+                    1.0f,
                     true,
                     iconTextureID
                 );
@@ -7274,6 +7603,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textBufferSize,
                     elem.textVerticesCount,
                     _v,
+                    1.0f,
                     false,
                     iconTextureID
                 );
@@ -7476,6 +7806,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 elem.textVerticesCount,
                 elem.parent->left,
                 elem.parent->width,
+                1.0f,
                 elem.fontSize,
                 darkTheme ? WHITE_INDEX : BLACK_INDEX,
                 elem.reDraw,
@@ -7813,6 +8144,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textBufferSize, 
                     elem.textVerticesCount,
                     textVertices,
+                    1.0f,
                     true
                 );
 
@@ -7822,6 +8154,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     tabsDisplay.xBufferSize, 
                     tabsDisplay.xVertices,
                     xVertices,
+                    1.0f,
                     true,
                     iconTextureID
                 );
@@ -7833,7 +8166,9 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.textVBO,
                     elem.textBufferSize, 
                     elem.textVerticesCount,
-                    _
+                    _,
+                    1.0f,
+                    false
                 );
 
                 drawTextBuffers(
@@ -7842,6 +8177,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     tabsDisplay.xBufferSize, 
                     tabsDisplay.xVertices,
                     _,
+                    1.0f,
                     false,
                     iconTextureID
                 );
@@ -7930,6 +8266,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.textVerCap,
                     explorer.textVertices,
                     vertices,
+                    1.0f,
                     true
                 );
 
@@ -7939,6 +8276,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     explorer.iconsVerCap,
                     explorer.iconsVertices,
                     iVertices,
+                    1.0f,
                     true,
                     iconTextureID
                 );
@@ -7953,6 +8291,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     __,
                     explorer.textVertices,
                     _,
+                    1.0f,
                     false
                 );
 
@@ -7962,6 +8301,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     __,
                     explorer.iconsVertices,
                     _,
+                    1.0f,
                     false,
                     iconTextureID
                 );
@@ -8283,16 +8623,6 @@ inline bool renderContentBlock(
                             BoundSourceType::Link, BOUNDS_ENABLE_HOVER | BOUNDS_ENABLE_CLICK,
                             { .cb = { .tabIndex = activeTabIndex, .index = index } },
                         });
-
-                        if (
-                            gmei.hover && cursor.x > pos.x && cursor.x < pos.x + r.width
-                            && cursor.y > pos.y && cursor.y < pos.y + r.height
-                        ) {
-                            float fontSize = static_cast<float>(getCBFontSize(ContentBlockType::Link));
-                            float newY = pos.y + fontSize
-                                - static_cast<float>(getCBFontSize(ContentBlockType::Link) * glyphDescender);
-                            addRectangle(pos.x, newY, r.width, 1, colorIndex, 0, rva);
-                        }
                     }
                 }
             }
