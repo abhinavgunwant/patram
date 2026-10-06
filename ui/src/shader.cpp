@@ -106,7 +106,7 @@ string fragmentShaders[] = {
     "uniform float time;\n"
     "uniform sampler2D text;\n"
     "void main() {\n"
-        "color = vec4(textColor.rgb, texture(text, TexCoords).r * time);\n"
+        "color = vec4(textColor.rgb, texture(text, TexCoords).r * clamp(time, 0.0f, 1.0f));\n"
     "}\0",
 
     // Icon Button Shader

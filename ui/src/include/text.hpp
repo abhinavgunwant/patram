@@ -144,6 +144,7 @@ inline void drawTextBuffers(
     uint32_t& bufferSize,
     uint32_t& numVertices,
     vector<TextVertex>& vertices,
+    float time = 1.0f,
     bool redraw = false,
     uint32_t texture = fontTextureID
 );
@@ -171,6 +172,7 @@ RopeRenderResult renderTextCached(
     uint32_t& numVertices,
     float parentLeft,
     float parentWidth,
+    float time = 1.0f,
     uint8_t fontSize = 16,
     uint32_t colorIndex = WHITE_INDEX,
     bool redraw = true,

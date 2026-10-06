@@ -322,6 +322,7 @@ inline void drawTextBuffers(
     uint32_t& bufferSize,
     uint32_t& numVertices,
     vector<TextVertex>& vertices,
+    float time,
     bool redraw,
     uint32_t texture
 ) {
@@ -362,6 +363,8 @@ inline void drawTextBuffers(
             glBufferData(GL_ARRAY_BUFFER, bufferSize, &vertices[0], GL_DYNAMIC_DRAW);
         }
     }
+
+    glUniform1f(uniforms[U_TEXT_TIME], time);
 
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
 }
@@ -477,7 +480,7 @@ RopeRenderResult renderContentRope(
         }
     }
 
-    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, vertices, redraw);
+    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, vertices, 1.0f, redraw);
 
     result.width = pos.x;
 
@@ -495,6 +498,7 @@ RopeRenderResult renderTextCached(
     uint32_t& numVertices,
     float parentLeft,
     float parentWidth,
+    float time,
     uint8_t fontSize,
     uint32_t colorIndex,
     bool redraw,
@@ -569,7 +573,7 @@ RopeRenderResult renderTextCached(
         }
     }
 
-    drawTextBuffers(vao, vbo, bufferSize, _numVertices, vertices, redraw);
+    drawTextBuffers(vao, vbo, bufferSize, _numVertices, vertices, time, redraw);
 
     numVertices = _numVertices;
 
