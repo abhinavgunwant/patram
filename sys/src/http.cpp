@@ -89,7 +89,7 @@ bool isValidURL(std::string location) {
     return isUrl;
 }
 
-void openLink(std::string url) {
+bool openLink(std::string url) {
     if (isValidURL(url)) {
 
     #ifdef _WIN32
@@ -104,6 +104,10 @@ void openLink(std::string url) {
             _exit(1);
         }
     #endif
+
+        return true;
     }
+
+    return false;
 }
 
