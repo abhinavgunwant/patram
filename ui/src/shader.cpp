@@ -103,9 +103,10 @@ string fragmentShaders[] = {
     "in vec2 TexCoords;\n"
     "in vec4 textColor;\n"
     "out vec4 color;\n"
+    "uniform float time;\n"
     "uniform sampler2D text;\n"
     "void main() {\n"
-        "color = vec4(textColor.rgb, texture(text, TexCoords).r);\n"
+        "color = vec4(textColor.rgb, texture(text, TexCoords).r * time);\n"
     "}\0",
 
     // Icon Button Shader
@@ -341,6 +342,15 @@ string fragmentShaders[] = {
     "void main() {\n"
         "color = texture(imageTexture, TexCoords);\n"
     "}\0",
+
+    // Fade-In Rectangle Shader
+    "#version 460 core\n"
+    "uniform float time;\n"
+    "in vec4 color;\n"
+    "out vec4 FragColor;\n"
+    "void main() {\n"
+        "FragColor = vec4(color.rgb, time * 2);\n"
+    "}\0",
 };
 
 Shader shaders[] = {
@@ -353,6 +363,7 @@ Shader shaders[] = {
     { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
     { 0, 4, 6 }, // SHADER_RECTANGLE
     { 0, 1, 7 }, // SHADER_IMAGE
+    { 0, 4, 8 }, // SHADER_RECTANGLE_FADEIN
 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
@@ -461,6 +472,7 @@ void initShaders() {
 
     id = shaders[SHADER_TEXT].programId;
     uniforms[U_TEXT_COLOR] = glGetUniformLocation(id, "textColor");
+    uniforms[U_TEXT_TIME] = glGetUniformLocation(id, "time");
 
     id = shaders[SHADER_ICON_BUTTON].programId;
     uniforms[U_ICON_BUTTON_COLOR] = glGetUniformLocation(id, "solidColor");
@@ -511,5 +523,8 @@ void initShaders() {
 
     glUniformBlockBinding(id, commonUniformsIndex, COMMON_UNIFORMS_UBO_INDEX);
     glUniformBlockBinding(id, colorUniformsIndex, RECTANGLE_COLOR_INDEX_UBO_INDEX);
+
+    id = shaders[SHADER_RECTANGLE_FADEIN].programId;
+    uniforms[U_RECTANGLE_FADEIN_TIME] = glGetUniformLocation(id, "time");
 }
 
