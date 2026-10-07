@@ -329,7 +329,8 @@ inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
         glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
 
         if (rva.empty()) {
-            glBufferData(GL_ARRAY_BUFFER, 0, NULL, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(RectangleVertexAttributes), NULL, GL_STATIC_DRAW);
+            return;
         }
 
         if (grInfo.rect.numVertices < rva.size()) {
@@ -338,7 +339,7 @@ inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
         } else {
             vertices = rva.size();
 
-            for (uint32_t i=rva.size(); i<grInfo.rect.numVertices; ++i) {
+            for (uint32_t i=rva.size(); i<grInfo.rect.numVertices; i+=6) {
                 rva.insert(rva.begin(), {
                     RectangleVertexAttributes { 0 },
                     RectangleVertexAttributes { 0 },
@@ -359,6 +360,7 @@ inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
     }
 
     glUseProgram(shaders[SHADER_RECTANGLE].programId);
+    glUniform1f(uniforms[U_RECTANGLE_FADEIN_TIME], 1.0f);
 
     glDrawArrays(GL_TRIANGLES, 0, vertices);
 }
@@ -2447,11 +2449,10 @@ void setupUI(bool isDarkTheme) {
 
     setupUBO();
 
-    RectangleVertexAttributes rva[96] = { 0 };
-    SETUP_BUFFERS_RECT(grInfo.rect.vao, grInfo.rect.vbo, rva, sizeof(rva));
+    SETUP_BUFFERS_RECT(grInfo.rect.vao, grInfo.rect.vbo, NULL, 6 * sizeof(RectangleVertexAttributes));
 
-    grInfo.rect.numVertices = 96;
-    grInfo.rect.bufferSize = sizeof(RectangleVertexAttributes) * 96;
+    grInfo.rect.numVertices = 6;
+    grInfo.rect.bufferSize = 6 * sizeof(RectangleVertexAttributes);
 
     float vertices[8] = { 0 };
     float vertices_6[6] = { 0 };
