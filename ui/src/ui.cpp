@@ -1157,7 +1157,8 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
     if (CONTENT_CONTAINER.show && !tabs.empty()) {
-        recalculateContentWidth();
+        grInfo.redraw = true;
+        grInfo.redrawUI = true;
 
         ContentTab* tab = CURRENT_TAB;
 
@@ -1167,8 +1168,6 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
             tab->redrawSel = true;
         }
 
-        reDrawCBs();
-
         if (tab->showCursor) {
             tab->redrawCursor = true;
         }
@@ -1176,6 +1175,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         tab->scrollbarUpdated = false;
 
         TAB_BAR.reDraw = true;
+
         adjustTabOffset();
 
         if (tabs.size() > 1) {
@@ -1183,13 +1183,9 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
                 (*tabIter).scrollbarUpdated = false;
             }
         }
-
-        grInfo.redraw = true;
     }
 
-    float _ = 0.0f;
-
-    renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+    render();
 
     hideContextMenus();
 
@@ -2694,14 +2690,20 @@ void enterRenderLoop() {
             glfwWaitEventsTimeout(80.0f);
         }
 
-        glm::vec2 cursor(mouseX, mouseY);
+        render();
 
-        float _ = 0.0f;
+        if (showFps) {
+            float time = TIME();
 
-        renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+            if (time - fpsPrevTime > 1.0f) {
+                fpsPrevTime = time;
+                fps = newFps;
+                newFps = 0;
+            } else {
+                ++newFps;
+            }
 
-        if (tooltip.show) {
-            renderTooltip();
+            renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
         }
 
         #ifdef DEBUG_TEXT
@@ -2714,20 +2716,6 @@ void enterRenderLoop() {
                 prevTextTime = glfwGetTime();
             }
         #endif
-
-        if (showFps) {
-            float time = glfwGetTime();
-
-            if (time - fpsPrevTime > 1.0f) {
-                fpsPrevTime = time;
-                fps = newFps;
-                newFps = 0;
-            } else {
-                ++newFps;
-            }
-
-            renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
-        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -6795,6 +6783,17 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
     tab->lastCursorTime = TIME();
     tab->cursorRow = sd.row;
     tab->cursorCBIndex = sd.cursorCBIndex;
+}
+
+void render() {
+    glm::vec2 cursor(mouseX, mouseY);
+    float _ = 0.0f;
+
+    renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+
+    if (tooltip.show) {
+        renderTooltip();
+    }
 }
 
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {

@@ -618,6 +618,7 @@ struct Tooltip {
 
 struct GlobalRenderInfo {
     bool redraw;
+    bool redrawUI;
     RenderInfo text;
     RenderInfo extraText;
     RenderInfo icon;
@@ -901,6 +902,7 @@ void recalculateLayout(UIElement * elem);
 void recalculateContentWidth();
 void recalculateCBCursor();
 void updateCBCursor(ContentTab* tab, SelectionData sd);
+void render();
 void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
 glm::vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
