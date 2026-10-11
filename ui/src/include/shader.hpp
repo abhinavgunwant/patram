@@ -39,9 +39,9 @@
 #define U_TEXT_HL_SCROLL_OFFSET_Y   27
 #define U_RECTANGLE_FADEIN_TIME     28
 
-#define COMMON_UNIFORMS_UBO_INDEX           0
-#define RECTANGLE_COLOR_INDEX_UBO_INDEX     1
-#define RECTANGLE_COLOR_INDEX_COUNT         8
+#define COMMON_UNIFORMS_UBO_INDEX   0
+#define COLORS_UBO_INDEX            1
+#define COLORS_UBO_COUNT            16
 
 using namespace std;
 

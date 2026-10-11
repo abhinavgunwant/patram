@@ -17,8 +17,9 @@ string vertexShaders[] = {
     // Default Shader
     "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "void main() {\n"
         "vec2 uv = aPos / resolution * 2;\n"
@@ -27,20 +28,22 @@ string vertexShaders[] = {
 
     // Text Shader
     "#version 460 core\n"
-    "layout (location = 0) in vec4 aPos;\n"
-    "layout (location = 1) in uint colorIndex;\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "layout (location = 1) in vec2 textureCoordinates;\n"
+    "layout (location = 2) in uint colorIndex;\n"
     "out vec2 TexCoords;\n"
     "out vec4 textColor;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
-    "layout (std140, binding = 1) uniform ColorsUniforms {\n"
-        "vec4 colors[8];\n"
+    "layout (std140, binding = 1) uniform Colors {\n"
+        "vec4 colors[16];\n"
     "};\n"
     "void main() {\n"
-        "vec2 uv = aPos.xy / resolution * 2;\n"
+        "vec2 uv = aPos / resolution * 2;\n"
         "gl_Position = vec4(uv.x - 1, 1 - uv.y, 0.0f, 1.0f);\n"
-        "TexCoords = aPos.zw;\n"
+        "TexCoords = textureCoordinates;\n"
         "textColor = colors[colorIndex];\n"
     "}\0",
 
@@ -48,8 +51,9 @@ string vertexShaders[] = {
     "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in vec2 aTexCoords;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "uniform vec2 topLeft;\n"
     "out vec2 TexCoords;\n"
@@ -62,8 +66,9 @@ string vertexShaders[] = {
     // CB Text Highlight
     "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "uniform float scrollOffsetY;\n"
     "void main() {\n"
@@ -75,11 +80,12 @@ string vertexShaders[] = {
     "#version 460 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "layout (location = 1) in uint colorIndex;\n"
-    "layout (std140, binding = 1) uniform ColorsUniforms {\n"
-        "vec4 colors[8];\n"
+    "layout (std140, binding = 1) uniform Colors {\n"
+        "vec4 colors[16];\n"
     "};\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "out vec4 color;"
     "void main() {\n"
@@ -119,8 +125,9 @@ string fragmentShaders[] = {
     "uniform float width;\n"
     "uniform float height;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "uniform vec2 cursor;\n"
     "uniform sampler2D iconTexture;\n"
@@ -183,8 +190,9 @@ string fragmentShaders[] = {
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "uniform vec2 dimensions;\n" // width, height
     "uniform vec2 cursor;\n"
@@ -263,8 +271,9 @@ string fragmentShaders[] = {
     "uniform vec4 hoverColor;\n"
     "uniform float borderRadius;\n"
     "uniform vec2 topLeft;\n"
-    "layout (std140, binding = 0) uniform CommonUniforms {\n"
+    "layout (std140, binding = 0) uniform Common {\n"
         "vec2 resolution;"
+        "bool dark;"
     "};\n"
     "uniform vec2 dimensions;\n" // width, height
     "uniform vec2 cursor;\n"
@@ -318,12 +327,22 @@ string fragmentShaders[] = {
     // Pulse Shader
     "#version 460 core\n"
     "out vec4 FragColor;\n"
-    "uniform vec4 color;\n"
+    "layout (std140, binding = 1) uniform Colors {\n"
+        "vec4 colors[16];\n"
+    "};\n"
+    "layout (std140, binding = 0) uniform Common {\n"
+        "vec2 resolution;"
+        "bool dark;"
+    "};\n"
     "uniform float time;\n"
     "void main() {\n"
-        // "FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);"
-        "FragColor = vec4(color.r, color.g, color.b, cos(time * 8) * color.a);\n"
-        // "FragColor = color;\n"
+        "vec4 color;\n"
+        "if (dark) {\n"
+            "color = colors[13];\n"
+        "} else {\n"
+            "color = colors[12];\n"
+        "}\n"
+        "FragColor = vec4(color.rgb, cos(time * 8) * color.a);\n"
     "}\0",
 
     // Rectangle Shader
@@ -331,7 +350,7 @@ string fragmentShaders[] = {
     "in vec4 color;\n"
     "out vec4 FragColor;\n"
     "void main() {\n"
-        "FragColor = vec4(color.rgb, color.a);\n"
+        "FragColor = color;\n"
     "}\0",
 
     // Image Shader
@@ -359,7 +378,7 @@ Shader shaders[] = {
     { 0, 2, 2 }, // SHADER_ICON_BUTTON
     { 0, 0, 3 }, // SHADER_BUTTON
     { 0, 0, 4 }, // SHADER_TEXT_INPUT
-    { 0, 0, 5 }, // SHADER_TEXT_CURSOR
+    { 0, 4, 5 }, // SHADER_TEXT_CURSOR
     { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
     { 0, 4, 6 }, // SHADER_RECTANGLE
     { 0, 1, 7 }, // SHADER_IMAGE
@@ -510,8 +529,8 @@ void initShaders() {
     uniforms[U_TEXT_HL_SCROLL_OFFSET_Y] = glGetUniformLocation(id, "scrollOffsetY");
 
     id = shaders[SHADER_RECTANGLE].programId;
-    uint32_t commonUniformsIndex = glGetUniformBlockIndex(id, "CommonUniforms");
-    uint32_t colorUniformsIndex = glGetUniformBlockIndex(id, "ColorsUniforms");
+    uint32_t commonUniformsIndex = glGetUniformBlockIndex(id, "Common");
+    uint32_t colorUniformsIndex = glGetUniformBlockIndex(id, "Colors");
 
     if (commonUniformsIndex == 0) {
         cout << "\nError: commonUniformsIndex = 0";
@@ -520,9 +539,6 @@ void initShaders() {
     if (colorUniformsIndex == 0) {
         cout << "\nError: colorUniformsIndex = 0";
     }
-
-    glUniformBlockBinding(id, commonUniformsIndex, COMMON_UNIFORMS_UBO_INDEX);
-    glUniformBlockBinding(id, colorUniformsIndex, RECTANGLE_COLOR_INDEX_UBO_INDEX);
 
     id = shaders[SHADER_RECTANGLE_FADEIN].programId;
     uniforms[U_RECTANGLE_FADEIN_TIME] = glGetUniformLocation(id, "time");

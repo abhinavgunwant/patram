@@ -2361,53 +2361,35 @@ void createFolderInActiveExplorerNode() {
 }
 
 void setupUBO() {
-    glm::vec4 rectangleColors[] = {
+    glm::vec4 colors[] = {
+        TRANSPARENT_COLOR,
         WHITE,
         BLACK,
+        OVERLAY_COLOR,
         CODE_COLOR,
         CODE_COLOR_DARK,
         LINK_COLOR,
         LINK_COLOR_DARK,
         LIGHT_TEXT_COLOR,
         LIGHT_TEXT_COLOR_DARK,
+        TOOL_BAR_BG,
+        TOOL_BAR_BG_DARK,
+        CURSOR_COLOR,
+        CURSOR_COLOR_DARK,
+        SELECT_COLOR,
+        SELECT_COLOR_DARK,
     };
 
-    float colors[32] = { 0 };
+    CommonUniforms c = { resolution, darkTheme };
 
-    for (uint32_t i=0; i<8; ++i) {
-        colors[i * 4] = rectangleColors[i].r;
-        colors[i * 4 + 1] = rectangleColors[i].g;
-        colors[i * 4 + 2] = rectangleColors[i].b;
-        colors[i * 4 + 3] = rectangleColors[i].a;
-
-        cout << "\n  Color: R: " << rectangleColors[i].r
-            << ", G: " << rectangleColors[i].g
-            << ", B: " << rectangleColors[i].b
-            << ", A: " << rectangleColors[i].a;
-    }
-
-    glGenBuffers(1, &rectangleColorIndexUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, rectangleColorIndexUBO);
+    glGenBuffers(1, &colorUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, colorUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-    // glBindBufferRange(
-    //     GL_UNIFORM_BUFFER,
-    //     RECTANGLE_COLOR_INDEX_UBO_INDEX,
-    //     rectangleColorIndexUBO,
-    //     0,
-    //     sizeof(colors)
-    // );
-    glBindBufferBase(GL_UNIFORM_BUFFER, RECTANGLE_COLOR_INDEX_UBO_INDEX, rectangleColorIndexUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, COLORS_UBO_INDEX, colorUBO);
 
     glGenBuffers(1, &commonUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2), glm::value_ptr(resolution), GL_STATIC_DRAW);
-    // glBindBufferRange(
-    //     GL_UNIFORM_BUFFER,
-    //     COMMON_UNIFORMS_UBO_INDEX,
-    //     commonUBO,
-    //     0,
-    //     sizeof(glm::vec2)
-    // );
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(c), &c, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, COMMON_UNIFORMS_UBO_INDEX, commonUBO);
 }
 
