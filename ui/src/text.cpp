@@ -231,7 +231,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
 
 inline bool getCharParams(
     Character& c,
-    glm::vec2& pos,
+    glm::vec2 pos,
     float& xpos,
     float& ypos,
     float& yNet,
@@ -367,126 +367,6 @@ inline void drawTextBuffers(
     glUniform1f(uniforms[U_TEXT_TIME], time);
 
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
-}
-
-RopeRenderResult renderContentRope(
-    Rope* rope,
-    uint32_t startIndex,
-    glm::vec2 pos,
-    uint32_t& cbTextVAO,
-    uint32_t& cbTextVBO,
-    uint32_t& bufferSize,
-    float parentWidth,
-    uint8_t fontSize,
-    uint32_t colorIndex,
-    bool redraw
-) {
-    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
-
-    float xpos = pos.x;
-    float ypos = 0.0f;
-    float yNet = pos.y;
-    float texX1 = 0.0f;
-    float texX2 = 0.0f;
-    float texY1 = 0.0f;
-    float texY2 = 0.0f;
-    float xpos_plus_w = 0.0f;
-    float ypos_plus_h = 0.0f;
-    float advance = 0.0f;
-
-    vector<TextVertex> vertices;
-
-    if (redraw) {
-        vertices.reserve(48000);
-    } else {
-        vertices.reserve(0);
-    }
-
-    uint32_t numVertices = 0;
-
-    RopeTraverser rt(rope);
-
-    uint32_t i = 0;
-
-    while (rt.hasNext()) {
-        Rope* r = rt.next();
-
-        if (!redraw) {
-            numVertices += r->text.length() * 24;
-        }
-
-        float glyphHeight, glyphWidth, bearingTop, bearingLeft;
-
-        for (const char c : r->text) {
-            if (i < startIndex) {
-                ++i;
-                continue;
-            }
-            #ifdef DEBUG_TEXT
-            if (debugTextFirstRenderPrint) {
-                cout << "\n--> Rendering character: '" << (char) c << "'";
-            }
-            #endif
-
-            if (!getCharParams(
-                characters[(int)c],
-                pos,
-                xpos,
-                ypos,
-                yNet,
-                xpos_plus_w,
-                ypos_plus_h,
-                result.height,
-                texX1,
-                texX2,
-                texY1,
-                texY2,
-                glyphHeight,
-                glyphWidth,
-                bearingTop,
-                bearingLeft,
-                advance,
-                contentRight,
-                result.rows,
-                fontSize,
-                result.renderNextContentBlock
-            )) {
-                break;
-            }
-
-            #ifdef DEBUG_TEXT
-            if (debugTextFirstRenderPrint) {
-                cout << "; x: " << xpos << " y: " << ypos << " x + w: "
-                    << xpos_plus_w << " y + h: " << ypos_plus_h
-                    << " bearingLeft: " << bearingLeft
-                    << " bearingTop: " << bearingTop
-                    << " widthRatio: " << widthRatio
-                    << " heightRatio: " << heightRatio;
-            }
-            #endif
-
-            if (redraw && c != ' ') {
-                vertices.insert(vertices.end(), {
-                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-                    TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
-                });
-            }
-
-            xpos += advance;
-        }
-    }
-
-    drawTextBuffers(cbTextVAO, cbTextVBO, bufferSize, numVertices, vertices, 1.0f, redraw);
-
-    result.width = pos.x;
-
-    ++result.rows;
-
-    return result;
 }
 
 RopeRenderResult renderTextCached(
@@ -793,6 +673,7 @@ RopeRenderResult appendTextVertices(
     float y,
     string text,
     uint32_t colorIndex,
+    uint8_t fontSize,
     vector<TextVertex>& vertices
 ) {
     float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
@@ -827,7 +708,7 @@ RopeRenderResult appendTextVertices(
             advance,
             infinity,
             rows,
-            16,
+            fontSize,
             renderNextContentBlock
         );
 

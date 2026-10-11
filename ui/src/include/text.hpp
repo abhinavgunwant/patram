@@ -115,7 +115,7 @@ struct TextRenderResult {
 
 inline bool getCharParams(
     Character& c,
-    glm::vec2& pos,
+    glm::vec2 pos,
     float& xpos,
     float& ypos,
     float& yNet,
@@ -147,20 +147,6 @@ inline void drawTextBuffers(
     float time = 1.0f,
     bool redraw = false,
     uint32_t texture = fontTextureID
-);
-
-RopeRenderResult renderContentRope(
-    Rope* rope,
-    uint32_t startIndex,
-    glm::vec2 pos,
-    glm::vec2& res,
-    uint32_t& textVAO,
-    uint32_t& textVBO,
-    uint32_t& bufferSize,
-    float parentWidth,
-    glm::fvec3 = glm::fvec3(1.0f, 1.0f, 1.0f),
-    uint8_t fontSize = 16,
-    bool redraw = true
 );
 
 RopeRenderResult renderTextCached(
@@ -202,6 +188,7 @@ RopeRenderResult appendTextVertices(
     float y,
     string text,
     uint32_t colorIndex,
+    uint8_t fontSize,
     vector<TextVertex>& vertices
 );
 

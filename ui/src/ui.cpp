@@ -1980,7 +1980,7 @@ inline void appendTextVerticesForExplorerNode(
         itr != nodes.end();
         ++itr, y += EXPLORER_ELEMENT_HEIGHT
     ) {
-        appendTextVertices(x, y, (*itr).name, darkTheme ? WHITE_INDEX : BLACK_INDEX, vertices);
+        appendTextVertices(x, y, (*itr).name, darkTheme ? WHITE_INDEX : BLACK_INDEX, 16, vertices);
         (*itr).top = y;
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
@@ -2053,7 +2053,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         x += TAB_HORIZONTAL_PADDING;
         x += appendTextVertices(
             x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING, tabtext, textIndex,
-            textVertices
+            16, textVertices
         ).width;
         x += TAB_HORIZONTAL_PADDING;
 
@@ -5654,6 +5654,7 @@ void showTooltip(
         tooltip.y + 2*TOOLTIP_PADDING,
         text,
         darkTheme ? WHITE_INDEX : BLACK_INDEX,
+        16,
         txt
     );
 
@@ -8443,7 +8444,8 @@ inline bool renderContentBlock(
 
                     appendTextVertices(
                         left, top, cb->rope->substring(0, md.startIndex),
-                        lightTextIndex, extraTextVertices
+                        lightTextIndex, getCBFontSize(cb->type),
+                        extraTextVertices
                     );
                 }
                 // TODO: Check for the maximum width of the number characters.
@@ -8532,6 +8534,7 @@ inline bool renderContentBlock(
                                 top,
                                 languageText,
                                 lightTextIndex,
+                                getCBFontSize(cb->type),
                                 extraTextVertices
                             );
                         }
@@ -8597,6 +8600,7 @@ inline bool renderContentBlock(
                             pos.y,
                             cb->rope->substring(md.fragments[0].imgOrLink.text),
                             colorIndex,
+                            getCBFontSize(cb->type),
                             textVertices
                         );
 
