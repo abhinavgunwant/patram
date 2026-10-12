@@ -1154,9 +1154,9 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         #ifdef DEBUG_LAYOUT
             cout << "\nRecalculating layout";
         #endif
+        REDRAW_UI();
 
         recalculateLayout(&ROOT_CONTAINER); // TODO: get rid of this!
-        REDRAW_UI();
     }
 
     highlightedContentBlock.show = false;
@@ -1173,6 +1173,7 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
 
     if (CONTENT_CONTAINER.show && !tabs.empty()) {
         grInfo.redraw = true;
+        recalculateContentWidth();
 
         ContentTab* tab = CURRENT_TAB;
 
@@ -1187,8 +1188,6 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         }
 
         tab->scrollbarUpdated = false;
-
-        TAB_BAR.reDraw = true;
 
         adjustTabOffset();
 
@@ -5964,7 +5963,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
-         0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
         commands, extCommands, content, vector<ContentBlockBounds>(), path
     });
 
@@ -9904,12 +9903,6 @@ bool processCBTypeCommand(
             cb->rows = 1;
         }
 
-        if (!tab->updated) {
-            TAB_BAR.reDraw = true;
-        }
-
-        tab->updated = true;
-
         if (
             newCmd && !tab->commands.empty()
             && tab->currentCommand == tab->commands.size() - 1
@@ -10436,11 +10429,10 @@ void processCBCommand(ContentCommand cmd) {
 
     if (append) {
         if (!tab->updated) {
-            TAB_BAR.reDraw = true;
+            REDRAW_UI();
         }
 
         tab->updated = true;
-        REDRAW_UI();
 
         if (tab->currentCommand < tab->commands.size() - 1) {
             auto cmdIter = tab->commands.end() - 1;
