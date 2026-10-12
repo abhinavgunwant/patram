@@ -85,7 +85,7 @@ bool initFonts(string fontPath, bool cache) {
             0.0f,
         };
 
-        Char cccc = { charcode, width, height, nullptr };
+        Char cccc = { static_cast<uint16_t>(charcode), width, height, nullptr };
 
         cccc.bitmap = new uint8_t[width * height];
 
