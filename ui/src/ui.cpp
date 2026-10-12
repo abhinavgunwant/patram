@@ -80,11 +80,13 @@
         glBindBuffer(GL_ARRAY_BUFFER, vbo);\
         glBufferData(GL_ARRAY_BUFFER, bufferSize, vertices, GL_DYNAMIC_DRAW);\
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), (void*)0);\
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectVertex), (void*) (2 * sizeof(float)));\
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectVertex), (void*) (2 * sizeof(float) + sizeof(uint32_t)));\
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(RectVertex), (void*)(2 * sizeof(float)));\
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectVertex), (void*) (6 * sizeof(float)));\
+        glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(RectVertex), (void*) (6 * sizeof(float) + sizeof(uint32_t)));\
         glEnableVertexAttribArray(0);\
         glEnableVertexAttribArray(1);\
         glEnableVertexAttribArray(2);\
+        glEnableVertexAttribArray(3);\
     } while (false)
 
 #define DRAW_RECT(vao, color) do {\
@@ -313,15 +315,15 @@ void showWindow() {
 
 void addRectangle(
     float x, float y, float w, float h,
-    uint32_t colorIndex, uint32_t borderRadius, vector<RectVertex>& rva
+    uint32_t colorIndex, float borderRadius, vector<RectVertex>& rva
 ) {
     rva.insert(rva.end(), {
-        { x,     y,     colorIndex, borderRadius },
-        { x + w, y,     colorIndex, borderRadius },
-        { x,     y + h, colorIndex, borderRadius },
-        { x,     y + h, colorIndex, borderRadius },
-        { x + w, y,     colorIndex, borderRadius },
-        { x + w, y + h, colorIndex, borderRadius },
+        { x,     y,     x, y, w, h, colorIndex, borderRadius },
+        { x + w, y,     x, y, w, h, colorIndex, borderRadius },
+        { x,     y + h, x, y, w, h, colorIndex, borderRadius },
+        { x,     y + h, x, y, w, h, colorIndex, borderRadius },
+        { x + w, y,     x, y, w, h, colorIndex, borderRadius },
+        { x + w, y + h, x, y, w, h, colorIndex, borderRadius },
     });
 }
 
@@ -5613,9 +5615,9 @@ void setTooltipDirection(
             tooltip.y = bby1 - TOOLTIP_ARROW_WIDTH - tooltip.height;
 
             if (showArrow) {
-                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
-                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
-                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
             }
             break;
 
@@ -5626,9 +5628,9 @@ void setTooltipDirection(
             tooltip.y = tooltip.arrowY - tooltip.height / 2;
 
             if (showArrow) {
-                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
-                arrow[1] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
-                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[1] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
             }
             break;
 
@@ -5639,9 +5641,9 @@ void setTooltipDirection(
             tooltip.y = bby2 + TOOLTIP_ARROW_WIDTH;
 
             if (showArrow) {
-                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
-                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
-                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[2] = { tooltip.arrowX + TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
             }
             break;
 
@@ -5652,9 +5654,9 @@ void setTooltipDirection(
             tooltip.y = tooltip.arrowY - tooltip.height / 2;
 
             if (showArrow) {
-                arrow[0] = { tooltip.arrowX, tooltip.arrowY, colorIndex, 3 };
-                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
-                arrow[2] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, colorIndex, 3 };
+                arrow[0] = { tooltip.arrowX, tooltip.arrowY, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[1] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY - TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
+                arrow[2] = { tooltip.arrowX - TOOLTIP_ARROW_WIDTH, tooltip.arrowY + TOOLTIP_ARROW_WIDTH, 0, 0, 0, 0, colorIndex, 0 };
             }
             break;
     }
@@ -5707,12 +5709,12 @@ void showTooltip(
         setTooltipDirection(bbx1, bby1, bbx2, bby2, showArrow, box, colorIndex, direction);
     }
 
-    box[3] = { tooltip.x,                 tooltip.y,                  colorIndex, 3 };
-    box[4] = { tooltip.x + tooltip.width, tooltip.y,                  colorIndex, 3 };
-    box[5] = { tooltip.x,                 tooltip.y + tooltip.height, colorIndex, 3 };
-    box[6] = { tooltip.x,                 tooltip.y + tooltip.height, colorIndex, 3 };
-    box[7] = { tooltip.x + tooltip.width, tooltip.y,                  colorIndex, 3 };
-    box[8] = { tooltip.x + tooltip.width, tooltip.y + tooltip.height, colorIndex, 3 };
+    box[3] = { tooltip.x,                 tooltip.y,                  tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
+    box[4] = { tooltip.x + tooltip.width, tooltip.y,                  tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
+    box[5] = { tooltip.x,                 tooltip.y + tooltip.height, tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
+    box[6] = { tooltip.x,                 tooltip.y + tooltip.height, tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
+    box[7] = { tooltip.x + tooltip.width, tooltip.y,                  tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
+    box[8] = { tooltip.x + tooltip.width, tooltip.y + tooltip.height, tooltip.x, tooltip.y, tooltip.width, tooltip.height, colorIndex, 3 };
 
     appendTextVertices(
         tooltip.x + TOOLTIP_PADDING,
@@ -6928,10 +6930,10 @@ void updateTextCursor(Cursor& c, float x, float y, float height) {
     uint32_t colorIndex = darkTheme ? CURSOR_COLOR_DARK_INDEX : CURSOR_COLOR_INDEX;
 
     RectVertex vertices[4] = {
-        x - 1, y,          colorIndex, 0,
-        x + 1, y,          colorIndex, 0,
-        x - 1, y + height, colorIndex, 0,
-        x + 1, y + height, colorIndex, 0,
+        x - 1, y,          0, 0, 0, 0, colorIndex, 0,
+        x + 1, y,          0, 0, 0, 0, colorIndex, 0,
+        x - 1, y + height, 0, 0, 0, 0, colorIndex, 0,
+        x + 1, y + height, 0, 0, 0, 0, colorIndex, 0,
     };
 
     glBindVertexArray(c.vao);
@@ -7047,7 +7049,7 @@ void renderElement(
                                 TOOL_BAR_BG_DARK_INDEX
                                 :
                                 TOOL_BAR_BG_INDEX,
-                            0,
+                            static_cast<float>(elem.borderRadius),
                             uiRectLayer1
                         );
                     }
@@ -7061,10 +7063,7 @@ void renderElement(
                     } else if (elem.id == DIALOG_OVERLAY_ID) {
                         if (grInfo.redrawUI) {
                             addRectangle(
-                                0,
-                                0,
-                                windowWidth,
-                                windowHeight,
+                                0, 0, windowWidth, windowHeight,
                                 OVERLAY_INDEX,
                                 0,
                                 uiRectLayer1
@@ -7530,7 +7529,7 @@ void renderElement(
                     elem.width,
                     elem.height,
                     colorIndex,
-                    elem.borderRadius,
+                    static_cast<float>(elem.borderRadius),
                     elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
                 );
             } else {
@@ -7868,7 +7867,7 @@ void renderElement(
                     elem.width,
                     elem.height,
                     darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX,
-                    elem.borderRadius,
+                    static_cast<float>(elem.borderRadius),
                     elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
                 );
             }
@@ -11631,6 +11630,7 @@ vector<UIElement*> initBasicDialog(
     elems[0].text = "OVERLAY";
     elems[0].preferences->widthPreference = UISizePreference::Full;
     elems[0].preferences->heightPreference = UISizePreference::Full;
+    elems[0].borderRadius = 0;
 
     elems[1].id = DIALOG_CONTAINER_ID;
     elems[1].layer = 1;
@@ -11831,6 +11831,7 @@ void printRectVertex(vector<RectVertex> rv) {
         }
 
         cout << "\n    RectVertex { x: " << j->x << ", y: " << j->y
+            << ", w: " << j->w << ", h: " << j->h
             << ", colorIndex: " << j->colorIndex << ", borderRadius: "
             << j->borderRadius << " }";
     }

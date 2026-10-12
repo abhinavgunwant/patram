@@ -303,8 +303,12 @@ struct CommonUniforms {
 struct RectVertex {
     float x;
     float y;
+    float tlX;
+    float tlY;
+    float w;
+    float h;
     uint32_t colorIndex;
-    uint32_t borderRadius;
+    float borderRadius;
 };
 
 struct TextVertex {
