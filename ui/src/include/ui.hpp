@@ -88,6 +88,7 @@
 #define LIGHT_TEXT_COLOR            glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
 #define CODE_COLOR                  glm::vec4(0.9f, 0.9f, 0.9f, 1.0)
 #define LINK_COLOR                  glm::vec4(0.06f, 0.0f, 0.88f, 1.0f)
+#define SCROLL_AREA_BG              glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
 
 //// Dark theme colors
 #define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
@@ -120,6 +121,7 @@
 #define LIGHT_TEXT_COLOR_DARK       glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
 #define CODE_COLOR_DARK             glm::vec4(0.1f, 0.1f, 0.1f, 1.0)
 #define LINK_COLOR_DARK             glm::vec4(0.18f, 0.44f, 0.98f, 1.0f)
+#define SCROLL_AREA_BG_DARK         glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 
 #define TRANSPARENT_INDEX               0
 #define WHITE_INDEX                     1
@@ -147,6 +149,10 @@
 #define EXPLORER_HOVER_BG_DARK_INDEX    23
 #define EXPLORER_LINE_COLOR_INDEX       24
 #define EXPLORER_LINE_COLOR_DARK_INDEX  25
+#define EXPLORER_BG_INDEX               26
+#define EXPLORER_BG_DARK_INDEX          27
+#define SCROLL_AREA_BG_INDEX            28
+#define SCROLL_AREA_BG_DARK_INDEX       29
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -557,14 +563,6 @@ struct UIElement {
     uint32_t totalChildren;
     uint32_t capacity;
     UIElement** children;
-
-    uint32_t vao;
-    uint32_t vbo;
-
-    uint32_t textVAO;
-    uint32_t textVBO;
-    uint32_t textBufferSize;
-    uint32_t textVerticesCount;
 
     Icon icon;
 

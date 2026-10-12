@@ -551,11 +551,6 @@ void onCreateANewVaultClicked() {
     initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
 
-    SETUP_BUFFERS(vaultNameInput->vao, vaultNameInput->vbo, vertices);
-    SETUP_BUFFERS(vaultPasswordInput->vao, vaultPasswordInput->vbo, vertices);
-    SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
-    SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
-
     for (int i=8; i<16; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
         elements[i].preferences->widthPreference = UISizePreference::Grow;
@@ -621,11 +616,8 @@ void onSwitchVaultClicked() {
 
     vector<string> vaults = getVaults();
 
-    SETUP_BUFFERS(switchVault->vao, switchVault->vbo, vertices);
-    SETUP_BUFFERS(vaultList->vao, vaultList->vbo, vertices);
     SETUP_BUFFERS(vaultList->scrollData->verticalScrollBarVAO, vaultList->scrollData->verticalScrollBarVBO, vertices);
     SETUP_BUFFERS(vaultList->scrollData->verticalScrollThumbVAO, vaultList->scrollData->verticalScrollThumbVBO, vertices);
-    SETUP_BUFFERS(backButton->vao, backButton->vbo, vertices);
 
     for (int i=8; i<12; ++i) {
         elements[i].positioning = UIPositioning::Relative_sibling;
@@ -642,7 +634,6 @@ void onSwitchVaultClicked() {
         UIElement* vaultElem = new UIElement;
         initElement(*vaultElem, UIElementType::Button, 0.0f, 0.0f, 0.0f, 35.0f);
 
-        SETUP_BUFFERS(vaultElem->vao, vaultElem->vbo, vertices);
         vaultElem->positioning = UIPositioning::Relative_sibling;
         vaultElem->preferences->widthPreference = UISizePreference::Full;
         vaultElem->preferences->horizontalAlign = UIAlignment::Start;
@@ -1847,11 +1838,6 @@ void setupWelcomeScreen() {
         initElement(*line3, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
         initElement(*line4, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
         initElement(*line5, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-
-        SETUP_BUFFERS(line2->vao, line2->vbo, vertices);
-        SETUP_BUFFERS(line3->vao, line3->vbo, vertices);
-        SETUP_BUFFERS(line4->vao, line4->vbo, vertices);
-        SETUP_BUFFERS(line5->vao, line5->vbo, vertices);
     } else {
         initElement(*line2, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
         initElement(*line3, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -1861,9 +1847,6 @@ void setupWelcomeScreen() {
 
     initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
     initElement(*switchVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-
-    SETUP_BUFFERS(createVaultButton->vao, createVaultButton->vbo, vertices);
-    SETUP_BUFFERS(switchVaultButton->vao, switchVaultButton->vbo, vertices);
 
     for (uint32_t i=8; i<17; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
@@ -1927,28 +1910,6 @@ void setupWelcomeScreen() {
 
 void destroyWelcomeScreen() {
     for (int i=8; i<17; ++i) {
-        if (elements[i].vao != 0) {
-            glDeleteVertexArrays(1, &elements[i].vao);
-            elements[i].vao = 0;
-        }
-
-        if (elements[i].vbo != 0) {
-            glDeleteBuffers(1, &elements[i].vbo);
-            elements[i].vbo = 0;
-        }
-
-        if (elements[i].textVAO != 0) {
-            glDeleteVertexArrays(1, &elements[i].textVAO);
-            elements[i].textVAO = 0;
-        }
-
-        if (elements[i].textVBO != 0) {
-            glDeleteBuffers(1, &elements[i].textVBO);
-            elements[i].textVBO = 0;
-            elements[i].textBufferSize = 0;
-            elements[i].textVerticesCount = 0;
-        }
-
         if (elements[i].preferences != nullptr) {
             delete elements[i].preferences;
             elements[i].preferences = nullptr;
@@ -2093,20 +2054,10 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         initElement(buttons[0], UIElementType::IconButton, 0.0f, windowWidth - 2 * TAB_BAR_HEIGHT, TAB_BAR_HEIGHT, TAB_BAR_HEIGHT);
         initElement(buttons[1], UIElementType::IconButton, 0.0f, windowWidth - TAB_BAR_HEIGHT, TAB_BAR_HEIGHT, TAB_BAR_HEIGHT);
 
-        SETUP_BUFFERS_DYNAMIC(buttons[0].vao, buttons[0].vbo, vertices);
-        SETUP_BUFFERS_TEXT(buttons[0].textVAO, buttons[0].textVBO, textVertices);
-        SETUP_BUFFERS_DYNAMIC(buttons[1].vao, buttons[1].vbo, vertices);
-        SETUP_BUFFERS_TEXT(buttons[1].textVAO, buttons[1].textVBO, textVertices);
-
         buttons[0].icon = Icon::ChevronLeft;
         buttons[1].icon = Icon::ChevronRight;
         buttons[0].id = static_cast<uint8_t>(TAB_BAR_PREV_TAB_ID);
         buttons[1].id = static_cast<uint8_t>(TAB_BAR_NEXT_TAB_ID);
-
-        buttons[0].textBufferSize = 6 * sizeof(TextVertex);
-        buttons[1].textBufferSize = 6 * sizeof(TextVertex);
-        buttons[0].textVerticesCount = 6;
-        buttons[1].textVerticesCount = 6;
 
         initializeCapacity(&TAB_BAR, 2);
         addChild(&TAB_BAR, &buttons[0]);
@@ -2377,6 +2328,10 @@ void setupUBO() {
         EXPLORER_HOVER_BG_DARK,
         EXPLORER_LINE_COLOR,
         EXPLORER_LINE_COLOR_DARK,
+        EXPLORER_BG,
+        EXPLORER_BG_DARK,
+        SCROLL_AREA_BG,
+        SCROLL_AREA_BG_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -2469,10 +2424,6 @@ void setupUI(bool isDarkTheme) {
     TAB_BAR.show = false;
     CONTENT_CONTAINER.show = false;
     FLOATING_CONTAINER.show = false;
-
-    SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
-    SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
-    SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
     SETUP_BUFFERS_TEXT(grInfo.icon.vao, grInfo.icon.vbo, textVertices_100);
     grInfo.icon.numVertices = 600;
@@ -5858,14 +5809,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
         0,
         nullptr,
 
-        0,
-        0,
-
-        0,
-        0,
-        0,
-        0,
-
         Icon::None,
 
         fontSize,
@@ -7556,9 +7499,6 @@ void renderElement(
         }
 
         case UIElementType::ScrollArea: {
-            // TODO: Render the rectangle with background colors. If borders
-            // are set, then render borders.
-
             if (elem.totalChildren) {
                 float top = elem.top;
                 float left = elem.left;
@@ -7599,20 +7539,6 @@ void renderElement(
                     } else {
                         elem.left = left;
                     }
-                }
-
-                if (elem.reDraw) {
-                    glBindVertexArray(elem.vao);
-                    glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-
-                    float vertices[8] = {
-                        left,              top,
-                        left + elem.width, top,
-                        left + elem.width, top + elem.height,
-                        left,              top + elem.height,
-                    };
-
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
                 }
 
                 if (elem.scrollData->showVerticalScrollbar) {
@@ -7668,13 +7594,16 @@ void renderElement(
 
                 renderScrollbars(&elem);
 
-                glBindVertexArray(elem.vao);
-                glUseProgram(shaders[SHADER_DEFAULT].programId);
-                glUniform4f(uniforms[U_DEFAULT_COLOR], 0.4f, 0.4f, 0.4f, 1.0f);
-                glDrawArrays(GL_LINE_LOOP, 0, 4);
-
                 if (elem.positioning == UIPositioning::Relative_sibling) {
                     yPrev = top + elem.height;
+                }
+
+                if (grInfo.redrawUI) {
+                    addRectangle(
+                        elem.left, elem.top, elem.width, elem.height,
+                        darkTheme ? SCROLL_AREA_BG_DARK_INDEX : SCROLL_AREA_BG_INDEX,
+                        4.0f, uiRectLayer0
+                    );
                 }
             }
             break;
@@ -7689,30 +7618,7 @@ void renderElement(
                 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
             }
 
-            if (elem.reDraw) {
-                vector<float> elemVertices;
-                elemVertices.reserve(16);
-
-                elemVertices.insert(elemVertices.end(), {
-                    elem.left,              elem.top,
-                    elem.left + elem.width, elem.top,
-                    elem.left,              elem.top + elem.height,
-                    elem.left + elem.width, elem.top + elem.height,
-                });
-
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vao);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, elemVertices.size() * sizeof(float), &elemVertices[0]);
-
-                glUseProgram(shaders[SHADER_BUTTON].programId);
-                glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
-                glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
-                glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
-                glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
-                glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], 16.0f);
-                glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
+            if (grInfo.redrawUI) {
                 Character c;
 
                 vector<TextVertex> vertices;
@@ -7737,39 +7643,7 @@ void renderElement(
 
                 PUSH_ICON_VERTICES(vertices, c, left, top, width, height, colorIndex);
 
-                drawTextBuffers(
-                    elem.textVAO,
-                    elem.textVBO,
-                    elem.textBufferSize,
-                    elem.textVerticesCount,
-                    vertices,
-                    1.0f,
-                    true,
-                    iconTextureID
-                );
-            } else {
-                vector<TextVertex> _v;
-
-                glBindVertexArray(elem.vao);
-                glUseProgram(shaders[SHADER_BUTTON].programId);
-                glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
-                glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
-                glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
-                glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
-                glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], 16.0f);
-                glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                drawTextBuffers(
-                    elem.textVAO,
-                    elem.textVBO,
-                    elem.textBufferSize,
-                    elem.textVerticesCount,
-                    _v,
-                    1.0f,
-                    false,
-                    iconTextureID
-                );
+                // TODO: draw
             }
 
             elem.reDraw = false;
@@ -8201,25 +8075,15 @@ void renderElement(
                 break;
             }
 
-            glBindVertexArray(elem.vao);
-
-            if (elem.reDraw) {
+            if (grInfo.redrawUI) {
                 updateElementDimensionsAccordingToPreferences(&elem);
 
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-
-                float vertices[] = {
-                    elem.left, elem.top,
-                    elem.left, elem.top + elem.height,
-                    elem.left + elem.width, elem.top,
-                    elem.left + elem.width, elem.top + elem.height,
-                };
-
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                addRectangle(
+                    elem.left, elem.top, elem.width, elem.height,
+                    darkTheme ? EXPLORER_BG_DARK_INDEX : EXPLORER_BG_INDEX,
+                    0, uiRectLayer0
+                );
             }
-
-            glm::vec4 bg = darkTheme ? EXPLORER_BG_DARK : EXPLORER_BG;
-            DRAW_RECT(elem.vao, bg);
 
             glScissor(0, 0, elem.width, elem.height);
             glEnable(GL_SCISSOR_TEST);
@@ -11367,11 +11231,6 @@ void initFloatingUI() {
 }
 
 void deleteElementBuffersAndStrings(UIElement* elem) {
-    if (elem->vao != 0) {
-        glDeleteVertexArrays(1, &elem->vao);
-        glDeleteBuffers(1, &elem->vbo);
-    }
-
     elem->text.~string();
 
     if (elem->totalChildren) {
@@ -11495,7 +11354,6 @@ vector<UIElement*> initBasicDialog(
     float vertices[8] = { 0 };
 
     for (int i=0; i<8; ++i) {
-        SETUP_BUFFERS(elems[i].vao, elems[i].vbo, vertices);
         elems[i].positioning = UIPositioning::Absolute;
 
         if (elems[i].preferences != nullptr) {
