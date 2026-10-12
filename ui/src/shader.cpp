@@ -100,7 +100,6 @@ string vertexShaders[] = {
         "rad = borderRadius;\n"
         "topLeft = dim.xy;\n"
         "dimensions = dim.zw;\n"
-        "corner = pos;\n"
     "}\0",
 };
 
