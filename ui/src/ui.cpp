@@ -2085,34 +2085,10 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
 
         tab.width = static_cast<uint16_t>(x - prevX);
 
-        if (i == activeTabIndex) {
-            float vertices[8] = {
-                static_cast<float>(tab.xOffset) - tabsDisplay.xOffset, 0.0f,
-                static_cast<float>(tab.xOffset) - tabsDisplay.xOffset, TAB_BAR_HEIGHT,
-                static_cast<float>(tab.xOffset + tab.width) - tabsDisplay.xOffset, 0.0f,
-                static_cast<float>(tab.xOffset + tab.width) - tabsDisplay.xOffset, TAB_BAR_HEIGHT,
-            };
-
-            glBindVertexArray(tabsDisplay.activeBgVao);
-            glBindBuffer(GL_ARRAY_BUFFER, tabsDisplay.activeBgVbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        }
-
         ++i;
     }
 
     tabsDisplay.totalX = x;
-
-    float vertices[8] = {
-        TAB_BAR.left, 0,
-        TAB_BAR.left, TAB_BAR_HEIGHT,
-        static_cast<float>(windowWidth), 0,
-        static_cast<float>(windowWidth), TAB_BAR_HEIGHT
-    };
-
-    glBindVertexArray(TAB_BAR.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, TAB_BAR.vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 
     if (x > windowWidth - 2 * TAB_BAR_HEIGHT && TAB_BAR.totalChildren == 0) {
         float vertices[8] = { 0 };
@@ -2401,6 +2377,8 @@ void setupUBO() {
         TEXT_INPUT_BG_DARK,
         TEXT_INPUT_HOVER_BG,
         TEXT_INPUT_HOVER_BG_DARK,
+        ROOT_BG,
+        ROOT_BG_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -2496,7 +2474,6 @@ void setupUI(bool isDarkTheme) {
 
     SETUP_BUFFERS(ROOT_CONTAINER.vao, ROOT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
-    SETUP_BUFFERS(TAB_BAR.vao, TAB_BAR.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
     SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, textVertices_100);
@@ -2571,7 +2548,6 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_DYNAMIC(explorer.activeBgVao, explorer.activeBgVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.verticalScrollVao, explorer.verticalScrollVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.horizontalScrollVao, explorer.horizontalScrollVao, vertices);
-    SETUP_BUFFERS_DYNAMIC(tabsDisplay.activeBgVao, tabsDisplay.activeBgVbo, vertices);
 
     // TODO: when restoring previous session reserve the previous tabs
 
@@ -5118,7 +5094,7 @@ void saveFile() {
     fout.close();
 
     tab->updated = false;
-    TAB_BAR.reDraw = true;
+    REDRAW_UI();
 }
 
 void newNote(filesystem::path p) {
@@ -5147,6 +5123,7 @@ void newNote(filesystem::path p) {
         0.0f, 0.0f, 0.0f, 1, 0, new Rope()
     });
     tab->updated = true;
+    REDRAW_UI();
 
     TAB_BAR.show = true;
     CONTENT_CONTAINER.show = true;
@@ -6076,6 +6053,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
     }
     activeElement = &CONTENT_CONTAINER;
     CONTENT_CONTAINER.active = true;
+    REDRAW_UI();
 }
 
 void closeCurrentTab() {
@@ -8140,33 +8118,30 @@ void renderElement(
         case UIElementType::TabBar: {
             if (tabs.empty()) { return; }
 
-            glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
-            DRAW_RECT(elem.vao, bg);
-
-            bg = darkTheme ? ROOT_BG_DARK : ROOT_BG;
-            DRAW_RECT(tabsDisplay.activeBgVao, bg);
-
             glScissor(elem.left, 0, windowWidth, windowHeight);
 
             glEnable(GL_SCISSOR_TEST);
 
-            if (elem.reDraw) {
-                vector<TextVertex> textVertices;
+            if (grInfo.redrawUI) {
                 vector<TextVertex> xVertices;
-
-                textVertices.reserve(960);
                 xVertices.reserve(60);
 
-                setupTabs(textVertices, xVertices);
+                addRectangle(
+                    elem.left, elem.top, elem.width, elem.height,
+                    darkTheme ? TOOL_BAR_BG_DARK_INDEX : TOOL_BAR_BG_INDEX,
+                    0, uiRectLayer0
+                );
 
-                drawTextBuffers(
-                    elem.textVAO,
-                    elem.textVBO,
-                    elem.textBufferSize, 
-                    elem.textVerticesCount,
-                    textVertices,
-                    1.0f,
-                    true
+                setupTabs(uiTextLayer0, xVertices);
+
+                addRectangle(
+                    static_cast<float>(tabs[activeTabIndex].xOffset) - tabsDisplay.xOffset,
+                    0.0f,
+                    static_cast<float>(tabs[activeTabIndex].width),
+                    TAB_BAR_HEIGHT,
+                    darkTheme ? ROOT_BG_DARK_INDEX : ROOT_BG_INDEX,
+                    0,
+                    uiRectLayer0
                 );
 
                 drawTextBuffers(
@@ -8181,16 +8156,6 @@ void renderElement(
                 );
             } else {
                 vector<TextVertex> _;
-
-                drawTextBuffers(
-                    elem.textVAO,
-                    elem.textVBO,
-                    elem.textBufferSize, 
-                    elem.textVerticesCount,
-                    _,
-                    1.0f,
-                    false
-                );
 
                 drawTextBuffers(
                     tabsDisplay.xVao,
@@ -10690,6 +10655,7 @@ void processCBCommand(ContentCommand cmd) {
         }
 
         tab->updated = true;
+        REDRAW_UI();
 
         if (tab->currentCommand < tab->commands.size() - 1) {
             auto cmdIter = tab->commands.end() - 1;

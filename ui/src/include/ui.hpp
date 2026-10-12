@@ -141,6 +141,8 @@
 #define TEXT_INPUT_BG_DARK_INDEX        17
 #define TEXT_INPUT_HOVER_BG_INDEX       18
 #define TEXT_INPUT_HOVER_BG_DARK_INDEX  19
+#define ROOT_BG_INDEX                   20
+#define ROOT_BG_DARK_INDEX              21
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -331,7 +333,7 @@ void windowFocusCallback(GLFWwindow *window, int focused);
 
 void showWindow();
 void toggleFullscreen();
-void setupTabs(vector<float>& textVertices, vector<float>& xVertices);
+void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices);
 void setupExplorer(vector<float>& vertices, vector<float>& iVertices);
 void renameActiveExplorerNode();
 void deleteActiveExplorerNode();
