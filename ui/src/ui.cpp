@@ -2106,8 +2106,8 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
 
         buttons[0].icon = Icon::ChevronLeft;
         buttons[1].icon = Icon::ChevronRight;
-        buttons[0].id = TAB_BAR_PREV_TAB_ID;
-        buttons[1].id = TAB_BAR_NEXT_TAB_ID;
+        buttons[0].id = static_cast<uint8_t>(TAB_BAR_PREV_TAB_ID);
+        buttons[1].id = static_cast<uint8_t>(TAB_BAR_NEXT_TAB_ID);
 
         buttons[0].textBufferSize = 6 * sizeof(TextVertex);
         buttons[1].textBufferSize = 6 * sizeof(TextVertex);
