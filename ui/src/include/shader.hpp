@@ -58,14 +58,8 @@ enum Shaders {
     SHADER_RECTANGLE_FADEIN,
 };
 
-struct Shader {
-    uint32_t programId;
-    uint8_t vsIndex;
-    uint8_t fsIndex;
-};
-
 extern uint32_t uniforms[TOTAL_UNIFORMS];
-extern Shader shaders[TOTAL_SHADERS];
+extern uint32_t shaders[TOTAL_SHADERS];
 
 void initShaders();
 

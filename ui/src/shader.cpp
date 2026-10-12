@@ -429,18 +429,7 @@ string fragmentShaders[] = {
     "}\0",
 };
 
-Shader shaders[] = {
-    { 0, 0, 0 }, // SHADER_DEFAULT
-    { 0, 1, 1 }, // SHADER_TEXT
-    { 0, 2, 2 }, // SHADER_ICON_BUTTON
-    { 0, 0, 3 }, // SHADER_BUTTON
-    { 0, 0, 4 }, // SHADER_TEXT_INPUT
-    { 0, 4, 5 }, // SHADER_TEXT_CURSOR
-    { 0, 3, 0 }, // SHADER_CB_TEXT_HIGHLIGHT
-    { 0, 4, 6 }, // SHADER_RECTANGLE
-    { 0, 1, 7 }, // SHADER_IMAGE
-    { 0, 4, 8 }, // SHADER_RECTANGLE_FADEIN
-};
+uint32_t shaders[] = { 0 };
 
 uint32_t compile(uint8_t index, uint8_t vs, uint8_t fs) {
     #ifdef DEBUG_SHADER
@@ -532,9 +521,16 @@ void initShaders() {
         auto t0 = chrono::high_resolution_clock::now();
     #endif
 
-    for (uint8_t i=0; i<TOTAL_SHADERS; ++i) {
-        shaders[i].programId = compile(i, shaders[i].vsIndex, shaders[i].fsIndex);
-    }
+    shaders[0] = compile(0, 0, 0); // SHADER_DEFAULT
+    shaders[1] = compile(1, 1, 1); // SHADER_TEXT
+    shaders[2] = compile(2, 2, 2); // SHADER_ICON_BUTTON
+    shaders[3] = compile(3, 0, 3); // SHADER_BUTTON
+    shaders[4] = compile(4, 0, 4); // SHADER_TEXT_INPUT
+    shaders[5] = compile(5, 4, 5); // SHADER_TEXT_CURSOR
+    shaders[6] = compile(6, 3, 0); // SHADER_CB_TEXT_HIGHLIGHT
+    shaders[7] = compile(7, 4, 6); // SHADER_RECTANGLE
+    shaders[8] = compile(8, 1, 7); // SHADER_IMAGE
+    shaders[9] = compile(9, 4, 8); // SHADER_RECTANGLE_FADEIN
 
     #ifdef DEBUG_SHADER
         auto now = chrono::high_resolution_clock::now();
@@ -543,14 +539,14 @@ void initShaders() {
         cout << "\nDEBUG: took " << duration << " to compile all shaders.";
     #endif
 
-    uint32_t id = shaders[SHADER_DEFAULT].programId;
+    uint32_t id = shaders[SHADER_DEFAULT];
     uniforms[U_DEFAULT_COLOR] = glGetUniformLocation(id, "solidColor");
 
-    id = shaders[SHADER_TEXT].programId;
+    id = shaders[SHADER_TEXT];
     uniforms[U_TEXT_COLOR] = glGetUniformLocation(id, "textColor");
     uniforms[U_TEXT_TIME] = glGetUniformLocation(id, "time");
 
-    id = shaders[SHADER_ICON_BUTTON].programId;
+    id = shaders[SHADER_ICON_BUTTON];
     uniforms[U_ICON_BUTTON_COLOR] = glGetUniformLocation(id, "solidColor");
     uniforms[U_ICON_BUTTON_TOP_LEFT] = glGetUniformLocation(id, "topLeft");
     uniforms[U_ICON_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
@@ -560,7 +556,7 @@ void initShaders() {
     uniforms[U_ICON_BUTTON_CURSOR] = glGetUniformLocation(id, "cursor");
     uniforms[U_ICON_BUTTON_TEXTURE] = glGetUniformLocation(id, "iconTexture");
 
-    id = shaders[SHADER_BUTTON].programId;
+    id = shaders[SHADER_BUTTON];
     uniforms[U_BUTTON_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
     uniforms[U_BUTTON_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
     uniforms[U_BUTTON_BORDER_RADIUS] = glGetUniformLocation(id, "borderRadius");
@@ -568,7 +564,7 @@ void initShaders() {
     uniforms[U_BUTTON_DIMENSIONS] = glGetUniformLocation(id, "dimensions");
     uniforms[U_BUTTON_CURSOR] = glGetUniformLocation(id, "cursor");
 
-    id = shaders[SHADER_TEXT_INPUT].programId;
+    id = shaders[SHADER_TEXT_INPUT];
     uniforms[U_TEXT_INPUT_COLOR] = glGetUniformLocation(id, "color");
     uniforms[U_TEXT_INPUT_BG_COLOR] = glGetUniformLocation(id, "backgroundColor");
     uniforms[U_TEXT_INPUT_HOV_COLOR] = glGetUniformLocation(id, "hoverColor");
@@ -577,15 +573,15 @@ void initShaders() {
     uniforms[U_TEXT_INPUT_DIMENSIONS] = glGetUniformLocation(id, "dimensions");
     uniforms[U_TEXT_INPUT_CURSOR] = glGetUniformLocation(id, "cursor");
 
-    id = shaders[SHADER_TEXT_CURSOR].programId;
+    id = shaders[SHADER_TEXT_CURSOR];
     uniforms[U_TEXT_CURSOR_COLOR] = glGetUniformLocation(id, "color");
     uniforms[U_TEXT_CURSOR_TIME] = glGetUniformLocation(id, "time");
 
-    id = shaders[SHADER_CB_TEXT_HIGHLIGHT].programId;
+    id = shaders[SHADER_CB_TEXT_HIGHLIGHT];
     uniforms[U_TEXT_HL_COLOR] = glGetUniformLocation(id, "solidColor");
     uniforms[U_TEXT_HL_SCROLL_OFFSET_Y] = glGetUniformLocation(id, "scrollOffsetY");
 
-    id = shaders[SHADER_RECTANGLE].programId;
+    id = shaders[SHADER_RECTANGLE];
     uint32_t commonUniformsIndex = glGetUniformBlockIndex(id, "Common");
     uint32_t colorUniformsIndex = glGetUniformBlockIndex(id, "Colors");
 
@@ -597,7 +593,7 @@ void initShaders() {
         cout << "\nError: colorUniformsIndex = 0";
     }
 
-    id = shaders[SHADER_RECTANGLE_FADEIN].programId;
+    id = shaders[SHADER_RECTANGLE_FADEIN];
     uniforms[U_RECTANGLE_FADEIN_TIME] = glGetUniformLocation(id, "time");
 }
 

@@ -55,7 +55,7 @@ extern bool debugTextFirstRenderPrint;
         glBindVertexArray(vao);\
         glActiveTexture(GL_TEXTURE0);\
         glBindTexture(GL_TEXTURE_2D, iconTextureID);\
-        glUseProgram(shaders[SHADER_TEXT].programId);\
+        glUseProgram(shaders[SHADER_TEXT]);\
         glDrawArrays(GL_TRIANGLES, 0, numVertices);\
     } while(false)
 

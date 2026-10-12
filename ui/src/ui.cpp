@@ -91,7 +91,7 @@
 
 #define DRAW_RECT(vao, color) do {\
         glBindVertexArray(vao);\
-        glUseProgram(shaders[SHADER_DEFAULT].programId);\
+        glUseProgram(shaders[SHADER_DEFAULT]);\
         glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, color.a);\
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);\
     } while (false)
@@ -374,7 +374,7 @@ inline void drawRectangles(RenderInfo& ri, vector<RectVertex>& rva, bool redraw)
         }
     }
 
-    glUseProgram(shaders[SHADER_RECTANGLE].programId);
+    glUseProgram(shaders[SHADER_RECTANGLE]);
     // glUniform1f(uniforms[U_RECTANGLE_FADEIN_TIME], 1.0f);
 
     glDrawArrays(GL_TRIANGLES, 0, ri.numVertices);
@@ -5692,7 +5692,7 @@ void renderTooltip() {
         }
     }
 
-    glUseProgram(shaders[SHADER_RECTANGLE_FADEIN].programId);
+    glUseProgram(shaders[SHADER_RECTANGLE_FADEIN]);
 
     float timeDiff = time - tooltip.time;
 
@@ -6900,14 +6900,14 @@ void updateTextSelection(Cursor& c, vector<RectVertex> vertices) {
 
 void renderTextCursor(Cursor& c) {
     glBindVertexArray(c.vao);
-    glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+    glUseProgram(shaders[SHADER_TEXT_CURSOR]);
     glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - c.time);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void renderTextSelection(Cursor& c) {
     glBindVertexArray(c.selection.vao);
-    glUseProgram(shaders[SHADER_RECTANGLE].programId);
+    glUseProgram(shaders[SHADER_RECTANGLE]);
     glDrawArrays(GL_TRIANGLES, 0, c.selection.numVertices);
 }
 
@@ -7227,7 +7227,7 @@ void renderElement(
             if (tab->showCursor && !tab->textSelected) {
                 glBindVertexArray(tab->cursorVAO);
 
-                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+                glUseProgram(shaders[SHADER_TEXT_CURSOR]);
 
                 glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
@@ -8767,7 +8767,7 @@ void renderCBTextSelection(ContentTab* tab) {
     glBindVertexArray(tab->selVAO);
     glBindBuffer(GL_ARRAY_BUFFER, tab->selVBO);
 
-    glUseProgram(shaders[SHADER_CB_TEXT_HIGHLIGHT].programId);
+    glUseProgram(shaders[SHADER_CB_TEXT_HIGHLIGHT]);
 
     glUniform1f(uniforms[U_TEXT_HL_SCROLL_OFFSET_Y], tab->scrollOffsetY);
 
@@ -9215,7 +9215,7 @@ inline void renderCBImage(
     glBindVertexArray(grInfo.image.vao);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, grInfo.imageTexture);
-    glUseProgram(shaders[SHADER_IMAGE].programId);
+    glUseProgram(shaders[SHADER_IMAGE]);
 
     if (grInfo.redraw || len > 1) {
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, grInfo.imagePBO[pboIndex]);

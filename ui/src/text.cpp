@@ -30,7 +30,6 @@ uint32_t fontTextureID = 0;
 uint32_t iconTextureID;
 Character* characters;
 Character icons[MAX_ICONS];
-Shader textShader;
 unsigned int textVAO, textVBO;
 
 void initFontTexture(string path) {
@@ -203,7 +202,7 @@ void initIconTexture() {
 }
 
 void initTextRendering(uint16_t width, uint16_t height) {
-    glUseProgram(shaders[SHADER_TEXT].programId);
+    glUseProgram(shaders[SHADER_TEXT]);
 
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
@@ -219,7 +218,7 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glUseProgram(shaders[SHADER_TEXT].programId);
+    glUseProgram(shaders[SHADER_TEXT]);
 
     glm::vec3 color = darkTheme ? WHITE : BLACK;
 
@@ -345,7 +344,7 @@ inline void drawTextBuffers(
         glEnableVertexAttribArray(2);
     }
 
-    glUseProgram(shaders[SHADER_TEXT].programId);
+    glUseProgram(shaders[SHADER_TEXT]);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(vao);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -812,7 +811,7 @@ glm::vec4 renderText(
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0); // x, y, height, width
 
-    glUseProgram(shaders[SHADER_TEXT].programId);
+    glUseProgram(shaders[SHADER_TEXT]);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
 
@@ -930,7 +929,7 @@ glm::vec4 renderText(
 ) {
     glm::vec4 dimensions = glm::vec4(pos.x, pos.y, 0, 0);
 
-    glUseProgram(shaders[SHADER_TEXT].programId);
+    glUseProgram(shaders[SHADER_TEXT]);
 
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
