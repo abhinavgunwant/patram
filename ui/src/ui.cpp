@@ -1059,10 +1059,23 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
         }
 
-        // TODO: this was causing activeElement to be nullptr, find out how to better handle this!
-        // if (!dialogOpen) {
-        //     destroyFloatingUI();
-        // }
+        if (dialogOpen) {
+            for (uint32_t i=0; i<FLOATING_CONTAINER.totalChildren; ++i) {
+                UIElement* elem = FLOATING_CONTAINER.children[i];
+
+                if (
+                    elem->type == UIElementType::Container
+                    && (
+                        mouseX < elem->left || mouseX > elem->left + elem->width
+                        || mouseY < elem->top || mouseY > elem->top + elem->height
+                   )
+                ) {
+                    dialogOpen = false;
+                    destroyFloatingUI();
+                    break;
+                }
+            }
+        }
     } else if (button == GLFW_MOUSE_BUTTON_2) {
         if (action == GLFW_PRESS) {
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
@@ -11423,12 +11436,6 @@ void showExplorerContextMenu(float x, float y) {
 
     float vertices[8] = { 0 };
 
-    SETUP_BUFFERS(contextContainer->vao, contextContainer->vbo, vertices);
-    SETUP_BUFFERS(renameButton->vao, renameButton->vbo, vertices);
-    SETUP_BUFFERS(deleteButton->vao, deleteButton->vbo, vertices);
-    SETUP_BUFFERS(newNoteButton->vao, newNoteButton->vbo, vertices);
-    SETUP_BUFFERS(newFolderButton->vao, newFolderButton->vbo, vertices);
-
     contextContainer->id = EXPLORER_CONTEXT_MENU_ID;
     contextContainer->positioning = UIPositioning::Relative_sibling;
     contextContainer->preferences->direction = false;
@@ -11448,6 +11455,8 @@ void showExplorerContextMenu(float x, float y) {
     addChild(contextContainer, newNoteButton, &floatingArena);
     addChild(contextContainer, newFolderButton, &floatingArena);
     addChild(&FLOATING_CONTAINER, contextContainer);
+
+    dialogOpen = true;
 
     #undef BUTTON
 }
