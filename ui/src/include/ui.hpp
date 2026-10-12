@@ -30,8 +30,7 @@
 
 #define TOTAL_ICONS                 3
 
-#define TAB_BAR_HEIGHT              48.0f
-#define TAB_VERTICAL_PADDING        13.165f
+#define TAB_BAR_HEIGHT              36.0f
 #define TAB_HORIZONTAL_PADDING      16.0f
 #define CONTENT_BLOCK_DRAGTAB_WIDTH 20.0f
 #define CONTENT_MAX_WIDTH           760.0f

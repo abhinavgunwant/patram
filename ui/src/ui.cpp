@@ -2007,6 +2007,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
     uint32_t i = 0;
 
     uint32_t textIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
+    float verticalPadding = (TAB_BAR_HEIGHT - 16 * (1 - glyphDescender)) / 2;
 
     for (ContentTab& tab: tabs) {
         float prevX = x;
@@ -2026,7 +2027,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
 
         x += TAB_HORIZONTAL_PADDING;
         x += appendTextVertices(
-            x - tabsDisplay.xOffset, TAB_VERTICAL_PADDING, tabtext, textIndex,
+            x - tabsDisplay.xOffset, verticalPadding, tabtext, textIndex,
             16, textVertices
         ).width;
         x += TAB_HORIZONTAL_PADDING;
@@ -2034,7 +2035,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         tab.closeX = static_cast<uint16_t>(x - prevX);
 
         x += appendCharVertices(
-            x - tabsDisplay.xOffset, 5, icons[ICON_CLOSE], textIndex, xVertices
+            x - tabsDisplay.xOffset, -2, icons[ICON_CLOSE], textIndex, xVertices
         );
         x += TAB_HORIZONTAL_PADDING;
 
