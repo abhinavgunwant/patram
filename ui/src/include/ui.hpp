@@ -143,6 +143,10 @@
 #define TEXT_INPUT_HOVER_BG_DARK_INDEX  19
 #define ROOT_BG_INDEX                   20
 #define ROOT_BG_DARK_INDEX              21
+#define EXPLORER_HOVER_BG_INDEX         22
+#define EXPLORER_HOVER_BG_DARK_INDEX    23
+#define EXPLORER_LINE_COLOR_INDEX       24
+#define EXPLORER_LINE_COLOR_DARK_INDEX  25
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -647,6 +651,7 @@ struct GlobalRenderInfo {
     RenderInfo uiTextLayer1;
     RenderInfo uiRectLayer0;
     RenderInfo uiRectLayer1;
+    RenderInfo uiIconLayer;
     RenderInfo icon;
     RenderInfo rect;
     RenderInfo image;
@@ -767,14 +772,6 @@ struct ContentTab {
 
 struct TabsDisplay {
     bool recalcOffset;
-
-    uint32_t xVao;
-    uint32_t xVbo;
-    uint32_t xBufferSize;
-    uint32_t xVertices;
-    uint32_t activeBgVao;
-    uint32_t activeBgVbo;
-
     float totalX;
     float xOffset;
 };
@@ -810,25 +807,13 @@ struct ExplorerNode {
 };
 
 struct Explorer {
-    uint32_t vao;
-    uint32_t vbo;
-    uint32_t lineVAO;
-    uint32_t lineVBO;
-    uint32_t hoverBgVao;
-    uint32_t hoverBgVbo;
-    uint32_t activeBgVao;
-    uint32_t activeBgVbo;
     uint32_t verticalScrollVao;
     uint32_t verticalScrollVbo;
     uint32_t horizontalScrollVao;
     uint32_t horizontalScrollVbo;
-    uint32_t iconsVAO;
-    uint32_t iconsVBO;
-    uint32_t textVertices;
-    uint32_t textVerCap;
-    uint32_t iconsVertices;
-    uint32_t iconsVerCap;
 
+    float activeY;
+    float hoverY;
     float lastClickedTime;
 
     bool elementHover;
@@ -958,7 +943,8 @@ void renderElement(
     vector<RectVertex>& uiRectLayer0,
     vector<RectVertex>& uiRectLayer1,
     vector<TextVertex>& uiTextLayer0,
-    vector<TextVertex>& uiTextLayer1
+    vector<TextVertex>& uiTextLayer1,
+    vector<TextVertex>& uiIconLayer
 );
 glm::vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);

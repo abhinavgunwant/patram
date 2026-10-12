@@ -196,7 +196,7 @@ uint32_t colorUBO = 0;
 uint32_t commonUBO = 0;
 
 Explorer explorer = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0,
     false, false, false, false, false,
     vector<ExplorerNode>()
 };
@@ -487,8 +487,6 @@ void setSelectedVault(string vaultName) {
     explorerLoadThread.detach();
 
     setDefaultVault(vaultName);
-    explorer.textVertices = 0;
-    explorer.iconsVertices = 0;
     vaultSelected = true;
     EXPLORER.reDraw = true;
 }
@@ -785,17 +783,7 @@ void setExplorerTreeFlag(
         if (mouseY > (*itr).top && mouseY < (*itr).top + EXPLORER_ELEMENT_HEIGHT) {
             SET_FLAG((*itr).flags, flag);
             explorer.elementHover = true;
-
-            float vertices[8] = {
-                0,              (*itr).top - 4.0f,
-                0,              (*itr).top + EXPLORER_ELEMENT_HEIGHT - 4.0f,
-                EXPLORER.width, (*itr).top - 4.0f,
-                EXPLORER.width, (*itr).top + EXPLORER_ELEMENT_HEIGHT - 4.0f,
-            };
-
-            glBindVertexArray(explorer.hoverBgVao);
-            glBindBuffer(GL_ARRAY_BUFFER, explorer.hoverBgVbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            explorer.hoverY = itr->top - 4.0f;
         } else {
             UNSET_FLAG((*itr).flags, flag);
         }
@@ -1529,6 +1517,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         switch (elem->type) {
             case UIElementType::Explorer: {
                 if (MOUSE_ON_EXPLORER_LINE(mouseX, mouseY)) {
+                    REDRAW_UI();
                     if (!explorer.lineHover) {
                         explorer.lineHover = true;
                         explorer.redrawLine = true;
@@ -1563,6 +1552,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                     }
                     updateCursorShape(CursorShape::Default);
                 } else {
+                    REDRAW_UI();
                     float y = EXPLORER.top + elem->scrollData->yOffset;
 
                     setExplorerTreeFlag(explorer.nodes, y, mouseY, elem->scrollData->yOffset, EXPLORER_FLAG_HOVER);
@@ -2004,15 +1994,7 @@ inline void appendTextVerticesForExplorerNode(
 
         if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
             explorer.elementActive = true;
-            float vertices[8] = {
-                0, y - 4.0f,
-                0, y + EXPLORER_ELEMENT_HEIGHT - 4.0f,
-                EXPLORER.width, y - 4.0f,
-                EXPLORER.width, y + EXPLORER_ELEMENT_HEIGHT - 4.0f,
-            };
-            glBindVertexArray(explorer.activeBgVao);
-            glBindBuffer(GL_ARRAY_BUFFER, explorer.activeBgVbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            explorer.activeY = y - 4.0f;
         }
 
         if ((*itr).type == ExplorerNodeType::Folder) {
@@ -2058,8 +2040,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
 
         if (tabtext.length() > 24) {
             if (tab.updated) {
-                tabtext = tabtext.substr(0, 24);
-                tabtext += "*...";
+                tabtext = tabtext.substr(0, 23) + "*...";
             } else {
                 tabtext = tabtext.substr(0, 24) + "...";
             }
@@ -2379,6 +2360,10 @@ void setupUBO() {
         TEXT_INPUT_HOVER_BG_DARK,
         ROOT_BG,
         ROOT_BG_DARK,
+        EXPLORER_HOVER_BG,
+        EXPLORER_HOVER_BG_DARK,
+        EXPLORER_LINE_COLOR,
+        EXPLORER_LINE_COLOR_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -2476,18 +2461,6 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS(CONTENT_CONTAINER.vao, CONTENT_CONTAINER.vbo, vertices);
     SETUP_BUFFERS(EXPLORER.vao, EXPLORER.vbo, vertices);
 
-    SETUP_BUFFERS_TEXT(explorer.vao, explorer.vbo, textVertices_100);
-    explorer.textVertices = 600;
-    explorer.textVerCap = sizeof(textVertices_100);
-
-    SETUP_BUFFERS_TEXT(explorer.iconsVAO, explorer.iconsVBO, textVertices_100);
-    explorer.iconsVertices = 600;
-    explorer.iconsVerCap = sizeof(textVertices_100);
-
-    SETUP_BUFFERS_TEXT(tabsDisplay.xVao, tabsDisplay.xVbo, textVertices_10);
-    tabsDisplay.xBufferSize = sizeof(textVertices_10);
-    tabsDisplay.xVertices = 60;
-
     SETUP_BUFFERS_TEXT(grInfo.icon.vao, grInfo.icon.vbo, textVertices_100);
     grInfo.icon.numVertices = 600;
     grInfo.icon.bufferSize = sizeof(textVertices_100);
@@ -2543,9 +2516,6 @@ void setupUI(bool isDarkTheme) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, CONTENT_MAX_WIDTH, CONTENT_IMAGE_MAX_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
-    SETUP_BUFFERS_DYNAMIC(explorer.lineVAO, explorer.lineVBO, vertices);
-    SETUP_BUFFERS_DYNAMIC(explorer.hoverBgVao, explorer.hoverBgVbo, vertices);
-    SETUP_BUFFERS_DYNAMIC(explorer.activeBgVao, explorer.activeBgVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.verticalScrollVao, explorer.verticalScrollVbo, vertices);
     SETUP_BUFFERS_DYNAMIC(explorer.horizontalScrollVao, explorer.horizontalScrollVao, vertices);
 
@@ -6822,12 +6792,14 @@ void render() {
 
     vector<TextVertex> uiTextLayer0;
     vector<TextVertex> uiTextLayer1;
+    vector<TextVertex> uiIconLayer;
     vector<RectVertex> uiRectLayer0;
     vector<RectVertex> uiRectLayer1;
 
     if (grInfo.redrawUI) {
         uiTextLayer0.reserve(grInfo.uiTextLayer0.numVertices);
         uiTextLayer1.reserve(grInfo.uiTextLayer1.numVertices);
+        uiIconLayer.reserve(grInfo.uiIconLayer.numVertices);
 
         addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer0);
         addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer1);
@@ -6842,7 +6814,8 @@ void render() {
         uiRectLayer0,
         uiRectLayer1,
         uiTextLayer0,
-        uiTextLayer1
+        uiTextLayer1,
+        uiIconLayer
     );
 
     #ifdef DEBUG_RENDER
@@ -6865,6 +6838,17 @@ void render() {
         uiTextLayer0,
         1.0f,
         grInfo.redrawUI
+    );
+
+    drawTextBuffers(
+        grInfo.uiIconLayer.vao,
+        grInfo.uiIconLayer.vbo,
+        grInfo.uiIconLayer.bufferSize,
+        grInfo.uiIconLayer.numVertices,
+        uiIconLayer,
+        1.0f,
+        grInfo.redrawUI,
+        iconTextureID
     );
 
     #ifdef DEBUG_RENDER
@@ -6980,7 +6964,8 @@ void renderElement(
     vector<RectVertex>& uiRectLayer0,
     vector<RectVertex>& uiRectLayer1,
     vector<TextVertex>& uiTextLayer0,
-    vector<TextVertex>& uiTextLayer1
+    vector<TextVertex>& uiTextLayer1,
+    vector<TextVertex>& uiIconLayer
 ) {
     switch (elem.type) {
         case UIElementType::Container: {
@@ -7077,7 +7062,8 @@ void renderElement(
                                 uiRectLayer0,
                                 uiRectLayer1,
                                 uiTextLayer0,
-                                uiTextLayer1
+                                uiTextLayer1,
+                                uiIconLayer
                             );
 
                             left += elem.children[i]->width + 8.0f;
@@ -7099,7 +7085,8 @@ void renderElement(
                                 uiRectLayer0,
                                 uiRectLayer1,
                                 uiTextLayer0,
-                                uiTextLayer1
+                                uiTextLayer1,
+                                uiIconLayer
                             );
                         }
                     }
@@ -7299,8 +7286,6 @@ void renderElement(
             if (showScrollbar) {
                 renderCBScrollbar();
             }
-
-            tab->updated = false;
             break;
         }
 
@@ -7642,7 +7627,8 @@ void renderElement(
                             uiRectLayer0,
                             uiRectLayer1,
                             uiTextLayer0,
-                            uiTextLayer1
+                            uiTextLayer1,
+                            uiIconLayer
                         );
                     }
 
@@ -8123,16 +8109,13 @@ void renderElement(
             glEnable(GL_SCISSOR_TEST);
 
             if (grInfo.redrawUI) {
-                vector<TextVertex> xVertices;
-                xVertices.reserve(60);
-
                 addRectangle(
                     elem.left, elem.top, elem.width, elem.height,
                     darkTheme ? TOOL_BAR_BG_DARK_INDEX : TOOL_BAR_BG_INDEX,
                     0, uiRectLayer0
                 );
 
-                setupTabs(uiTextLayer0, xVertices);
+                setupTabs(uiTextLayer0, uiIconLayer);
 
                 addRectangle(
                     static_cast<float>(tabs[activeTabIndex].xOffset) - tabsDisplay.xOffset,
@@ -8142,30 +8125,6 @@ void renderElement(
                     darkTheme ? ROOT_BG_DARK_INDEX : ROOT_BG_INDEX,
                     0,
                     uiRectLayer0
-                );
-
-                drawTextBuffers(
-                    tabsDisplay.xVao,
-                    tabsDisplay.xVbo,
-                    tabsDisplay.xBufferSize, 
-                    tabsDisplay.xVertices,
-                    xVertices,
-                    1.0f,
-                    true,
-                    iconTextureID
-                );
-            } else {
-                vector<TextVertex> _;
-
-                drawTextBuffers(
-                    tabsDisplay.xVao,
-                    tabsDisplay.xVbo,
-                    tabsDisplay.xBufferSize, 
-                    tabsDisplay.xVertices,
-                    _,
-                    1.0f,
-                    false,
-                    iconTextureID
                 );
             }
 
@@ -8193,7 +8152,8 @@ void renderElement(
                     uiRectLayer0,
                     uiRectLayer1,
                     uiTextLayer0,
-                    uiTextLayer1
+                    uiTextLayer1,
+                    uiIconLayer
                 );
 
                 renderElement(
@@ -8205,7 +8165,8 @@ void renderElement(
                     uiRectLayer0,
                     uiRectLayer1,
                     uiTextLayer0,
-                    uiTextLayer1
+                    uiTextLayer1,
+                    uiIconLayer
                 );
             }
 
@@ -8250,67 +8211,35 @@ void renderElement(
             glScissor(0, 0, elem.width, elem.height);
             glEnable(GL_SCISSOR_TEST);
 
-            if (explorer.elementActive) {
-                bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
-                DRAW_RECT(explorer.activeBgVao, bg);
-            }
+            if (grInfo.redrawUI) {
+                if (explorer.elementActive) {
+                    addRectangle(
+                        0, explorer.activeY, EXPLORER.width, EXPLORER_ELEMENT_HEIGHT,
+                        darkTheme ? EXPLORER_HOVER_BG_DARK_INDEX : EXPLORER_HOVER_BG_INDEX,
+                        4,
+                        uiRectLayer0
+                    );
+                }
 
-            if (explorer.elementHover) {
-                bg = darkTheme ? EXPLORER_HOVER_BG_DARK : EXPLORER_HOVER_BG;
-                DRAW_RECT(explorer.hoverBgVao, bg);
-            }
+                if (explorer.elementHover) {
+                    addRectangle(
+                        0, explorer.hoverY, EXPLORER.width, EXPLORER_ELEMENT_HEIGHT,
+                        darkTheme ? EXPLORER_HOVER_BG_DARK_INDEX : EXPLORER_HOVER_BG_INDEX,
+                        4,
+                        uiRectLayer0
+                    );
+                }
 
-            if (elem.reDraw) {
-                vector<TextVertex> vertices;
-                vector<TextVertex> iVertices;
+                if (explorer.lineHover) {
+                    addRectangle(
+                        EXPLORER.width - 2.0f, EXPLORER.top,
+                        2.0f, EXPLORER.height,
+                        darkTheme ? EXPLORER_LINE_COLOR_DARK_INDEX : EXPLORER_LINE_COLOR_INDEX,
+                        0.0f, uiRectLayer0
+                    );
+                }
 
-                setupExplorer(vertices, iVertices);
-
-                drawTextBuffers(
-                    explorer.vao,
-                    explorer.vbo,
-                    explorer.textVerCap,
-                    explorer.textVertices,
-                    vertices,
-                    1.0f,
-                    true
-                );
-
-                drawTextBuffers(
-                    explorer.iconsVAO,
-                    explorer.iconsVBO,
-                    explorer.iconsVerCap,
-                    explorer.iconsVertices,
-                    iVertices,
-                    1.0f,
-                    true,
-                    iconTextureID
-                );
-            } else {
-                glm::vec2 ___;
-                vector<TextVertex> _;
-                uint32_t __ = 0;
-
-                drawTextBuffers(
-                    explorer.vao,
-                    explorer.vbo,
-                    __,
-                    explorer.textVertices,
-                    _,
-                    1.0f,
-                    false
-                );
-
-                drawTextBuffers(
-                    explorer.iconsVAO,
-                    explorer.iconsVBO,
-                    __,
-                    explorer.iconsVertices,
-                    _,
-                    1.0f,
-                    false,
-                    iconTextureID
-                );
+                setupExplorer(uiTextLayer0, uiIconLayer);
             }
 
             glDisable(GL_SCISSOR_TEST);
@@ -8320,28 +8249,6 @@ void renderElement(
                 || elem.scrollData->showHorizontalScrollbar
             ) {
                 renderScrollbars(&elem);
-            }
-
-            if (explorer.lineHover) {
-                glBindVertexArray(explorer.lineVAO);
-
-                if (explorer.redrawLine) {
-                    float vertices[8] = {
-                        EXPLORER.width - 2, EXPLORER.top,
-                        EXPLORER.width - 2, static_cast<float>(windowHeight),
-                        EXPLORER.width,     EXPLORER.top,
-                        EXPLORER.width,     static_cast<float>(windowHeight),
-                    };
-
-                    glBindBuffer(GL_ARRAY_BUFFER, explorer.lineVBO);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-                    explorer.redrawLine = false;
-                    elem.scrollData->renderedUpdate = false;
-                }
-
-                bg = darkTheme ? EXPLORER_LINE_COLOR_DARK : EXPLORER_LINE_COLOR;
-                DRAW_RECT(explorer.lineVAO, bg);
             }
 
             elem.reDraw = false;
