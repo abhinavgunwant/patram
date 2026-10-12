@@ -11397,6 +11397,7 @@ void destroyFloatingUI() {
 void showExplorerContextMenu(float x, float y) {
     #define BUTTON(e, name, _id, margin) do {\
         e->text = name;\
+        e->layer = 1;\
         e->id = _id;\
         e->fontSize = 14;\
         e->marginTop = margin;\
