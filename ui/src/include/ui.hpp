@@ -642,6 +642,8 @@ struct Tooltip {
 struct GlobalRenderInfo {
     bool redraw;
     bool redrawUI;
+    uint8_t activeLayer;
+
     RenderInfo text;
     RenderInfo extraText;
     RenderInfo uiTextLayer0;

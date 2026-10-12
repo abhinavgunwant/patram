@@ -526,6 +526,7 @@ void onVaultSetupCreateVaultClicked() {
 void onVaultBackClicked() {
     destroyWelcomeScreen();
     setupWelcomeScreen();
+    globalCursor.show = false;
 }
 
 void onCreateANewVaultClicked() {
@@ -882,35 +883,40 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 #endif
 
                 if (elem->id > 0 && elem->type == UIElementType::Button) {
-                    switch(elem->id) {
-                        case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); break;
-                        case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); break;
-                        case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); break;
-                        case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); break;
-                        case NEW_NOTE_BUTTON_ID: newNote(); break;
-                        case NEW_FOLDER_BUTTON_ID: showNewFolderDialog(); break;
-                        case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); break;
-                        case SWITCH_VAULT_OPTION_ID: {
-                            setSelectedVault(elem->text);
-                            onVaultBackClicked();
-                            break;
-                        };
-                        case EXPLORER_MENU_RENAME_ID: showRenameDialog(); break;
-                        case EXPLORER_MENU_DELETE_ID: showDeleteDialog(); break;
-                        case EXPLORER_MENU_NEW_NOTE_ID: showNewNoteDialog(); break;
-                        case EXPLORER_MENU_NEW_FOLDER_ID: showNewFolderDialog(); break;
-                        case RENAME_DIALOG_OK_BUTTON_ID: renameActiveExplorerNode(); break;
-                        case DELETE_DIALOG_DELETE_BUTTON_ID: deleteActiveExplorerNode(); break;
-                        case NEW_NOTE_DIALOG_CREATE_BUTTON_ID: createNoteInActiveExplorerNode(); break;
-                        case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID: createFolderInActiveExplorerNode(); break;
-                        case RENAME_DIALOG_CANCEL_BUTTON_ID:
-                        case DELETE_DIALOG_CANCEL_BUTTON_ID:
-                        case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
-                            EXPLORER.reDraw = true; // no break intentional
-                        case ERROR_DIALOG_OK_BUTTON_ID:
-                            unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
-                            destroyFloatingUI();
-                            break;
+                    if (grInfo.activeLayer == 0) {
+                        switch(elem->id) {
+                            case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); break;
+                            case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); break;
+                            case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); break;
+                            case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); break;
+                            case NEW_NOTE_BUTTON_ID: newNote(); break;
+                            case NEW_FOLDER_BUTTON_ID: showNewFolderDialog(); break;
+                            case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); break;
+                            case SWITCH_VAULT_OPTION_ID: {
+                                setSelectedVault(elem->text);
+                                onVaultBackClicked();
+                                break;
+                            };
+                            case EXPLORER_MENU_RENAME_ID: showRenameDialog(); break;
+                            case EXPLORER_MENU_DELETE_ID: showDeleteDialog(); break;
+                            case EXPLORER_MENU_NEW_NOTE_ID: showNewNoteDialog(); break;
+                            case EXPLORER_MENU_NEW_FOLDER_ID: showNewFolderDialog(); break;
+                        }
+                    } else {
+                        switch(elem->id) {
+                            case RENAME_DIALOG_OK_BUTTON_ID: renameActiveExplorerNode(); break;
+                            case DELETE_DIALOG_DELETE_BUTTON_ID: deleteActiveExplorerNode(); break;
+                            case NEW_NOTE_DIALOG_CREATE_BUTTON_ID: createNoteInActiveExplorerNode(); break;
+                            case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID: createFolderInActiveExplorerNode(); break;
+                            case RENAME_DIALOG_CANCEL_BUTTON_ID:
+                            case DELETE_DIALOG_CANCEL_BUTTON_ID:
+                            case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
+                                EXPLORER.reDraw = true; // no break intentional
+                            case ERROR_DIALOG_OK_BUTTON_ID:
+                                unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+                                destroyFloatingUI();
+                                break;
+                        }
                     }
 
                     REDRAW_UI();
@@ -2363,6 +2369,7 @@ void setupUI(bool isDarkTheme) {
     hResizeCursor = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
 
     grInfo = { 0 };
+    grInfo.activeLayer = 0;
     grInfo.redraw = true;
     REDRAW_UI();
     grInfo.imagePBOBufferSize = CONTENT_MAX_WIDTH * CONTENT_IMAGE_MAX_HEIGHT * 3;
@@ -11220,6 +11227,7 @@ void initFloatingUI() {
 
     FLOATING_CONTAINER.show = true;
     FLOATING_CONTAINER.reDraw = true;
+    grInfo.activeLayer = 1;
     globalCursor.layer = 1;
 }
 
@@ -11254,6 +11262,7 @@ void destroyFloatingUI() {
         activeElement = nullptr;
     }
 
+    grInfo.activeLayer = 0;
     globalCursor.layer = 0;
     globalCursor.show = false;
     globalCursor.showSelection = false;
