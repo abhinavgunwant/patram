@@ -210,10 +210,12 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glBindVertexArray(textVAO);
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
     glBufferData(GL_ARRAY_BUFFER, 1200, NULL, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*) (2 * sizeof(float)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -335,10 +337,12 @@ inline void drawTextBuffers(
 
         bufferSize = vertices.size() * sizeof(TextVertex);
         glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*) (2 * sizeof(float)));
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
     }
 
     glUseProgram(shaders[SHADER_TEXT].programId);
@@ -440,12 +444,12 @@ RopeRenderResult renderTextCached(
 
             if (redraw && c != ' ') {
                 vertices.insert(vertices.end(), {
-                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-                    TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-                    TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-                    TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
+                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
+                    TextVertex { xpos,        ypos,        texX1, texY2, colorIndex },
+                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
+                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
+                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
+                    TextVertex { xpos_plus_w, ypos_plus_h, texX2, texY1, colorIndex },
                 });
             }
 
@@ -657,12 +661,12 @@ float appendCharVertices(
     );
 
     vertices.insert(vertices.end(), {
-        TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-        TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
-        TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-        TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-        TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-        TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
+        TextVertex { xpos,           ypos_plus_h, texX1, texY1, colorIndex },
+        TextVertex { xpos,           ypos,        texX1, texY2, colorIndex },
+        TextVertex { xpos_plus_w,    ypos,        texX2, texY2, colorIndex },
+        TextVertex { xpos,           ypos_plus_h, texX1, texY1, colorIndex },
+        TextVertex { xpos_plus_w,    ypos,        texX2, texY2, colorIndex },
+        TextVertex { xpos_plus_w,    ypos_plus_h, texX2, texY1, colorIndex },
     });
 
     return glyphWidth;
@@ -713,12 +717,12 @@ RopeRenderResult appendTextVertices(
         );
 
         vertices.insert(vertices.end(), {
-            TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-            TextVertex { xpos,           ypos,           texX1, texY2, colorIndex },
-            TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-            TextVertex { xpos,           ypos_plus_h,    texX1, texY1, colorIndex },
-            TextVertex { xpos_plus_w,    ypos,           texX2, texY2, colorIndex },
-            TextVertex { xpos_plus_w,    ypos_plus_h,    texX2, texY1, colorIndex },
+            TextVertex { xpos,           ypos_plus_h, texX1, texY1, colorIndex },
+            TextVertex { xpos,           ypos,        texX1, texY2, colorIndex },
+            TextVertex { xpos_plus_w,    ypos,        texX2, texY2, colorIndex },
+            TextVertex { xpos,           ypos_plus_h, texX1, texY1, colorIndex },
+            TextVertex { xpos_plus_w,    ypos,        texX2, texY2, colorIndex },
+            TextVertex { xpos_plus_w,    ypos_plus_h, texX2, texY1, colorIndex },
         });
 
         xpos += advance;
@@ -889,12 +893,12 @@ glm::vec4 renderText(
         #endif
 
         TextVertex vertices[6] = {
-            TextVertex { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1, colorIndex },
-            TextVertex { xpos,         ypos,           ch->textureX1, ch->textureY2, colorIndex },
-            TextVertex { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2, colorIndex },
-            TextVertex { xpos,         ypos_plus_h,    ch->textureX1, ch->textureY1, colorIndex },
-            TextVertex { xpos_plus_w,  ypos,           ch->textureX2, ch->textureY2, colorIndex },
-            TextVertex { xpos_plus_w,  ypos_plus_h,    ch->textureX2, ch->textureY1, colorIndex },
+            TextVertex { xpos,         ypos_plus_h, ch->textureX1, ch->textureY1, colorIndex },
+            TextVertex { xpos,         ypos,        ch->textureX1, ch->textureY2, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,        ch->textureX2, ch->textureY2, colorIndex },
+            TextVertex { xpos,         ypos_plus_h, ch->textureX1, ch->textureY1, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,        ch->textureX2, ch->textureY2, colorIndex },
+            TextVertex { xpos_plus_w,  ypos_plus_h, ch->textureX2, ch->textureY1, colorIndex },
         };
 
         // render glyph texture over quad
@@ -942,12 +946,12 @@ glm::vec4 renderText(
         float ypos_plus_h = ypos + ch.height; // ypos + h
         // update textVBO for each character
         TextVertex vertices[6] = {
-            TextVertex { xpos,         ypos_plus_h,    0.0f, 0.0f, colorIndex },
-            TextVertex { xpos,         ypos,           0.0f, 1.0f, colorIndex },
-            TextVertex { xpos_plus_w,  ypos,           1.0f, 1.0f, colorIndex },
-            TextVertex { xpos,         ypos_plus_h,    0.0f, 0.0f, colorIndex },
-            TextVertex { xpos_plus_w,  ypos,           1.0f, 1.0f, colorIndex },
-            TextVertex { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f, colorIndex },
+            TextVertex { xpos,         ypos_plus_h, 0.0f, 0.0f, colorIndex },
+            TextVertex { xpos,         ypos,        0.0f, 1.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,        1.0f, 1.0f, colorIndex },
+            TextVertex { xpos,         ypos_plus_h, 0.0f, 0.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos,        1.0f, 1.0f, colorIndex },
+            TextVertex { xpos_plus_w,  ypos_plus_h, 1.0f, 0.0f, colorIndex },
         };
         // render glyph texture over quad
         // glBindTexture(GL_TEXTURE_2D, ch.textureID);

@@ -54,6 +54,7 @@
 #define RED                 glm::vec4(1.0, 0.0, 0.0, 1.0)
 #define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
 #define TRANSPARENT_COLOR   glm::vec4(0.0, 0.0, 0.0, 0.0)
+#define OVERLAY_COLOR       glm::vec4(0.0, 0.0, 0.0, 0.8)
 
 // Theme colors
 //// Light theme colors
@@ -79,6 +80,7 @@
 #define SCROLL_BAR_THUMB_COLOR      glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
 
 #define CURSOR_COLOR                glm::vec4(0.0, 0.38, 0.65, 1.0)
+#define SELECT_COLOR                glm::vec4(0.0, 0.38, 0.65, 0.25)
 
 #define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
@@ -110,6 +112,7 @@
 #define SCROLL_BAR_THUMB_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
 
 #define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
+#define SELECT_COLOR_DARK           glm::vec4(0.0, 0.38, 0.65, 0.5)
 
 #define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.22f, 0.2f, 0.2f, 1.0)
 #define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.32f, 0.3f, 0.3f, 1.0)
@@ -118,14 +121,26 @@
 #define CODE_COLOR_DARK             glm::vec4(0.1f, 0.1f, 0.1f, 1.0)
 #define LINK_COLOR_DARK             glm::vec4(0.18f, 0.44f, 0.98f, 1.0f)
 
-#define WHITE_INDEX                 0
-#define BLACK_INDEX                 1
-#define CODE_INDEX                  2
-#define CODE_DARK_INDEX             3
-#define LINK_COLOR_INDEX            4
-#define LINK_COLOR_DARK_INDEX       5
-#define LIGHT_TEXT_COLOR_INDEX      6
-#define LIGHT_TEXT_COLOR_DARK_INDEX 7
+#define TRANSPARENT_INDEX               0
+#define WHITE_INDEX                     1
+#define BLACK_INDEX                     2
+#define OVERLAY_INDEX                   3
+#define CODE_INDEX                      4
+#define CODE_DARK_INDEX                 5
+#define LINK_COLOR_INDEX                6
+#define LINK_COLOR_DARK_INDEX           7
+#define LIGHT_TEXT_COLOR_INDEX          8
+#define LIGHT_TEXT_COLOR_DARK_INDEX     9
+#define TOOL_BAR_BG_INDEX               10
+#define TOOL_BAR_BG_DARK_INDEX          11
+#define CURSOR_COLOR_INDEX              12
+#define CURSOR_COLOR_DARK_INDEX         13
+#define SELECT_COLOR_INDEX              14
+#define SELECT_COLOR_DARK_INDEX         15
+#define TEXT_INPUT_BG_INDEX             16
+#define TEXT_INPUT_BG_DARK_INDEX        17
+#define TEXT_INPUT_HOVER_BG_INDEX       18
+#define TEXT_INPUT_HOVER_BG_DARK_INDEX  19
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -282,9 +297,10 @@ struct Bounds {
 
 struct CommonUniforms {
     glm::vec2 resolution;
+    uint32_t dark;
 };
 
-struct RectangleVertexAttributes {
+struct RectVertex {
     float x;
     float y;
     uint32_t colorIndex;
@@ -422,16 +438,11 @@ struct UIPreferences {
 
 struct TextInputData {
     uint32_t cursorPosition;
-    uint32_t cursorVAO;
-    uint32_t cursorVBO;
 
     uint32_t textSelectStartRow;
     uint32_t textSelectStartCol;
     uint32_t textSelectEndRow;
     uint32_t textSelectEndCol;
-
-    uint32_t textSelectVAO;
-    uint32_t textSelectVBO;
 
     /**
      * Useful when selecting text, if it's same as cursorPosition, no text will
@@ -514,10 +525,9 @@ struct ContentBlock;
 
 struct UIElement {
     UIElementType type;
-
     uint8_t marginTop;
-
-    uint16_t id;
+    uint8_t id;
+    uint8_t layer;
 
     float top;
     float left;
@@ -556,6 +566,12 @@ struct UIElement {
     UIPreferences * preferences;
     TextInputData* textInputData;
     ScrollData* scrollData;
+
+    /*
+    uint16_t prefIndex;
+    uint16_t tidIndex;
+    uint16_t scrollDataIndex;
+    */
 };
 
 struct ContentBlock {
@@ -621,6 +637,10 @@ struct GlobalRenderInfo {
     bool redrawUI;
     RenderInfo text;
     RenderInfo extraText;
+    RenderInfo uiTextLayer0;
+    RenderInfo uiTextLayer1;
+    RenderInfo uiRectLayer0;
+    RenderInfo uiRectLayer1;
     RenderInfo icon;
     RenderInfo rect;
     RenderInfo image;
@@ -629,6 +649,22 @@ struct GlobalRenderInfo {
     uint32_t imagePBO[2];
     uint32_t imagePBOIndex;
     uint32_t imagePBOBufferSize;
+};
+
+struct Cursor {
+    bool show;
+    bool showSelection;
+    uint8_t layer;
+
+    uint32_t vao;
+    uint32_t vbo;
+
+    float x;
+    float y;
+    float height;
+    float time;
+
+    RenderInfo selection;
 };
 
 struct HighlightedContentBlock {
@@ -903,7 +939,21 @@ void recalculateContentWidth();
 void recalculateCBCursor();
 void updateCBCursor(ContentTab* tab, SelectionData sd);
 void render();
-void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev);
+void updateTextCursor(Cursor& c, float x, float y, float height);
+void updateTextSelection(Cursor& c, vector<RectVertex> vertices);
+void renderTextCursor(Cursor& c);
+void renderTextSelection(Cursor& c);
+void renderElement(
+    UIElement& elem,
+    glm::vec2 &resolution,
+    glm::vec2 &cursor,
+    uint32_t childIndex,
+    float& yPrev,
+    vector<RectVertex>& uiRectLayer0,
+    vector<RectVertex>& uiRectLayer1,
+    vector<TextVertex>& uiTextLayer0,
+    vector<TextVertex>& uiTextLayer1
+);
 glm::vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
 bool renderContentBlock(
@@ -915,7 +965,7 @@ bool renderContentBlock(
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& textVertices,
     vector<TextVertex>& cbTextVertices,
-    vector<RectangleVertexAttributes>& rva
+    vector<RectVertex>& rva
 );
 void renderContentBlockHighlight();
 void renderCBTextSelection(ContentTab* tab);
@@ -1007,8 +1057,11 @@ void showNewNoteDialog();
 void showErrorDialog(string title, string message);
 void hideContextMenus();
 
+#ifdef DEBUG_RENDER
+void printRectVertex(vector<RectVertex> rv);
+#endif
+
 #ifdef DEBUG_TEXT_SELECTION
-void printTextSelectionVertices(vector<float> &fvec);
 void printTextInputData(TextInputData* tid, string token = "");
 #endif
 

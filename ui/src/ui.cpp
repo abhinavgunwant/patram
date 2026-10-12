@@ -37,6 +37,7 @@
 
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
+#define REDRAW_UI() grInfo.redrawUI = true
 
 #define SETUP_BUFFERS(vao, vbo, vertices) do {\
         glGenVertexArrays(1, &vao);\
@@ -64,10 +65,12 @@
         glGenBuffers(1, &vbo);\
         glBindBuffer(GL_ARRAY_BUFFER, vbo);\
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);\
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*)0);\
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*)0);\
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*) (2 * sizeof(float)));\
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
         glEnableVertexAttribArray(0);\
         glEnableVertexAttribArray(1);\
+        glEnableVertexAttribArray(2);\
     } while (false)
 
 #define SETUP_BUFFERS_RECT(vao, vbo, vertices, bufferSize) do {\
@@ -76,9 +79,9 @@
         glGenBuffers(1, &vbo);\
         glBindBuffer(GL_ARRAY_BUFFER, vbo);\
         glBufferData(GL_ARRAY_BUFFER, bufferSize, vertices, GL_DYNAMIC_DRAW);\
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectangleVertexAttributes), (void*)0);\
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2));\
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectangleVertexAttributes), (void*) (sizeof(float) * 2 + sizeof(uint32_t)));\
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), (void*)0);\
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(RectVertex), (void*) (2 * sizeof(float)));\
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(RectVertex), (void*) (2 * sizeof(float) + sizeof(uint32_t)));\
         glEnableVertexAttribArray(0);\
         glEnableVertexAttribArray(1);\
         glEnableVertexAttribArray(2);\
@@ -120,6 +123,7 @@ float iconButtonVertices[16] = {
 };
 
 bool darkTheme = false;
+bool rerenderUI = false;
 
 float contentLeft = CONTENT_HORIZONTAL_MARGIN;
 float contentRight = 530.0f;
@@ -186,7 +190,7 @@ float mouseDownY = 25000;
 uint32_t untitledNotes = 0;
 uint32_t untitledFolders = 0;
 
-uint32_t rectangleColorIndexUBO = 0;
+uint32_t colorUBO = 0;
 uint32_t commonUBO = 0;
 
 Explorer explorer = {
@@ -199,6 +203,8 @@ GlobalRenderInfo grInfo;
 GlobalMouseEventInfo gmei;
 Tooltip tooltip = { 0 };
 CBImageLoader cbImageLoader = { 0 };
+
+Cursor globalCursor = { 0 };
 
 #ifdef DEBUG_TEXT
     float prevTextTime = 0.0f;
@@ -307,8 +313,7 @@ void showWindow() {
 
 void addRectangle(
     float x, float y, float w, float h,
-    uint32_t colorIndex, uint32_t borderRadius,
-    vector<RectangleVertexAttributes>& rva
+    uint32_t colorIndex, uint32_t borderRadius, vector<RectVertex>& rva
 ) {
     rva.insert(rva.end(), {
         { x,     y,     colorIndex, borderRadius },
@@ -320,49 +325,57 @@ void addRectangle(
     });
 }
 
-inline void drawRectangles(vector<RectangleVertexAttributes>& rva) {
-    glBindVertexArray(grInfo.rect.vao);
+inline void drawRectangles(RenderInfo& ri, vector<RectVertex>& rva, bool redraw) {
+    glBindVertexArray(ri.vao);
 
-    uint32_t vertices = grInfo.rect.numVertices;
+    if (redraw) {
+        #ifdef DEBUG_RENDER
+        if (!rva.empty()) {
+            cout << "\nDEBUG: redrawing rectangles (" << rva.size() << " vertices).";
 
-    if (grInfo.redraw) {
-        glBindBuffer(GL_ARRAY_BUFFER, grInfo.rect.vbo);
+            printRectVertex(rva);
+        } else {
+            cout << "\nDEBUG: empty rectangles!";
+        }
+        #endif
+
+        glBindBuffer(GL_ARRAY_BUFFER, ri.vbo);
 
         if (rva.empty()) {
-            glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(RectangleVertexAttributes), NULL, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(RectVertex), NULL, GL_STATIC_DRAW);
+            ri.numVertices = 16;
+            ri.bufferSize = 16 * sizeof(RectVertex);
             return;
         }
 
-        if (grInfo.rect.numVertices < rva.size()) {
-            grInfo.rect.numVertices = rva.size();
-            glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectangleVertexAttributes), &rva[0], GL_DYNAMIC_DRAW);
+        if (ri.numVertices < rva.size()) {
+            ri.numVertices = rva.size();
+            glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectVertex), &rva[0], GL_DYNAMIC_DRAW);
         } else {
-            vertices = rva.size();
-
-            for (uint32_t i=rva.size(); i<grInfo.rect.numVertices; i+=6) {
+            for (uint32_t i=rva.size(); i<ri.numVertices; i+=6) {
                 rva.insert(rva.begin(), {
-                    RectangleVertexAttributes { 0 },
-                    RectangleVertexAttributes { 0 },
-                    RectangleVertexAttributes { 0 },
-                    RectangleVertexAttributes { 0 },
-                    RectangleVertexAttributes { 0 },
-                    RectangleVertexAttributes { 0 },
+                    RectVertex { 0 },
+                    RectVertex { 0 },
+                    RectVertex { 0 },
+                    RectVertex { 0 },
+                    RectVertex { 0 },
+                    RectVertex { 0 },
                 });
             }
 
-            if (rva.size() > grInfo.rect.numVertices) {
-                grInfo.rect.numVertices = rva.size();
-                grInfo.rect.bufferSize = rva.size() * sizeof(RectangleVertexAttributes);
+            if (rva.size() > ri.numVertices) {
+                ri.numVertices = rva.size();
+                ri.bufferSize = rva.size() * sizeof(RectVertex);
             }
 
-            glBufferSubData(GL_ARRAY_BUFFER, 0, rva.size() * sizeof(RectangleVertexAttributes), &rva[0]);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, ri.bufferSize, &rva[0]);
         }
     }
 
     glUseProgram(shaders[SHADER_RECTANGLE].programId);
-    glUniform1f(uniforms[U_RECTANGLE_FADEIN_TIME], 1.0f);
+    // glUniform1f(uniforms[U_RECTANGLE_FADEIN_TIME], 1.0f);
 
-    glDrawArrays(GL_TRIANGLES, 0, vertices);
+    glDrawArrays(GL_TRIANGLES, 0, ri.numVertices);
 }
 
 void toggleFullscreen() {
@@ -919,6 +932,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             break;
                     }
 
+                    REDRAW_UI();
+                    rerenderUI = true;
                     ignoreMouse1Up = true;
 
                     return;
@@ -986,6 +1001,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
 
                         EXPLORER.reDraw = true;
+                        REDRAW_UI();
                         break;
                 }
             } else if (activeElement != nullptr) {
@@ -1053,9 +1069,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
         }
 
-        if (!dialogOpen) {
-            destroyFloatingUI();
-        }
+        // TODO: this was causing activeElement to be nullptr, find out how to better handle this!
+        // if (!dialogOpen) {
+        //     destroyFloatingUI();
+        // }
     } else if (button == GLFW_MOUSE_BUTTON_2) {
         if (action == GLFW_PRESS) {
             UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
@@ -1072,6 +1089,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             );
 
                         EXPLORER.reDraw = true;
+                        REDRAW_UI();
                         showExplorerContextMenu(mouseX, mouseY);
                         return;
                     }
@@ -1129,6 +1147,7 @@ void keyCallback(GLFWwindow* window, int key, int scanCode, int action, int mods
 }
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
+    glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, width, height);
 
     ROOT_CONTAINER.width = width;
@@ -1142,23 +1161,24 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
             cout << "\nRecalculating layout";
         #endif
 
-        recalculateLayout(&ROOT_CONTAINER);
+        recalculateLayout(&ROOT_CONTAINER); // TODO: get rid of this!
+        REDRAW_UI();
     }
 
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
 
     resolution = glm::vec2(width, height);
+    CommonUniforms c = { resolution, darkTheme };
 
     glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2), glm::value_ptr(resolution));
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CommonUniforms), &c);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
     if (CONTENT_CONTAINER.show && !tabs.empty()) {
         grInfo.redraw = true;
-        grInfo.redrawUI = true;
 
         ContentTab* tab = CURRENT_TAB;
 
@@ -1185,9 +1205,9 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
         }
     }
 
-    render();
-
     hideContextMenus();
+
+    render();
 
     if (FLOATING_CONTAINER.totalChildren) {
         FLOATING_CONTAINER.reDraw = true;
@@ -1896,6 +1916,8 @@ void setupWelcomeScreen() {
     if (vaultSelected) {
         addChild(&WELCOME_MAIN_CONTAINER, switchVaultButton);
     }
+
+    REDRAW_UI();
 }
 
 void destroyWelcomeScreen() {
@@ -1932,11 +1954,6 @@ void destroyWelcomeScreen() {
             && elements[i].type == UIElementType::TextArea
         ) {
             TextInputData* tid = elements[i].textInputData;
-
-            glDeleteVertexArrays(1, &tid->cursorVAO);
-            glDeleteBuffers(1, &tid->cursorVBO);
-            glDeleteVertexArrays(1, &tid->textSelectVAO);
-            glDeleteBuffers(1, &tid->textSelectVBO);
 
             delete tid;
             elements[i].textInputData = nullptr;
@@ -2378,6 +2395,10 @@ void setupUBO() {
         CURSOR_COLOR_DARK,
         SELECT_COLOR,
         SELECT_COLOR_DARK,
+        TEXT_INPUT_BG,
+        TEXT_INPUT_BG_DARK,
+        TEXT_INPUT_HOVER_BG,
+        TEXT_INPUT_HOVER_BG_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -2410,6 +2431,7 @@ void setupUI(bool isDarkTheme) {
 
     grInfo = { 0 };
     grInfo.redraw = true;
+    REDRAW_UI();
     grInfo.imagePBOBufferSize = CONTENT_MAX_WIDTH * CONTENT_IMAGE_MAX_HEIGHT * 3;
     grInfo.image.numVertices = 64;
     grInfo.image.bufferSize = 1024;
@@ -2427,10 +2449,17 @@ void setupUI(bool isDarkTheme) {
 
     setupUBO();
 
-    SETUP_BUFFERS_RECT(grInfo.rect.vao, grInfo.rect.vbo, NULL, 6 * sizeof(RectangleVertexAttributes));
-
+    SETUP_BUFFERS_RECT(grInfo.rect.vao, grInfo.rect.vbo, NULL, 6 * sizeof(RectVertex));
     grInfo.rect.numVertices = 6;
-    grInfo.rect.bufferSize = 6 * sizeof(RectangleVertexAttributes);
+    grInfo.rect.bufferSize = 6 * sizeof(RectVertex);
+
+    SETUP_BUFFERS_RECT(grInfo.uiRectLayer0.vao, grInfo.uiRectLayer0.vbo, NULL, 60 * sizeof(RectVertex));
+    grInfo.uiRectLayer0.numVertices = 60;
+    grInfo.uiRectLayer0.bufferSize = 60 * sizeof(RectVertex);
+
+    SETUP_BUFFERS_RECT(grInfo.uiRectLayer1.vao, grInfo.uiRectLayer1.vbo, NULL, 60 * sizeof(RectVertex));
+    grInfo.uiRectLayer1.numVertices = 60;
+    grInfo.uiRectLayer1.bufferSize = 60 * sizeof(RectVertex);
 
     float vertices[8] = { 0 };
     float vertices_6[6] = { 0 };
@@ -2440,6 +2469,11 @@ void setupUI(bool isDarkTheme) {
     TextVertex textVertices[6] = { 0 };
     TextVertex textVertices_10[60] = { 0 };
     TextVertex textVertices_100[600] = { 0 };
+
+    SETUP_BUFFERS_RECT(globalCursor.vao, globalCursor.vbo, NULL, 4 * sizeof(RectVertex));
+    SETUP_BUFFERS_RECT(globalCursor.selection.vao, globalCursor.selection.vbo, NULL, 6 * sizeof(RectVertex));
+    globalCursor.selection.numVertices = 6;
+    globalCursor.selection.bufferSize = 6 * sizeof(RectVertex);
 
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
     SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
@@ -2482,6 +2516,14 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_TEXT(grInfo.text.vao, grInfo.text.vbo, textVertices_100);
     grInfo.text.numVertices = 600;
     grInfo.text.bufferSize = sizeof(textVertices_100);
+
+    SETUP_BUFFERS_TEXT(grInfo.uiTextLayer0.vao, grInfo.uiTextLayer0.vbo, textVertices_100);
+    grInfo.uiTextLayer0.numVertices = 600;
+    grInfo.uiTextLayer0.bufferSize = sizeof(textVertices_100);
+
+    SETUP_BUFFERS_TEXT(grInfo.uiTextLayer1.vao, grInfo.uiTextLayer1.vbo, textVertices_100);
+    grInfo.uiTextLayer1.numVertices = 600;
+    grInfo.uiTextLayer1.bufferSize = sizeof(textVertices_100);
 
     SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, textVertices_100);
     grInfo.extraText.numVertices = 600;
@@ -3827,6 +3869,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                 } else {
                     elem->active = false;
                 }
+
+                REDRAW_UI();
                 break;
             }
 
@@ -3835,6 +3879,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     TextInputData* tid = elem->textInputData;
 
                     if (shift) {
+                        REDRAW_UI();
+
                         if (tid->textSelected) {
                             if (tid->cursorPosition - 1 == tid->initialCursorPosition) {
                                 textInputUnselect(tid);
@@ -3848,15 +3894,15 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                             tid->initialCursorPosition = tid->cursorPosition;
                             tid->textSelectStartCol = tid->cursorPosition - 1;
                             tid->textSelectEndCol = tid->cursorPosition;
+                            globalCursor.showSelection = true;
                         }
-
-                        tid->textSelectUpdated = true;
                     } else {
                         textInputUnselect(tid);
                     }
 
                     DECR_CURSOR();
                     UPDATE_CURSOR_TIME();
+                    REDRAW_UI();
                 }
                 break;
 
@@ -3865,6 +3911,8 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     TextInputData* tid = elem->textInputData;
 
                     if (shift) {
+                        REDRAW_UI();
+
                         if (tid->textSelected) {
                             if (tid->cursorPosition + 1 == tid->initialCursorPosition) {
                                 textInputUnselect(tid);
@@ -3878,15 +3926,15 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                             tid->initialCursorPosition = tid->cursorPosition;
                             tid->textSelectEndCol = tid->cursorPosition + 1;
                             tid->textSelectStartCol = tid->cursorPosition;
+                            globalCursor.showSelection = true;
                         }
-
-                        tid->textSelectUpdated = true;
                     } else {
                         textInputUnselect(tid);
                     }
 
                     INCR_CURSOR();
                     UPDATE_CURSOR_TIME();
+                    REDRAW_UI();
                 }
                 break;
 
@@ -3914,16 +3962,20 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     TYPE("\n");
                     INCR_CURSOR();
                 }
+
+                REDRAW_UI();
                 break;
 
             case GLFW_KEY_END:
                 CUR_POS = static_cast<uint32_t>(elem->text.length());
                 UPDATE_CURSOR_TIME();
+                REDRAW_UI();
                 break;
 
             case GLFW_KEY_HOME:
                 CUR_POS = 0;
                 UPDATE_CURSOR_TIME();
+                REDRAW_UI();
                 break;
 
             case GLFW_KEY_BACKSPACE: {
@@ -3950,6 +4002,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     }
 
                     UPDATE_CURSOR_TIME();
+                    REDRAW_UI();
                 }
 
                 break;
@@ -3972,6 +4025,7 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
 
                     processCommand(elem, new Command(CommandType::Delete, d, CUR_POS));
                     UPDATE_CURSOR_TIME();
+                    REDRAW_UI();
                 }
 
                 break;
@@ -3985,8 +4039,9 @@ void textInputKeyCallback(UIElement* elem, int key, int action, int mod) {
                     tid->initialCursorPosition = tid->cursorPosition;
                     tid->textSelectStartCol = 0;
                     tid->textSelectEndCol = len;
-                    tid->textSelectUpdated = true;
                     tid->cursorPosition = len;
+                    globalCursor.showSelection = true;
+                    REDRAW_UI();
                 } else if (capsLck || shift) { TYPE("A"); } else { TYPE("a"); }
                 INCR_CURSOR();
                 break;
@@ -5223,7 +5278,8 @@ void textInputMouseDownCallback(
     tid->mouseDown = true;
     tid->mouseDownX = mouseX;
     tid->mouseDownY = mouseY;
-    tid->lastActiveTime = TIME();
+    globalCursor.time = TIME();
+    REDRAW_UI();
 }
 
 void tabBarMouseDownCallback(
@@ -5248,6 +5304,7 @@ void tabBarMouseDownCallback(
                 tabsDisplay.xOffset = newOffset;
 
                 elem->reDraw = true;
+                REDRAW_UI();
             }
 
             return;
@@ -5259,6 +5316,7 @@ void tabBarMouseDownCallback(
             }
 
             elem->reDraw = true;
+            REDRAW_UI();
             return;
         }
     }
@@ -5296,6 +5354,8 @@ void tabBarMouseDownCallback(
         }
     }
 
+    REDRAW_UI();
+
     updateWindowTitle();
 }
 
@@ -5330,7 +5390,9 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
         tid->initialCol = sd.col;
 
         tid->cursorPosition = sd.cursorPosition;
-        tid->textSelectUpdated = true;
+
+        globalCursor.showSelection = true;
+        REDRAW_UI();
 
         #ifdef DEBUG_TEXT_SELECTION
             printTextInputData(tid, "Text Selection 1");
@@ -5394,7 +5456,7 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
 
         tid->prevRow = sd.row;
         tid->cursorPosition = sd.cursorPosition;
-        tid->textSelectUpdated = true;
+        REDRAW_UI();
 
         #ifdef DEBUG_TEXT_SELECTION
             printTextInputData(tid, "Text Selection 2");
@@ -5406,7 +5468,8 @@ void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm
         textInputUnselect(tid, "Text Input Mouse Drag Callback 2");
     }
 
-    tid->lastActiveTime = TIME();
+    globalCursor.time = TIME();
+    REDRAW_UI();
 }
 
 void textInputMouseUpCallback(
@@ -5446,6 +5509,8 @@ void textInputUnselect(TextInputData * tid, string token) {
     tid->textSelectEndCol = tid->textSelectStartCol;
     tid->initialCursorPosition = tid->textSelectStartCol;
     tid->textSelectEndRow = tid->textSelectStartRow;
+    globalCursor.showSelection = false;
+    REDRAW_UI();
 }
 
 void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
@@ -5535,7 +5600,7 @@ void setTooltipDirection(
     float bbx2,
     float bby2,
     bool showArrow,
-    RectangleVertexAttributes* arrow,
+    RectVertex* arrow,
     uint32_t colorIndex,
     TooltipDirection direction
 ) {
@@ -5621,7 +5686,7 @@ void showTooltip(
     uint32_t textVertices = text.length() * 6;
     uint32_t textBufferSize = sizeof(TextVertex) * textVertices;
 
-    RectangleVertexAttributes box[9] = { 0 };
+    RectVertex box[9] = { 0 };
 
     vector<TextVertex> txt;
     txt.reserve(textVertices);
@@ -5672,10 +5737,12 @@ void showTooltip(
         glGenBuffers(1, &tooltip.txt.vbo);
         glBindBuffer(GL_ARRAY_BUFFER, tooltip.txt.vbo);
         glBufferData(GL_ARRAY_BUFFER, textBufferSize, &txt[0], GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)0);
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void *)(4 * sizeof(float)));
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)(2 * sizeof(float)));
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void *)(4 * sizeof(float)));
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
 
         tooltip.txt.numVertices = textVertices;
         tooltip.txt.bufferSize = textBufferSize;
@@ -5784,8 +5851,6 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
             tid = new TextInputData {
                 .cursorPosition = 0,
-                .cursorVAO = 0,
-                .cursorVBO = 0,
                 .textSelectStartRow = 0,
                 .textSelectStartCol = 0,
                 .textSelectEndRow = 0,
@@ -5810,6 +5875,7 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     elem = {
         type,
+        0,
         0,
         0,
         top,
@@ -6113,6 +6179,7 @@ void closeTab(uint32_t index) {
 
     updateWindowTitle();
     grInfo.redraw = true;
+    REDRAW_UI();
 }
 
 string getSelectedTextFromCurrentTab() {
@@ -6498,6 +6565,7 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
 
 void recalculateLayout(UIElement * elem) {
     elem->reDraw = true;
+    REDRAW_UI();
 
     if (updateElementDimensionsAccordingToPreferences(elem)) {
         #ifdef DEBUG_SCROLL_AREA
@@ -6772,14 +6840,168 @@ void render() {
     glm::vec2 cursor(mouseX, mouseY);
     float _ = 0.0f;
 
-    renderElement(ROOT_CONTAINER, resolution, cursor, 0, _);
+    vector<TextVertex> uiTextLayer0;
+    vector<TextVertex> uiTextLayer1;
+    vector<RectVertex> uiRectLayer0;
+    vector<RectVertex> uiRectLayer1;
+
+    if (grInfo.redrawUI) {
+        uiTextLayer0.reserve(grInfo.uiTextLayer0.numVertices);
+        uiTextLayer1.reserve(grInfo.uiTextLayer1.numVertices);
+
+        addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer0);
+        addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer1);
+    }
+
+    renderElement(
+        ROOT_CONTAINER,
+        resolution,
+        cursor,
+        0,
+        _,
+        uiRectLayer0,
+        uiRectLayer1,
+        uiTextLayer0,
+        uiTextLayer1
+    );
+
+    #ifdef DEBUG_RENDER
+    if (grInfo.redrawUI) {
+        cout << "\nLayer 0";
+    }
+    #endif
+
+    drawRectangles(grInfo.uiRectLayer0, uiRectLayer0, grInfo.redrawUI);
+
+    if (globalCursor.show && globalCursor.showSelection && globalCursor.layer == 0) {
+        renderTextSelection(globalCursor);
+    }
+
+    drawTextBuffers(
+        grInfo.uiTextLayer0.vao,
+        grInfo.uiTextLayer0.vbo,
+        grInfo.uiTextLayer0.bufferSize,
+        grInfo.uiTextLayer0.numVertices,
+        uiTextLayer0,
+        1.0f,
+        grInfo.redrawUI
+    );
+
+    #ifdef DEBUG_RENDER
+    if (grInfo.redrawUI) {
+        cout << "\nLayer 1";
+    }
+    #endif
+
+    drawRectangles(grInfo.uiRectLayer1, uiRectLayer1, grInfo.redrawUI);
+
+    if (globalCursor.show && globalCursor.showSelection && globalCursor.layer == 1) {
+        renderTextSelection(globalCursor);
+    }
+
+    drawTextBuffers(
+        grInfo.uiTextLayer1.vao,
+        grInfo.uiTextLayer1.vbo,
+        grInfo.uiTextLayer1.bufferSize,
+        grInfo.uiTextLayer1.numVertices,
+        uiTextLayer1,
+        1.0f,
+        grInfo.redrawUI
+    );
 
     if (tooltip.show) {
         renderTooltip();
     }
+
+    if (globalCursor.show) {
+        renderTextCursor(globalCursor);
+    }
+
+    if (!rerenderUI) {
+        grInfo.redrawUI = false;
+    } else {
+        rerenderUI = false;
+    }
 }
 
-void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, uint32_t childIndex, float& yPrev) {
+void updateTextCursor(Cursor& c, float x, float y, float height) {
+    uint32_t colorIndex = darkTheme ? CURSOR_COLOR_DARK_INDEX : CURSOR_COLOR_INDEX;
+
+    RectVertex vertices[4] = {
+        x - 1, y,          colorIndex, 0,
+        x + 1, y,          colorIndex, 0,
+        x - 1, y + height, colorIndex, 0,
+        x + 1, y + height, colorIndex, 0,
+    };
+
+    glBindVertexArray(c.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, c.vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+}
+
+void updateTextSelection(Cursor& c, vector<RectVertex> vertices) {
+    glBindVertexArray(c.selection.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, c.selection.vbo);
+
+    if (vertices.empty()) {
+        glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(RectVertex), NULL, GL_STATIC_DRAW);
+        c.selection.numVertices = 6;
+        c.selection.bufferSize = 6 * sizeof(RectVertex);
+        return;
+    }
+
+    #ifdef DEBUG_RENDER
+    printRectVertex(vertices);
+    #endif
+
+    if (c.selection.numVertices < vertices.size()) {
+        c.selection.numVertices = vertices.size();
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(RectVertex), &vertices[0], GL_DYNAMIC_DRAW);
+    } else {
+        for (uint32_t i=vertices.size(); i<c.selection.numVertices; i+=6) {
+            vertices.insert(vertices.begin(), {
+                RectVertex { 0 },
+                RectVertex { 0 },
+                RectVertex { 0 },
+                RectVertex { 0 },
+                RectVertex { 0 },
+                RectVertex { 0 },
+            });
+        }
+
+        if (vertices.size() > c.selection.numVertices) {
+            c.selection.numVertices = vertices.size();
+            c.selection.bufferSize = vertices.size() * sizeof(RectVertex);
+        }
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, c.selection.bufferSize, &vertices[0]);
+    }
+}
+
+void renderTextCursor(Cursor& c) {
+    glBindVertexArray(c.vao);
+    glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+    glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - c.time);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void renderTextSelection(Cursor& c) {
+    glBindVertexArray(c.selection.vao);
+    glUseProgram(shaders[SHADER_RECTANGLE].programId);
+    glDrawArrays(GL_TRIANGLES, 0, c.selection.numVertices);
+}
+
+void renderElement(
+    UIElement& elem,
+    glm::vec2 &resolution,
+    glm::vec2 &cursor,
+    uint32_t childIndex,
+    float& yPrev,
+    vector<RectVertex>& uiRectLayer0,
+    vector<RectVertex>& uiRectLayer1,
+    vector<TextVertex>& uiTextLayer0,
+    vector<TextVertex>& uiTextLayer1
+) {
     switch (elem.type) {
         case UIElementType::Container: {
             if (!elem.show) { break; }
@@ -6815,41 +7037,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 || elem.id == DIALOG_OVERLAY_ID
                 || elem.id == DIALOG_CONTAINER_ID
             ) {
-                if (elem.reDraw) {
-                    #ifdef DEBUG_RENDER
-                        cout << "\nRe-drawing Container";
-                    #endif
-
-                    float right = elem.left + elem.width;
-                    float bottom = elem.top + elem.height;
-
-                    float vertices[] = {
-                        right, bottom,
-                        right, elem.top,
-                        elem.left, bottom,
-                        elem.left, elem.top,
-                    };
-
-                    glBindVertexArray(elem.vao);
-                    glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-                }
-
                 glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
 
                 if (elem.id == EXPLORER_CONTEXT_MENU_ID || elem.id == DIALOG_CONTAINER_ID) {
-                    glBindVertexArray(elem.vao);
-                    glUseProgram(shaders[SHADER_BUTTON].programId);
-                    glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.x, bg.y, bg.z, bg.w);
-                    glUniform4f(uniforms[U_BUTTON_HOV_COLOR], bg.x, bg.y, bg.z, bg.w);
-                    glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(5.0f));
-                    glUniform2f(uniforms[U_BUTTON_CURSOR], mouseX, mouseY);
-                    glUniform2f(uniforms[U_BUTTON_TOP_LEFT], elem.left, elem.top);
-                    glUniform2f(uniforms[U_BUTTON_CURSOR], -5, -5);
-                    glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
-
-                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    if (grInfo.redrawUI) {
+                        addRectangle(
+                            elem.left, elem.top, elem.width, elem.height,
+                            darkTheme ?
+                                TOOL_BAR_BG_DARK_INDEX
+                                :
+                                TOOL_BAR_BG_INDEX,
+                            0,
+                            uiRectLayer1
+                        );
+                    }
                 } else {
                     bg = TRANSPARENT_COLOR;
 
@@ -6858,10 +7059,18 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     } else if (&elem == &WELCOME_SCREEN) {
                         bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
                     } else if (elem.id == DIALOG_OVERLAY_ID) {
-                        bg = glm::vec4(0.0f, 0.0f, 0.0f, 0.8f);
+                        if (grInfo.redrawUI) {
+                            addRectangle(
+                                0,
+                                0,
+                                windowWidth,
+                                windowHeight,
+                                OVERLAY_INDEX,
+                                0,
+                                uiRectLayer1
+                            );
+                        }
                     }
-
-                    DRAW_RECT(elem.vao, bg);
                 }
             }
 
@@ -6882,7 +7091,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                                 elem.children[i]->reDraw = true;
                             }
 
-                            renderElement(*elem.children[i], resolution, cursor, i, yp);
+                            renderElement(
+                                *elem.children[i],
+                                resolution,
+                                cursor,
+                                i,
+                                yp,
+                                uiRectLayer0,
+                                uiRectLayer1,
+                                uiTextLayer0,
+                                uiTextLayer1
+                            );
 
                             left += elem.children[i]->width + 8.0f;
                         }
@@ -6894,7 +7113,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                                 elem.children[i]->reDraw = true;
                             }
 
-                            renderElement(*elem.children[i], resolution, cursor, i, yp);
+                            renderElement(
+                                *elem.children[i],
+                                resolution,
+                                cursor,
+                                i,
+                                yp,
+                                uiRectLayer0,
+                                uiRectLayer1,
+                                uiTextLayer0,
+                                uiTextLayer1
+                            );
                         }
                     }
                 }
@@ -6911,6 +7140,8 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             if (oldHeight != elem.height) {
                 elem.reDraw = true;
+                rerenderUI = true;
+                REDRAW_UI();
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     elem.children[i]->reDraw = true;
@@ -6956,7 +7187,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             vector<TextVertex> iconVertices;
             vector<TextVertex> extraTextVertices;
             vector<TextVertex> textVertices;
-            vector<RectangleVertexAttributes> rva;
+            vector<RectVertex> rva;
 
             if (grInfo.redraw) {
                 iconVertices.reserve(grInfo.icon.bufferSize > 9600 ? grInfo.icon.bufferSize : 9600);
@@ -6968,8 +7199,6 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             }
 
             bool visible = false;
-
-            // addRectangle(200, 200, 50, 50, 0, 0, rva);
 
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
@@ -6992,7 +7221,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 }
             }
 
-            drawRectangles(rva);
+            drawRectangles(grInfo.rect, rva, grInfo.redraw);
 
             drawTextBuffers(
                 grInfo.icon.vao,
@@ -7159,21 +7388,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 }
             }
 
-            renderTextCached(
-                elem.text,
-                glm::vec2(left, top),
-                elem.textVAO,
-                elem.textVBO,
-                elem.textBufferSize,
-                elem.textVerticesCount,
-                elem.parent->left,
-                elem.parent->width,
-                1.0f,
-                elem.fontSize,
-                darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                elem.reDraw,
-                false
-            );
+            if (grInfo.redrawUI) {
+                appendTextVertices(
+                    left,
+                    top,
+                    elem.text,
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    elem.fontSize,
+                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                );
+            }
 
             if (
                 elem.positioning == UIPositioning::Relative_sibling
@@ -7187,6 +7411,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             break;
         }
 
+        // TODO: handle hover
         case UIElementType::Button: {
             if (!elem.show) { return; }
 
@@ -7227,7 +7452,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 top -= elem.parent->scrollData->yOffset;
             }
 
-            if (elem.reDraw) {
+            if (grInfo.redrawUI) {
                 if (
                     elem.parent->type == UIElementType::ScrollArea
                     && (
@@ -7287,19 +7512,27 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     cout << "\nRe-drawing";
                 #endif
 
-                float right = left + elem.width;
-                float bottom = top + elem.height;
+                uint32_t colorIndex = darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX;
 
-                float vertices[] = {
-                    right, bottom,
-                    right, top,
-                    left, bottom,
-                    left, top,
-                };
+                if (elem.id == SWITCH_VAULT_OPTION_ID) {
+                    colorIndex = TRANSPARENT_INDEX;
+                } else if (
+                    elem.id == EXPLORER_MENU_DELETE_ID
+                    || elem.id == DELETE_DIALOG_DELETE_BUTTON_ID
+                ) {
+                    // TODO: handle hover colors for delete button
+                    // hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
+                }
 
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                addRectangle(
+                    left,
+                    top,
+                    elem.width,
+                    elem.height,
+                    colorIndex,
+                    elem.borderRadius,
+                    elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
+                );
             } else {
                 if (
                     elem.positioning == UIPositioning::Relative_sibling
@@ -7323,48 +7556,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 }
             }
 
-            glBindVertexArray(elem.vao);
-            glUseProgram(shaders[SHADER_BUTTON].programId);
-
-            glm::vec4 bg = darkTheme ? BUTTON_BG_DARK : BUTTON_BG;
-            glm::vec4 hv = darkTheme ? BUTTON_HOVER_BG_DARK : BUTTON_HOVER_BG;
-
-            if (elem.id == SWITCH_VAULT_OPTION_ID) {
-                bg = TRANSPARENT_COLOR;
-            } else if (
-                elem.id == EXPLORER_MENU_DELETE_ID
-                || elem.id == DELETE_DIALOG_DELETE_BUTTON_ID
-            ) {
-                hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
+            if (grInfo.redrawUI) {
+                appendTextVertices(
+                    left + padding,
+                    top + padding,
+                    elem.text,
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    elem.fontSize,
+                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                );
             }
-
-            glUniform4f(uniforms[U_BUTTON_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
-            glUniform4f(uniforms[U_BUTTON_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
-
-            glUniform2f(uniforms[U_BUTTON_TOP_LEFT], left, top);
-            glUniform2f(uniforms[U_BUTTON_DIMENSIONS], elem.width, elem.height);
-            glUniform1f(uniforms[U_BUTTON_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
-            glUniform2f(uniforms[U_BUTTON_CURSOR], cursor.x, cursor.y);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-            glm::vec2 pos = glm::vec2(left + padding, top + padding);
-
-            renderTextCached(
-                elem.text,
-                pos,
-                elem.textVAO,
-                elem.textVBO,
-                elem.textBufferSize,
-                elem.textVerticesCount,
-                elem.parent->left,
-                elem.parent->width,
-                1.0f,
-                elem.fontSize,
-                darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                elem.reDraw,
-                false
-            );
 
             if (
                 elem.positioning == UIPositioning::Relative_sibling
@@ -7455,7 +7656,17 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
                     if (elem.children[i]->show || elem.reDraw) {
-                        renderElement(*elem.children[i], resolution, cursor, i, yp);
+                        renderElement(
+                            *elem.children[i],
+                            resolution,
+                            cursor,
+                            i,
+                            yp,
+                            uiRectLayer0,
+                            uiRectLayer1,
+                            uiTextLayer0,
+                            uiTextLayer1
+                        );
                     }
 
                     if (elem.reDraw) {
@@ -7548,14 +7759,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 float top = elem.top + (dimension - height)/2;
                 uint32_t colorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
-                vertices.insert(vertices.end(), {
-                    TextVertex { left,         top,          c.textureX1, c.textureY1, colorIndex },
-                    TextVertex { left + width, top,          c.textureX2, c.textureY1, colorIndex },
-                    TextVertex { left,         top + height, c.textureX1, c.textureY2, colorIndex },
-                    TextVertex { left,         top + height, c.textureX1, c.textureY2, colorIndex },
-                    TextVertex { left + width, top,          c.textureX2, c.textureY1, colorIndex },
-                    TextVertex { left + width, top + height, c.textureX2, c.textureY2, colorIndex },
-                });
+                PUSH_ICON_VERTICES(vertices, c, left, top, width, height, colorIndex);
 
                 drawTextBuffers(
                     elem.textVAO,
@@ -7596,6 +7800,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             break;
         }
 
+        // TODO: handle hover
         case UIElementType::TextInput: {
             if (!elem.show) { return; }
 
@@ -7624,7 +7829,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 top -= elem.parent->scrollData->yOffset;
             }
 
-            if (elem.reDraw) {
+            if (grInfo.redrawUI) {
                 if (
                     elem.parent->type == UIElementType::ScrollArea
                     && (
@@ -7657,39 +7862,16 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     top = elem.top;
                 }
 
-                float right = left + elem.width;
-                float bottom = top + elem.height;
-
-                float vertices[] = {
-                    right, bottom,
-                    right, top,
-                    left, bottom,
-                    left, top,
-                };
-
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                addRectangle(
+                    left,
+                    top,
+                    elem.width,
+                    elem.height,
+                    darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX,
+                    elem.borderRadius,
+                    elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
+                );
             }
-
-            glBindVertexArray(elem.vao);
-
-            glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
-
-            glm::vec4 color = darkTheme ? WHITE : BLACK;
-            glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
-            glm::vec4 hv = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_BG;
-
-            glUniform4f(uniforms[U_TEXT_INPUT_COLOR], color.r, color.g, color.b, color.a);
-            glUniform4f(uniforms[U_TEXT_INPUT_BG_COLOR], bg.r, bg.g, bg.b, bg.a);
-            glUniform4f(uniforms[U_TEXT_INPUT_HOV_COLOR], hv.r, hv.g, hv.b, hv.a);
-
-            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], left, top);
-            glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
-            glUniform1f(uniforms[U_TEXT_INPUT_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
-            glUniform2f(uniforms[U_TEXT_INPUT_CURSOR], cursor.x, cursor.y);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
             TextInputData* tid = elem.textInputData;
 
@@ -7751,77 +7933,54 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             float selectEndX = selectStartX + rRes.selWidth;
 
             if (elem.active && tid->textSelected) {
-                if (tid->textSelectUpdated) {
-                    float vertices[] = {
-                        selectStartX,   cursorY - rRes.height,
-                        selectEndX,     cursorY - rRes.height,
-                        selectStartX,   cursorY,
-                        selectEndX,     cursorY
-                    };
+                globalCursor.showSelection = true;
 
-                    if (tid->textSelectVAO == 0) {
-                        SETUP_BUFFERS_DYNAMIC(tid->textSelectVAO, tid->textSelectVBO, vertices);
-                    } else {
-                        glBindVertexArray(tid->textSelectVAO);
-                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
-                        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-                    }
+                if (grInfo.redrawUI) {
+                    vector<RectVertex> rv;
+                    rv.reserve(6);
 
-                    tid->textSelectUpdated = false;
+                    addRectangle(
+                        selectStartX,
+                        cursorY - rRes.height,
+                        selectEndX - selectStartX,
+                        rRes.height,
+                        darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
+                        0,
+                        rv
+                    );
+
+                    updateTextSelection(globalCursor, rv);
 
                     #ifdef DEBUG_TEXT_SELECTION
                         debugv("Text selection: CursorY: {}", cursorY);
                     #endif
                 }
-
-                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
-                color.a = 0.25;
-
-                DRAW_RECT(tid->textSelectVAO, color);
             }
 
-            renderTextCached(
-                text,
-                pos,
-                elem.textVAO,
-                elem.textVBO,
-                elem.textBufferSize,
-                elem.textVerticesCount,
-                elem.parent->left,
-                elem.parent->width,
-                1.0f,
-                elem.fontSize,
-                darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                elem.reDraw,
-                false
-            );
+            if (grInfo.redrawUI && !elem.text.empty()) {
+                appendTextVertices(
+                    pos.x,
+                    pos.y,
+                    elem.text,
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    elem.fontSize,
+                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                );
+            }
 
             // When text input is active, draw the cursor.
             if (elem.active) {
-                float vertices[] = {
-                    cursorX - 1, cursorY - static_cast<float>(elem.fontSize) * (1 - glyphDescender),
-                    cursorX + 1, cursorY - static_cast<float>(elem.fontSize) * (1 - glyphDescender),
-                    cursorX - 1, cursorY,
-                    cursorX + 1, cursorY,
-                };
+                globalCursor.show = true;
 
-                if (tid->cursorVAO == 0) {
-                    SETUP_BUFFERS_DYNAMIC(tid->cursorVAO, tid->cursorVBO, vertices);
-                } else {
-                    glBindVertexArray(tid->cursorVAO);
-                    glBindBuffer(GL_ARRAY_BUFFER, tid->cursorVBO);
-
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+                if (text.empty()) {
+                    cursorY = elem.top + elem.height - TEXT_INPUT_PADDING;
                 }
 
-                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
+                if (grInfo.redrawUI) {
+                    float height = static_cast<float>(elem.fontSize) * (1 - glyphDescender);
 
-                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
-
-                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.r, color.g, color.b, color.a);
-                glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
-
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    updateTextCursor(globalCursor, cursorX, cursorY - height, height);
+                }
             }
 
             if (
@@ -7837,54 +7996,19 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
             break;
         }
 
+        // TODO: make similar changes as TextInput
         case UIElementType::TextArea: {
-            if (elem.reDraw) {
-                #ifdef DEBUG_RENDER
-                    cout << "\nRe-drawing Text Area" << "\nwidth: " << elem.width << ", height: " << elem.height;
-                #endif
-
-                float right = elem.left + elem.width;
-                float bottom = elem.top + elem.height;
-
-                float vertices[] = {
-                    right, bottom,
-                    right, elem.top,
-                    elem.left, bottom,
-                    elem.left, elem.top,
-                };
-
-                glBindVertexArray(elem.vao);
-                glBindBuffer(GL_ARRAY_BUFFER, elem.vbo);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-                elem.reDraw = false;
+            if (grInfo.redrawUI) {
+                addRectangle(
+                    elem.left,
+                    elem.top,
+                    elem.width,
+                    elem.height,
+                    darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX,
+                    0,
+                    uiRectLayer0
+                );
             }
-
-            glBindVertexArray(elem.vao);
-            glUseProgram(shaders[SHADER_TEXT_INPUT].programId);
-
-            glm::vec4 color = darkTheme ? WHITE : BLACK;
-            glm::vec4 bg = darkTheme ? TEXT_INPUT_BG_DARK : TEXT_INPUT_BG;
-            glm::vec4 hv = darkTheme ? TEXT_INPUT_HOVER_BG_DARK : TEXT_INPUT_BG;
-            glUniform4f(uniforms[U_TEXT_INPUT_COLOR], color.x, color.y, color.z, color.w);
-            glUniform4f(uniforms[U_TEXT_INPUT_BG_COLOR], bg.x, bg.y, bg.z, bg.w);
-            glUniform4f(uniforms[U_TEXT_INPUT_HOV_COLOR], hv.x, hv.y, hv.z, hv.w);
-
-            glUniform2f(uniforms[U_TEXT_INPUT_TOP_LEFT], elem.left, elem.top);
-            glUniform2f(uniforms[U_TEXT_INPUT_DIMENSIONS], elem.width, elem.height);
-
-            // glUniform1f(uniforms[U_TEXT_INPUT_TIME], TIME());
-            glUniform1f(uniforms[U_TEXT_INPUT_BORDER_RADIUS], static_cast<float>(elem.borderRadius));
-            glUniform2f(uniforms[U_TEXT_INPUT_CURSOR], cursor.x, cursor.y);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-            glUseProgram(shaders[SHADER_TEXT].programId);
-
-            glUniform4f(uniforms[U_TEXT_COLOR], color.r, color.g, color.b, color.a);
-            glActiveTexture(GL_TEXTURE0);
-            glBindVertexArray(textVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
 
             uint32_t currentIndex = 0;
             uint32_t row = 0;
@@ -7905,7 +8029,7 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             TextInputData* tid = elem.textInputData;
 
-            vector<float> selectionVertices;
+            vector<RectVertex> selectionVertices;
             selectionVertices.reserve(18);
 
             const float newLineSize = static_cast<float>(elem.fontSize)
@@ -7913,27 +8037,31 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
 
             const float heightIncrement = static_cast<float>(elem.fontSize + LINE_GAP);
 
+            if (grInfo.redrawUI && !elem.text.empty()) {
+                appendTextVertices(
+                    elem.left,
+                    elem.top,
+                    elem.text,
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    elem.fontSize,
+                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                );
+            }
+
+            if (!elem.active) { break; }
+
             for (const char c: elem.text) {
                 if (c == '\n') {
                     if (tid->textSelected && selectStarted && !selectEnded) {
-                        const float y1 = y + elem.fontSize;
-
-                        selectEndX = x;
-                        selectEndY = y;
-
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y);
-
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y);
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y);
+                        addRectangle(
+                            selectStartX,
+                            y,
+                            x - selectStartX,
+                            static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                            darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
+                            0,
+                            selectionVertices
+                        );
                     }
 
                     y += heightIncrement;
@@ -7963,21 +8091,15 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                         selectEndY = y;
                         selectEnded = true;
 
-                        const float y1 = y + elem.fontSize;
-
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y);
-
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y1);
-                        selectionVertices.push_back(selectStartX);
-                        selectionVertices.push_back(y);
-                        selectionVertices.push_back(selectEndX);
-                        selectionVertices.push_back(y);
+                        addRectangle(
+                            selectStartX,
+                            y,
+                            x - selectStartX,
+                            static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                            darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
+                            0,
+                            selectionVertices
+                        );
                     }
                 }
 
@@ -7997,103 +8119,20 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                 cursorY = y;
                 selectEndX = x;
 
-                const float y1 = y + elem.fontSize;
-                selectionVertices.push_back(selectStartX);
-                selectionVertices.push_back(y1);
-                selectionVertices.push_back(selectEndX);
-                selectionVertices.push_back(y1);
-                selectionVertices.push_back(selectStartX);
-                selectionVertices.push_back(y);
-
-                selectionVertices.push_back(selectEndX);
-                selectionVertices.push_back(y1);
-                selectionVertices.push_back(selectStartX);
-                selectionVertices.push_back(y);
-                selectionVertices.push_back(selectEndX);
-                selectionVertices.push_back(y);
+                addRectangle(
+                    selectStartX,
+                    y,
+                    x - selectStartX,
+                    static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                    darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
+                    0,
+                    selectionVertices
+                );
             }
 
-            #ifdef DEBUG_TEXT_SELECTION
-                if (tid->textSelected) {
-                    printTextSelectionVertices(selectionVertices);
-                }
-            #endif
-
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindVertexArray(0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            // When text input is active, draw the cursor.
-            if (elem.active) {
-                if (tid->cursorVAO != 0) {
-                    glDeleteVertexArrays(1, &tid->cursorVAO);
-                }
-
-                if (tid->cursorVBO != 0) {
-                    glDeleteBuffers(1, &tid->cursorVBO);
-                }
-
-                // cout << "\ncursorX: " << cursorX << " cursorY: " << cursorY;
-
-                float vertices[] = {
-                    cursorX - 1, cursorY + elem.fontSize,
-                    cursorX + 1, cursorY + elem.fontSize,
-                    cursorX - 1, cursorY,
-                    cursorX + 1, cursorY,
-                };
-
-                SETUP_BUFFERS(tid->cursorVAO, tid->cursorVBO, vertices);
-
-                glUseProgram(shaders[SHADER_TEXT_CURSOR].programId);
-
-                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
-
-                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
-                glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tid->lastActiveTime);
-
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                if (tid->textSelected && selectStartX != -1 && selectEndX != -1) {
-                    if (tid->textSelectUpdated && !selectionVertices.empty()) {
-                        if (tid->textSelectVAO != 0) {
-                            glDeleteVertexArrays(1, &tid->textSelectVAO);
-                        }
-
-                        if (tid->textSelectVBO != 0) {
-                            glDeleteBuffers(1, &tid->textSelectVBO);
-                        }
-
-                        // float vertices[] = {
-                        //     selectStartX, cursorY + elem.fontSize,
-                        //     selectEndX, cursorY + elem.fontSize,
-                        //     selectStartX, cursorY,
-                        //     selectEndX, cursorY,
-                        // };
-
-                        glGenVertexArrays(1, &tid->textSelectVAO);
-                        glBindVertexArray(tid->textSelectVAO);
-                        glGenBuffers(1, &tid->textSelectVBO);
-                        glBindBuffer(GL_ARRAY_BUFFER, tid->textSelectVBO);
-                        glBufferData(GL_ARRAY_BUFFER, selectionVertices.size() * sizeof(float), &selectionVertices[0], GL_STATIC_DRAW);
-                        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-                        glEnableVertexAttribArray(0);
-
-                        tid->textSelectUpdated = false;
-                        #ifdef DEBUG_TEXT_SELECTION
-                            cout << "\ncursorY: " << cursorY;
-                        #endif
-                    }
-
-                    glBindVertexArray(tid->textSelectVAO);
-
-                    glUseProgram(shaders[SHADER_DEFAULT].programId);
-
-                    glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
-
-                    glUniform4f(uniforms[U_DEFAULT_COLOR], color.x, color.y, color.z, 0.25);
-
-                    glDrawArrays(GL_TRIANGLES, 0, selectionVertices.size() / 2);
-                }
+            if (grInfo.redrawUI) {
+                updateTextCursor(globalCursor, cursorX, cursorY, elem.fontSize);
+                updateTextSelection(globalCursor, selectionVertices);
             }
 
             break;
@@ -8181,10 +8220,30 @@ void renderElement(UIElement& elem, glm::vec2 &resolution, glm::vec2 &cursor, ui
                     elem.children[1]->left = windowWidth - TAB_BAR_HEIGHT;
                 }
 
-                renderElement(*elem.children[0], resolution, cursor, 0, _y);
-                renderElement(*elem.children[1], resolution, cursor, 1, _y);
-            }
+                renderElement(
+                    *elem.children[0],
+                    resolution,
+                    cursor,
+                    0,
+                    _y,
+                    uiRectLayer0,
+                    uiRectLayer1,
+                    uiTextLayer0,
+                    uiTextLayer1
+                );
 
+                renderElement(
+                    *elem.children[1],
+                    resolution,
+                    cursor,
+                    1,
+                    _y,
+                    uiRectLayer0,
+                    uiRectLayer1,
+                    uiTextLayer0,
+                    uiTextLayer1
+                );
+            }
 
             if (tabsDisplay.recalcOffset) {
                 adjustTabOffset();
@@ -8374,7 +8433,7 @@ inline bool renderContentBlock(
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& extraTextVertices,
     vector<TextVertex>& textVertices,
-    vector<RectangleVertexAttributes>& rva
+    vector<RectVertex>& rva
 ) {
     if (!GET_FLAG(cb->flags, CONTENT_BLOCK_VISIBLE)) {
         cout << "\nDEBUG: Content block " << index << " not visible";
@@ -8479,7 +8538,7 @@ inline bool renderContentBlock(
                 }
 
                 // if (isActive) {
-                    // addRectangle(0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
+                    // addRectangle(0, 0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
                 // } else {
                     if (
                         isCodeStart && (
@@ -11190,6 +11249,8 @@ void processCommand(UIElement* elem, Command* cmd) {
         switch(cmd->type) {
             case CommandType::None: break;
             case CommandType::Type: {
+                REDRAW_UI();
+
                 if (tid->textSelected) {
                     cmd = replaceSelectedText(elem, cmd);
                 } else {
@@ -11222,12 +11283,11 @@ void processCommand(UIElement* elem, Command* cmd) {
                 break;
             }
 
-            case CommandType::NewLine: {
-                break;
-            }
+            case CommandType::NewLine: break;
 
             case CommandType::Delete: {
                 uint32_t newLines = 0;
+                REDRAW_UI();
 
                 for (char c: cmd->str) {
                     if (c == '\n') { ++newLines; }
@@ -11243,6 +11303,7 @@ void processCommand(UIElement* elem, Command* cmd) {
                 if (newLines > 0 && elem->height > 32.0) {
                     elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
                     elem->reDraw = true;
+                    REDRAW_UI();
                 }
                 append = true;
                 break;
@@ -11250,6 +11311,7 @@ void processCommand(UIElement* elem, Command* cmd) {
 
             case CommandType::Backspace: {
                 uint32_t newLines = 0;
+                REDRAW_UI();
 
                 for (char c: cmd->str) {
                     if (c == '\n') { ++newLines; }
@@ -11273,14 +11335,17 @@ void processCommand(UIElement* elem, Command* cmd) {
                 }
 
                 elem->reDraw = true;
+                REDRAW_UI();
                 break;
             }
 
             case CommandType::Undo:
+                REDRAW_UI();
                 processUndo(elem);
                 break;
 
             case CommandType::Redo:
+                REDRAW_UI();
                 processRedo(elem);
                 break;
 
@@ -11413,6 +11478,7 @@ void initFloatingUI() {
 
     FLOATING_CONTAINER.show = true;
     FLOATING_CONTAINER.reDraw = true;
+    globalCursor.layer = 1;
 }
 
 void deleteElementBuffersAndStrings(UIElement* elem) {
@@ -11450,6 +11516,10 @@ void destroyFloatingUI() {
     } else {
         activeElement = nullptr;
     }
+
+    globalCursor.layer = 0;
+    globalCursor.show = false;
+    globalCursor.showSelection = false;
 }
 
 void showExplorerContextMenu(float x, float y) {
@@ -11557,17 +11627,22 @@ vector<UIElement*> initBasicDialog(
     }
 
     elems[0].id = DIALOG_OVERLAY_ID;
+    elems[0].layer = 1;
     elems[0].text = "OVERLAY";
     elems[0].preferences->widthPreference = UISizePreference::Full;
     elems[0].preferences->heightPreference = UISizePreference::Full;
 
     elems[1].id = DIALOG_CONTAINER_ID;
+    elems[1].layer = 1;
+    elems[1].width = dialogWidth;
+    elems[1].height = dialogHeight;
     elems[1].text = "DIALOG";
     elems[1].preferences->direction = false;
     elems[1].borderRadius = 5;
     elems[1].preferences->widthPreference = UISizePreference::Fixed;
     elems[1].preferences->heightPreference = UISizePreference::Fixed;
 
+    elems[2].layer = 1;
     elems[2].text = title;
     elems[2].fontSize = 20;
     elems[2].marginTop = 16;
@@ -11577,6 +11652,7 @@ vector<UIElement*> initBasicDialog(
 
     if (!message.empty()) {
         elems[3].text = message;
+        elems[3].layer = 1;
         elems[3].marginTop = 16;
         elems[3].positioning = UIPositioning::Relative_sibling;
         elems[3].preferences->heightPreference = UISizePreference::Fixed;
@@ -11589,6 +11665,7 @@ vector<UIElement*> initBasicDialog(
         elems[4].text = inputText;
         elems[4].marginTop = 16;
         elems[4].id = inputID;
+        elems[4].layer = 1;
         elems[4].positioning = UIPositioning::Relative_sibling;
         elems[4].preferences->heightPreference = UISizePreference::Fixed;
         elems[4].textInputData->alignment = TextInputAlignment::Center;
@@ -11614,6 +11691,7 @@ vector<UIElement*> initBasicDialog(
     if (!button1Text.empty()) {
         elems[6].text = button1Text;
         elems[6].id = button1ID;
+        elems[6].layer = 1;
     } else {
         elems[6].show = false;
     }
@@ -11621,6 +11699,7 @@ vector<UIElement*> initBasicDialog(
     if (!button2Text.empty()) {
         elems[7].text = button2Text;
         elems[7].id = button2ID;
+        elems[7].layer = 1;
     } else {
         elems[7].show = false;
     }
@@ -11739,31 +11818,28 @@ void hideContextMenus() {
     }
 }
 
+#ifdef DEBUG_RENDER
+void printRectVertex(vector<RectVertex> rv) {
+    uint32_t i = 0;
+    for (
+        vector<RectVertex>::iterator j = rv.begin();
+        j != rv.end();
+        ++j
+    ) {
+        if (i % 6 == 0) {
+            cout << "\nDEBUG: RECTANGLE:";
+        }
+
+        cout << "\n    RectVertex { x: " << j->x << ", y: " << j->y
+            << ", colorIndex: " << j->colorIndex << ", borderRadius: "
+            << j->borderRadius << " }";
+    }
+}
+#endif
+
 #ifdef DEBUG_TEXT_SELECTION
     float debug_lastTextSelTime = 0;
     float debug_lastTid = 0;
-
-    void printTextSelectionVertices(vector<float> &fvec) {
-        if (!(debug_lastTextSelTime + 1.0 < glfwGetTime() || debug_lastTextSelTime == 0)) {
-            return;
-        }
-
-        bool pair = false;
-
-        cout << "\nSelection vertices: ";
-
-        for (float c: fvec) {
-            if (pair) {
-                cout << ", " << c << "), ";
-            } else {
-                cout << "(" << c;
-            }
-
-            pair = !pair;
-        }
-
-        debug_lastTextSelTime = glfwGetTime();
-    }
 
     void printTextInputData(TextInputData* tid, string token) {
         // if (!(debug_lastTid + 1.0 < glfwGetTime() || debug_lastTid == 0)) {
