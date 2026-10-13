@@ -494,7 +494,7 @@ void setSelectedVault(string vaultName) {
 }
 
 void onVaultSetupCreateVaultClicked() {
-    cout << "\nCreating vault...";
+    debug("Creating vault...");
     string vaultName;
     string vaultPassword;
 
