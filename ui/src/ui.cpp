@@ -204,6 +204,7 @@ Explorer explorer = {
 
 GlobalRenderInfo grInfo;
 GlobalMouseEventInfo gmei;
+GlobalMouseEventInfo uiMouseEvents;
 Tooltip tooltip = { 0 };
 CBImageLoader cbImageLoader = { 0 };
 
@@ -857,6 +858,145 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
             }
 
+            boundsIndex = 0;
+            updated = false;
+            mouseDown = false;
+
+            for (
+                vector<Bounds>::iterator b = uiMouseEvents.bounds.begin();
+                b != uiMouseEvents.bounds.end();
+                ++b, ++boundsIndex
+            ) {
+                if (
+                    b->enableClick
+                    && mouseX > b->x1 && mouseX < b->x2
+                    && mouseY > b->y1 && mouseY < b->y2
+                ) {
+                    mouseDown = true;
+
+                    if (!(uiMouseEvents.mouseDown && uiMouseEvents.mouseDownIndex == boundsIndex)) {
+                        uiMouseEvents.mouseDownIndex = boundsIndex;
+                        updated = true;
+                    }
+
+                    break;
+                }
+            }
+
+            if (updated) {
+                uiMouseEvents.mouseDown = mouseDown;
+            } else if (uiMouseEvents.mouseDown && !mouseDown) {
+                uiMouseEvents.mouseDown = false;
+            }
+
+            if (uiMouseEvents.mouseDown && uiMouseEvents.bounds.size() > uiMouseEvents.mouseDownIndex) {
+                bool actionFound = false;
+                Bounds b = uiMouseEvents.bounds[uiMouseEvents.mouseDownIndex];
+
+                switch (b.type) {
+                    case BoundSourceType::Button: {
+                        if (grInfo.activeLayer == 0) {
+                            switch(b.source.elem->id) {
+                                case CREATE_VAULT_BUTTON_ID:
+                                    onCreateANewVaultClicked();
+                                    actionFound = true;
+                                    break;
+                                case SWITCH_VAULT_BUTTON_ID:
+                                    onSwitchVaultClicked();
+                                    actionFound = true;
+                                    break;
+                                case VAULT_SETUP_CREATE_VAULT_BUTTON_ID:
+                                    onVaultSetupCreateVaultClicked();
+                                    actionFound = true;
+                                    break;
+                                case VAULT_BACK_BUTTON_ID:
+                                    onVaultBackClicked();
+                                    actionFound = true;
+                                    break;
+                                case NEW_NOTE_BUTTON_ID:
+                                    newNote();
+                                    actionFound = true;
+                                    break;
+                                case NEW_FOLDER_BUTTON_ID:
+                                    showNewFolderDialog();
+                                    actionFound = true;
+                                    break;
+                                case TOGGLE_EXPLORER_BUTTON_ID:
+                                    toggleExplorer();
+                                    actionFound = true;
+                                    break;
+                                case SWITCH_VAULT_OPTION_ID:
+                                    setSelectedVault(b.source.elem->text);
+                                    onVaultBackClicked();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_RENAME_ID:
+                                    showRenameDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_DELETE_ID:
+                                    showDeleteDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_NEW_NOTE_ID:
+                                    showNewNoteDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_NEW_FOLDER_ID:
+                                    showNewFolderDialog();
+                                    actionFound = true;
+                                    break;
+                            }
+                        } else {
+                            switch(b.source.elem->id) {
+                                case RENAME_DIALOG_OK_BUTTON_ID:
+                                    renameActiveExplorerNode();
+                                    actionFound = true;
+                                    break;
+                                case DELETE_DIALOG_DELETE_BUTTON_ID:
+                                    deleteActiveExplorerNode();
+                                    actionFound = true;
+                                    break;
+                                case NEW_NOTE_DIALOG_CREATE_BUTTON_ID:
+                                    createNoteInActiveExplorerNode();
+                                    actionFound = true;
+                                    break;
+                                case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID:
+                                    createFolderInActiveExplorerNode();
+                                    actionFound = true;
+                                    break;
+                                case RENAME_DIALOG_CANCEL_BUTTON_ID:
+                                case DELETE_DIALOG_CANCEL_BUTTON_ID:
+                                case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
+                                case ERROR_DIALOG_OK_BUTTON_ID:
+                                    unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
+                                    destroyFloatingUI();
+                                    actionFound = true;
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                if (actionFound) {
+                    if (b.type == BoundSourceType::Button && b.source.elem != nullptr) {
+                        UIElement* prevActiveElement = activeElement;
+
+                        if (activeElement != nullptr) {
+                            activeElement->active = false;
+                        }
+
+                        activeElement = b.source.elem;
+                        b.source.elem->active = true;
+                    }
+
+                    REDRAW_UI();
+                    ignoreMouse1Up = true;
+                    return;
+                }
+            }
+
             if (highlightedContentBlock.show && !tabs.empty()) {
                 if (
                     mouseX >= highlightedContentBlock.left - 20.0f
@@ -886,50 +1026,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 #ifdef DEBUG_MOUSE_BUTTON
                     cout << " for " << elementType(elem);
                 #endif
-
-                if (elem->id > 0 && elem->type == UIElementType::Button) {
-                    if (grInfo.activeLayer == 0) {
-                        switch(elem->id) {
-                            case CREATE_VAULT_BUTTON_ID: onCreateANewVaultClicked(); break;
-                            case SWITCH_VAULT_BUTTON_ID: onSwitchVaultClicked(); break;
-                            case VAULT_SETUP_CREATE_VAULT_BUTTON_ID: onVaultSetupCreateVaultClicked(); break;
-                            case VAULT_BACK_BUTTON_ID: onVaultBackClicked(); break;
-                            case NEW_NOTE_BUTTON_ID: newNote(); break;
-                            case NEW_FOLDER_BUTTON_ID: showNewFolderDialog(); break;
-                            case TOGGLE_EXPLORER_BUTTON_ID: toggleExplorer(); break;
-                            case SWITCH_VAULT_OPTION_ID: {
-                                setSelectedVault(elem->text);
-                                onVaultBackClicked();
-                                break;
-                            };
-                            case EXPLORER_MENU_RENAME_ID: showRenameDialog(); break;
-                            case EXPLORER_MENU_DELETE_ID: showDeleteDialog(); break;
-                            case EXPLORER_MENU_NEW_NOTE_ID: showNewNoteDialog(); break;
-                            case EXPLORER_MENU_NEW_FOLDER_ID: showNewFolderDialog(); break;
-                        }
-                    } else {
-                        switch(elem->id) {
-                            case RENAME_DIALOG_OK_BUTTON_ID: renameActiveExplorerNode(); break;
-                            case DELETE_DIALOG_DELETE_BUTTON_ID: deleteActiveExplorerNode(); break;
-                            case NEW_NOTE_DIALOG_CREATE_BUTTON_ID: createNoteInActiveExplorerNode(); break;
-                            case NEW_FOLDER_DIALOG_CREATE_BUTTON_ID: createFolderInActiveExplorerNode(); break;
-                            case RENAME_DIALOG_CANCEL_BUTTON_ID:
-                            case DELETE_DIALOG_CANCEL_BUTTON_ID:
-                            case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
-                                REDRAW_UI(); // no break intentional
-                            case ERROR_DIALOG_OK_BUTTON_ID:
-                                unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
-                                destroyFloatingUI();
-                                break;
-                        }
-                    }
-
-                    REDRAW_UI();
-                    rerenderUI = true;
-                    ignoreMouse1Up = true;
-
-                    return;
-                }
 
                 UIElement* prevActiveElement = activeElement;
 
@@ -1279,6 +1375,39 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     } else {
         hideTooltip();
     }
+
+    boundsIndex = 0;
+    updated = false;
+    hover = false;
+
+    for (
+        vector<Bounds>::iterator b = uiMouseEvents.bounds.begin();
+        b != uiMouseEvents.bounds.end();
+        ++b, ++boundsIndex
+    ) {
+        if (
+            b->enableHover
+            && xpos > b->x1 && xpos < b->x2
+            && ypos > b->y1 && ypos < b->y2
+        ) {
+            hover = true;
+
+            if (!(uiMouseEvents.hover && uiMouseEvents.hoverIndex == boundsIndex)) {
+                uiMouseEvents.hoverIndex = boundsIndex;
+                updated = true;
+            }
+
+            break;
+        }
+    }
+
+    if (updated) {
+        uiMouseEvents.hover = hover;
+    } else if (gmei.hover && !hover) {
+        uiMouseEvents.hover = false;
+    }
+
+    // TODO: handle hover for ui here...
 
     if (!highlightedContentBlock.mouseDown && !tabs.empty()) {
         ContentTab* tab = CURRENT_TAB;
@@ -2377,7 +2506,8 @@ void setupUI(bool isDarkTheme) {
 
     gmei.hover = false;
     gmei.mouseDown = false;
-    gmei.bounds.reserve(100);
+    uiMouseEvents.hover = false;
+    uiMouseEvents.mouseDown = false;
 
     initShaders();
     initTextRendering(windowWidth, windowHeight);
@@ -6737,6 +6867,9 @@ void render() {
         uiTextLayer1.reserve(grInfo.uiTextLayer1.numVertices);
         uiIconLayer.reserve(grInfo.uiIconLayer.numVertices);
 
+        vector<Bounds> temp;
+        std::swap(uiMouseEvents.bounds, temp);
+
         addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer0);
         addRectangle(0, 0, 0, 0, 0, 0, uiRectLayer1);
     }
@@ -7080,7 +7213,8 @@ void renderElement(
                 textVertices.reserve(grInfo.text.numVertices);
                 rva.reserve(grInfo.rect.numVertices);
                 cbImageLoader.renderQueue.clear();
-                gmei.bounds.clear();
+                vector<Bounds> temp;
+                std::swap(gmei.bounds, temp);
             }
 
             bool visible = false;
@@ -7403,6 +7537,12 @@ void renderElement(
                     // TODO: handle hover colors for delete button
                     // hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
                 }
+
+                uiMouseEvents.bounds.push_back(Bounds {
+                    left, top, left + elem.width, top + elem.height,
+                    BoundSourceType::Button, true, elem.id != 0,
+                    { .elem = &elem }
+                });
 
                 addRectangle(
                     left,

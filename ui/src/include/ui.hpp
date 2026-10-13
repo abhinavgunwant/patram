@@ -288,7 +288,6 @@ enum class BoundSourceType : uint8_t {
 union BoundSource {
     UIElement* elem;
     uint32_t tabIndex;
-    uint32_t buttonId;
     struct {
         uint32_t tabIndex;
         uint32_t index;
