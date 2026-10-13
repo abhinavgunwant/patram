@@ -1845,6 +1845,10 @@ void maximizedCallback(GLFWwindow* window, int min) {
 
 void windowFocusCallback(GLFWwindow *window, int isFocused) {
     focused = isFocused != 0;
+
+#ifdef _WIN32
+    setEfficiencyMode(!focused);
+#endif
 }
 
 #ifdef _WIN32
