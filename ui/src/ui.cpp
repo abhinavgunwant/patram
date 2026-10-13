@@ -38,6 +38,7 @@
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
 #define REDRAW_UI() grInfo.redrawUI = true
+#define REDRAW_CB() grInfo.redraw = true
 
 #define SETUP_BUFFERS(vao, vbo, vertices) do {\
         glGenVertexArrays(1, &vao);\
@@ -488,7 +489,7 @@ void setSelectedVault(string vaultName) {
 
     setDefaultVault(vaultName);
     vaultSelected = true;
-    EXPLORER.reDraw = true;
+    REDRAW_UI();
 }
 
 void onVaultSetupCreateVaultClicked() {
@@ -721,7 +722,7 @@ tuple<ExplorerNodeType, filesystem::path> getClickedExplorerNodePath(
                         << (*itr).name << ", vertices:\n";
                     #endif
                 }
-                EXPLORER.reDraw = true;
+                REDRAW_UI();
             } else {
                 SET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE);
             }
@@ -911,7 +912,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             case RENAME_DIALOG_CANCEL_BUTTON_ID:
                             case DELETE_DIALOG_CANCEL_BUTTON_ID:
                             case NEW_FOLDER_DIALOG_CANCEL_BUTTON_ID:
-                                EXPLORER.reDraw = true; // no break intentional
+                                REDRAW_UI(); // no break intentional
                             case ERROR_DIALOG_OK_BUTTON_ID:
                                 unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                                 destroyFloatingUI();
@@ -987,7 +988,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             }
                         }
 
-                        EXPLORER.reDraw = true;
                         REDRAW_UI();
                         break;
                 }
@@ -1027,7 +1027,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 });
 
                 tabs[activeTabIndex].contentBlocks[highlightedContentBlock.cbIndex].flags &= ~(CONTENT_BLOCK_DRAGGING);
-                reDrawCBs();
+                REDRAW_CB();
 
                 highlightedContentBlock.mouseDown = false;
                 hideCBMoveMarker();
@@ -1088,7 +1088,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                                 explorer.nodes, y, mouseY
                             );
 
-                        EXPLORER.reDraw = true;
                         REDRAW_UI();
                         showExplorerContextMenu(mouseX, mouseY);
                         return;
@@ -1207,10 +1206,6 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     hideContextMenus();
 
     render();
-
-    if (FLOATING_CONTAINER.totalChildren) {
-        FLOATING_CONTAINER.reDraw = true;
-    }
 
     glfwSwapBuffers(window);
 }
@@ -1485,10 +1480,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             WELCOME_SCREEN.width -= diff;
             CONTENT_CONTAINER.width -= diff;
 
-            MAIN_CONTAINER.reDraw = true;
-            EXPLORER.reDraw = true;
-            WELCOME_SCREEN.reDraw = true;
-            CONTENT_CONTAINER.reDraw = true;
+            REDRAW_UI();
             explorer.redrawLine = true;
 
             recalculateLayout(&ROOT_CONTAINER);
@@ -1553,7 +1545,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                         }
 
                         if (elem->scrollData->yOffset != oldOffset) {
-                            elem->reDraw = true;
+                            REDRAW_UI();
                             elem->scrollData->renderedUpdate = false;
                             cout << "\nScroll offset: " << elem->scrollData->yOffset;
                         }
@@ -1649,12 +1641,11 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
                 }
 
                 if (scrolled) {
-                    elem->reDraw = true;
+                    REDRAW_UI();
                     elem->scrollData->lastScrolled = glfwGetTime();
                     elem->scrollData->renderedUpdate = false;
 
                     for (int i=0; i<elem->totalChildren; ++i) {
-                        elem->children[i]->reDraw = true;
                         elem->children[i]->show = true;
                     }
                 }
@@ -1683,7 +1674,7 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
                 tab->scrollbarUpdated = false;
 
-                reDrawCBs();
+                REDRAW_CB();
 
                 tab->updated = true;
 
@@ -1776,7 +1767,7 @@ void populateExplorerFromContent() {
     if (index.empty()) {
         if (!explorer.nodes.empty()) {
             explorer.nodes.clear();
-            EXPLORER.reDraw = true;
+            REDRAW_UI();
         }
     } else {
         #ifdef DEBUG_EXPLORER
@@ -1799,7 +1790,7 @@ void populateExplorerFromContent() {
         if (newExplorerNodes != explorer.nodes) {
             setVaultIndex(selectedVault, index);
             explorer.nodes = newExplorerNodes;
-            EXPLORER.reDraw = true;
+            REDRAW_UI();
 #ifdef DEBUG_EXPLORER
         } else {
             debug("Entries in index and contents in vault are same. No changes made!");
@@ -2127,7 +2118,7 @@ void renameActiveExplorerNode() {
         if (tab.filePath == p) {
             tab.filePath = pNew;
             cout << "\nDEBUG: Assigned new tab path";
-            TAB_BAR.reDraw = true;
+            REDRAW_UI();
             break;
         }
     }
@@ -2226,7 +2217,7 @@ void deleteActiveExplorerNode() {
 
     deleteNode(p);
 
-    EXPLORER.reDraw = true;
+    REDRAW_UI();
 
     thread explorerLoadThread(populateExplorerFromContent);
 
@@ -2263,7 +2254,7 @@ void createNoteInActiveExplorerNode() {
 
     unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
     destroyFloatingUI();
-    EXPLORER.reDraw = true;
+    REDRAW_UI();
 
     explorerLoadThread.join();
 }
@@ -2301,7 +2292,7 @@ void createFolderInActiveExplorerNode() {
 
     unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
     destroyFloatingUI();
-    EXPLORER.reDraw = true;
+    REDRAW_UI();
 
     explorerLoadThread.join();
 }
@@ -3284,7 +3275,7 @@ void cbKeyCallback(int key, int action, int mod) {
                     activeTabIndex = (activeTabIndex + 1) % tabs.size();
                 }
 
-                TAB_BAR.reDraw = true;
+                REDRAW_UI();
                 recalculateLayout(&MAIN_CONTAINER);
                 recalculateContentWidth();
                 updateWindowTitle();
@@ -4967,8 +4958,7 @@ void openFile(bool openDialog, filesystem::path p) {
         for (auto itr = tabs.begin(); itr != tabs.end(); ++itr, ++i) {
             if ((*itr).filePath == path) {
                 activeTabIndex = i;
-                TAB_BAR.reDraw = true;
-                CONTENT_CONTAINER.reDraw = true;
+                REDRAW_UI();
                 return;
             }
         }
@@ -5003,7 +4993,7 @@ void openFile(bool openDialog, filesystem::path p) {
 
         TAB_BAR.show = true;
         CONTENT_CONTAINER.show = true;
-        CONTENT_CONTAINER.reDraw = true;
+        REDRAW_UI();
         recalculateLayout(&ROOT_CONTAINER);
         recalculateContentWidth();
     }
@@ -5223,7 +5213,6 @@ void tabBarMouseDownCallback(
 
                 tabsDisplay.xOffset = newOffset;
 
-                elem->reDraw = true;
                 REDRAW_UI();
             }
 
@@ -5235,7 +5224,6 @@ void tabBarMouseDownCallback(
                 tabsDisplay.xOffset = 0.0f;
             }
 
-            elem->reDraw = true;
             REDRAW_UI();
             return;
         }
@@ -5255,7 +5243,7 @@ void tabBarMouseDownCallback(
                 closeTab(i);
             } else {
                 activeTabIndex = i;
-                TAB_BAR.reDraw = true;
+                REDRAW_UI();
                 TAB_BAR.active = false;
 
                 if (activeElement != nullptr) {
@@ -5267,7 +5255,7 @@ void tabBarMouseDownCallback(
                 ContentTab* tab = CURRENT_TAB;
 
                 tab->redrawCursor = true;
-                reDrawCBs();
+                REDRAW_CB();
             }
 
             break;
@@ -5976,10 +5964,8 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
 
     activeTabIndex = tabs.size() - 1;
 
-    TAB_BAR.reDraw = true;
     WELCOME_SCREEN.show = false;
     MAIN_CONTAINER.show = true;
-    MAIN_CONTAINER.reDraw = true;
 
     if (activeElement != nullptr) {
         activeElement->active = false;
@@ -6000,13 +5986,13 @@ void adjustTabOffset() {
     if (totalWidth > windowWidth) {
         if (totalWidth - tabsDisplay.xOffset < windowWidth) {
             tabsDisplay.xOffset = totalWidth - windowWidth;
-            TAB_BAR.reDraw = true;
+            REDRAW_UI();
         }
         return;
     }
 
     tabsDisplay.xOffset = 0.0f;
-    TAB_BAR.reDraw = true;
+    REDRAW_UI();
 }
 
 void closeTab(uint32_t index) {
@@ -6074,18 +6060,12 @@ void closeTab(uint32_t index) {
         activeTabIndex = tabs.size() - 1;
     }
 
-    TAB_BAR.reDraw = true;
-
     if (tabs.empty()) {
         WELCOME_SCREEN.show = true;
-        WELCOME_SCREEN.reDraw = true;
-        WELCOME_MAIN_CONTAINER.reDraw = true;
-
-        activeElement = nullptr;
-
         MAIN_CONTAINER.show = false;
         TAB_BAR.show = false;
         CONTENT_CONTAINER.show = false;
+        activeElement = nullptr;
     } else {
         tabsDisplay.recalcOffset = true;
     }
@@ -6220,15 +6200,9 @@ inline void toggleExplorer() {
         }
     #endif
 
-    if (EXPLORER.show) {
-        EXPLORER.reDraw = true;
-    }
-
     if (MAIN_CONTAINER.show) {
         highlightedContentBlock.show = false;
         highlightedContentBlock.updated = true;
-
-        MAIN_CONTAINER.reDraw = true;
 
         if (CONTENT_CONTAINER.show) {
             CURRENT_TAB->redrawCursor = true;
@@ -6239,9 +6213,10 @@ inline void toggleExplorer() {
     }
 
     if (WELCOME_SCREEN.show) {
-        WELCOME_SCREEN.reDraw = true;
         recalculateLayout(&WELCOME_SCREEN);
     }
+
+    REDRAW_UI();
 }
 
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
@@ -6477,7 +6452,6 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
 }
 
 void recalculateLayout(UIElement * elem) {
-    elem->reDraw = true;
     REDRAW_UI();
 
     if (updateElementDimensionsAccordingToPreferences(elem)) {
@@ -6487,10 +6461,9 @@ void recalculateLayout(UIElement * elem) {
 
         if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
             elem->scrollData->renderedUpdate = false;
-            elem->reDraw = true;
 
             if (!tabs.empty() && !tabs[activeTabIndex].contentBlocks.empty()) {
-                reDrawCBs();
+                REDRAW_CB();
 
                 elem->scrollData->height = 0;
             }
@@ -6710,11 +6683,7 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
         uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
 
-        if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
-            reDrawCBs();
-        } else {
-            reDrawCBs();
-        }
+        REDRAW_CB();
     } else if (sd.y - sd.height - tab->scrollOffsetY < CONTENT_CONTAINER.top && sd.y != 0 && sd.height != 0) {
         tab->scrollOffsetY = sd.y - sd.height - CONTENT_CONTAINER.top;
         if (tab->scrollOffsetY < 0) {
@@ -6724,15 +6693,11 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 
         uint32_t startIndex = (static_cast<int64_t>(tab->cursorCBIndex) - 64) > 0 ? tab->cursorCBIndex - 64 : 0;
 
-        if (tab->cursorCBIndex > tab->contentBlocks.size() - 3) {
-            reDrawCBs();
-        } else {
-            reDrawCBs();
-        }
+        REDRAW_CB();
     } else if (tab->cursorCBIndex == 0 && tab->scrollOffsetY != 0) {
         tab->scrollOffsetY = 0;
         tab->scrollbarUpdated = true;
-        reDrawCBs();
+        REDRAW_CB();
     }
 
     if (tab->cursorCBIndex < tab->contentBlocks.size()) {
@@ -6954,7 +6919,7 @@ void renderElement(
                 }
             }
 
-            if (elem.reDraw) {
+            if (grInfo.redrawUI) {
                 updateElementDimensionsAccordingToPreferences(&elem);
             }
 
@@ -7012,10 +6977,6 @@ void renderElement(
                             elem.children[i]->left = left;
                             elem.children[i]->top = elem.top + elem.children[i]->marginTop;
 
-                            if (elem.reDraw) {
-                                elem.children[i]->reDraw = true;
-                            }
-
                             renderElement(
                                 *elem.children[i],
                                 resolution,
@@ -7033,12 +6994,10 @@ void renderElement(
                         }
                     }
                 } else {
+                    REDRAW_UI();
+
                     for (uint32_t i=0; i<elem.totalChildren; ++i) {
                         if (elem.children[i]->show) {
-                            if (elem.reDraw) {
-                                elem.children[i]->reDraw = true;
-                            }
-
                             renderElement(
                                 *elem.children[i],
                                 resolution,
@@ -7056,7 +7015,7 @@ void renderElement(
                 }
 
                 if (
-                    elem.reDraw
+                    grInfo.redrawUI
                     && !elem.preferences->direction
                     && elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
@@ -7066,23 +7025,14 @@ void renderElement(
             }
 
             if (oldHeight != elem.height) {
-                elem.reDraw = true;
                 rerenderUI = true;
                 REDRAW_UI();
-
-                for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    elem.children[i]->reDraw = true;
-                }
-            } else {
-                elem.reDraw = false;
             }
 
             break;
         }
 
         case UIElementType::ContentContainer: {
-            elem.reDraw = false;
-
             if (tabs.empty()) { return; }
 
             ContentTab* tab = CURRENT_TAB;
@@ -7286,7 +7236,7 @@ void renderElement(
                 left -= elem.parent->scrollData->xOffset;
             }
 
-            if (elem.reDraw) {
+            if (grInfo.redrawUI) {
                 RopeRenderResult rRes = getTextDimensions(
                     elem.text, glm::vec2(left, top), elem.fontSize,
                     elem.parent->left, elem.parent->width, false
@@ -7309,7 +7259,7 @@ void renderElement(
                     }
 
                     elem.parent->scrollData->renderedUpdate = false;
-                    elem.parent->reDraw = true;
+                    REDRAW_UI();
                 }
             }
 
@@ -7331,8 +7281,6 @@ void renderElement(
                 elem.top = top;
                 yPrev = top + elem.height;
             }
-
-            elem.reDraw = false;
             break;
         }
 
@@ -7386,7 +7334,6 @@ void renderElement(
                     )
                ) {
                     elem.show = false;
-                    elem.reDraw = false;
                     return;
                 }
 
@@ -7500,8 +7447,6 @@ void renderElement(
                 yPrev = top + elem.height;
             }
 
-            elem.reDraw = false;
-
             break;
         }
 
@@ -7512,7 +7457,7 @@ void renderElement(
                 float width = elem.width;
                 float height = elem.height;
 
-                if (elem.reDraw) {
+                if (grInfo.redrawUI) {
                     if (
                         elem.positioning == UIPositioning::Relative_sibling
                         && elem.parent != nullptr
@@ -7563,7 +7508,7 @@ void renderElement(
                 elem.top = top;
 
                 for (uint32_t i=0; i<elem.totalChildren; ++i) {
-                    if (elem.children[i]->show || elem.reDraw) {
+                    if (elem.children[i]->show || grInfo.redrawUI) {
                         renderElement(
                             *elem.children[i],
                             resolution,
@@ -7578,14 +7523,14 @@ void renderElement(
                         );
                     }
 
-                    if (elem.reDraw) {
+                    if (grInfo.redrawUI) {
                         elem.scrollData->height += elem.children[i]->height;
                     }
                 }
 
                 glDisable(GL_SCISSOR_TEST);
 
-                if (elem.reDraw) {
+                if (grInfo.redrawUI) {
                     elem.scrollData->showVerticalScrollbar = elem.scrollData->height > elem.height;
                     elem.scrollData->showHorizontalScrollbar = elem.scrollData->width > elem.width;
 
@@ -7595,8 +7540,6 @@ void renderElement(
                     #endif
 
                     elem.scrollData->height = 0.0f;
-
-                    elem.reDraw = false;
                 }
 
                 renderScrollbars(&elem);
@@ -7689,7 +7632,6 @@ void renderElement(
                     )
                ) {
                     elem.show = false;
-                    elem.reDraw = false;
                     return;
                 }
 
@@ -7841,9 +7783,6 @@ void renderElement(
                 elem.top = top;
                 yPrev = top + elem.height;
             }
-
-            elem.reDraw = false;
-
             break;
         }
 
@@ -8026,7 +7965,7 @@ void renderElement(
                 float _y;
                 glm::vec2 cursor = glm::vec2(mouseX, mouseY);
 
-                if (elem.reDraw) {
+                if (grInfo.redrawUI) {
                     elem.children[0]->left = windowWidth - 2*TAB_BAR_HEIGHT;
                     elem.children[1]->left = windowWidth - TAB_BAR_HEIGHT;
                 }
@@ -8060,8 +7999,6 @@ void renderElement(
 
             if (tabsDisplay.recalcOffset) {
                 adjustTabOffset();
-            } else {
-                elem.reDraw = false;
             }
 
             break;
@@ -8128,9 +8065,6 @@ void renderElement(
             ) {
                 renderScrollbars(&elem);
             }
-
-            elem.reDraw = false;
-
             break;
         }
 
@@ -8468,7 +8402,7 @@ inline bool renderContentBlock(
 
         tab->maxHeight = cb->top + cb->height;
         tab->scrollbarUpdated = false;
-        CONTENT_CONTAINER.reDraw = true;
+        REDRAW_UI();
     }
 
     return visible;
@@ -9416,8 +9350,6 @@ void hideCBMoveMarker() {
     cbMove.targetIndex = 0;
 }
 
-void reDrawCBs() { grInfo.redraw = true; }
-
 bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex) {
     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
         if (itr->start <= contentIndex && itr->end > contentIndex) {
@@ -9563,7 +9495,7 @@ void processUndo(UIElement* element) {
 
             if (newLines > 0) {
                 element->height -= static_cast<float>(element->fontSize + LINE_GAP);
-                element->reDraw = true;
+                REDRAW_UI();
             }
             break;
         }
@@ -9734,7 +9666,7 @@ void cbKeypressType(ContentTab* tab, string text) {
     tab->lastCursorTime = static_cast<float>(glfwGetTime());
     tab->redrawCursor = true;
 
-    reDrawCBs();
+    REDRAW_CB();
 }
 
 ContentDeletionType deleteSelectedCBText(
@@ -10205,7 +10137,7 @@ bool processCBReplaceCommand(
         }
     }
 
-    reDrawCBs();
+    REDRAW_CB();
 
     #undef START
     #undef END
@@ -10298,7 +10230,7 @@ bool processCBNewLineCommand(
 
     tab->cursorPosition = 0;
 
-    reDrawCBs();
+    REDRAW_CB();
 
     return true;
 }
@@ -10308,6 +10240,7 @@ bool processCBBackspaceCommand(
 ) {
     if (cmd->startCursorPos > 0) {
         cb->rope->remove(cmd->startCursorPos - 1, cmd->str.length());
+        REDRAW_CB();
 
         if (
             newCmd && !tab->commands.empty()
@@ -10317,11 +10250,9 @@ bool processCBBackspaceCommand(
         ) {
             tab->commands.back().str = cmd->str + tab->commands.back().str;
             --tab->commands.back().startCursorPos;
-            reDrawCBs();
             return false;
         }
 
-        reDrawCBs();
         return true;
     }
 
@@ -10369,7 +10300,7 @@ bool processCBDeleteMergeCBCommand(
             tab->contentBlocks.begin() + cmd->startCBIndex + 2
         );
 
-        reDrawCBs();
+        REDRAW_CB();
 
         return true;
     }
@@ -10382,7 +10313,7 @@ bool processCBDeleteSelectedCommand(
 ) {
     auto extCmd = tab->extCommands.rbegin();
     (*extCmd).delType = deleteSelectedCBText(tab, cmd, &*extCmd);
-    reDrawCBs();
+    REDRAW_CB();
     return true;
 }
 
@@ -10917,15 +10848,7 @@ void processCBUndo(ContentTab* tab) {
         --tab->currentCommand;
     }
 
-    if (cmd->type == CommandType::MoveContentBlock) {
-        if (cmd->moveCBFrom < cmd->moveCBTo) {
-            reDrawCBs();
-        } else {
-            reDrawCBs();
-        }
-    } else {
-        reDrawCBs();
-    }
+    REDRAW_CB();
 
     #undef START
     #undef END
@@ -10963,11 +10886,7 @@ void processCBRedo(ContentTab* tab) {
         case CommandType::MoveContentBlock: {
             increment = true;
             moveContentBlock(activeTabIndex, cmd->moveCBTo, cmd->moveCBFrom);
-            if (cmd->moveCBTo < cmd->moveCBFrom) {
-                reDrawCBs();
-            } else {
-                reDrawCBs();
-            }
+            REDRAW_CB();
             break;
         }
     }
@@ -11013,15 +10932,14 @@ void processCommand(UIElement* elem, Command* cmd) {
                             }
                         }
 
-                        elem->reDraw = true;
-
+                        REDRAW_UI();
                         break;
                     }
 
                     elem->text.insert(CUR_POS, cmd->str);
                 }
 
-                elem->reDraw = true;
+                REDRAW_UI();
                 append = true;
                 break;
             }
@@ -11045,7 +10963,6 @@ void processCommand(UIElement* elem, Command* cmd) {
 
                 if (newLines > 0 && elem->height > 32.0) {
                     elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
-                    elem->reDraw = true;
                     REDRAW_UI();
                 }
                 append = true;
@@ -11077,7 +10994,6 @@ void processCommand(UIElement* elem, Command* cmd) {
                     elem->height -= static_cast<float>(elem->fontSize + LINE_GAP);
                 }
 
-                elem->reDraw = true;
                 REDRAW_UI();
                 break;
             }
@@ -11220,9 +11136,9 @@ void initFloatingUI() {
     initializeCapacity(&FLOATING_CONTAINER, 8, &floatingArena);
 
     FLOATING_CONTAINER.show = true;
-    FLOATING_CONTAINER.reDraw = true;
     grInfo.activeLayer = 1;
     globalCursor.layer = 1;
+    REDRAW_UI();
 }
 
 void deleteElementBuffersAndStrings(UIElement* elem) {
@@ -11246,7 +11162,6 @@ void destroyFloatingUI() {
     FLOATING_CONTAINER.capacity = 0;
     FLOATING_CONTAINER.children = nullptr;
     FLOATING_CONTAINER.show = false;
-    FLOATING_CONTAINER.reDraw = false;
 
     dialogOpen = false;
 

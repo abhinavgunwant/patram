@@ -970,8 +970,6 @@ inline void renderCBImage(CBImageRenderQueueEntry imgEntry, CBImage* img, uint32
 void renderCBImages();
 void removeOldCBImages(std::stop_token stopToken);
 void hideCBMoveMarker();
-void reDrawAllContentBlocks();
-inline void reDrawCBs();
 bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex);
 
 void insertCBs(
