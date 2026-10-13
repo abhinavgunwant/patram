@@ -5795,18 +5795,18 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     elem = {
         type,
+
         0,
         0,
         0,
+
+        false,
+        true,
+
         top,
         left,
         width,
         height,
-
-        false,
-        false,
-        true,
-        true,
 
         "",
 

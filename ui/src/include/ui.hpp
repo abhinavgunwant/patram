@@ -540,19 +540,18 @@ struct ContentBlock;
 
 struct UIElement {
     UIElementType type;
+
+    uint16_t id;
     uint8_t marginTop;
-    uint8_t id;
     uint8_t layer;
+
+    bool active;
+    bool show;
 
     float top;
     float left;
     float width;
     float height;
-
-    bool active;
-    bool disabled;
-    bool show;
-    bool reDraw;
 
     string text;
 
