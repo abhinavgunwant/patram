@@ -27,6 +27,7 @@ target_include_directories(ui
 target_link_libraries(ui
     sys
     ${LIB_DIR}
+    psapi
 )
 
 target_link_libraries(rope sys ${LIB_DIR})

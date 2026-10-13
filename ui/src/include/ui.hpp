@@ -342,6 +342,10 @@ void minimizedCallback(GLFWwindow* window, int minimized);
 void maximizedCallback(GLFWwindow* window, int maximized);
 void windowFocusCallback(GLFWwindow *window, int focused);
 
+#ifdef _WIN32
+void setEfficiencyMode(bool efficiencyModeOn);
+#endif
+
 void showWindow();
 void toggleFullscreen();
 void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices);

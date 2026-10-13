@@ -17,6 +17,7 @@
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
     #include <processthreadsapi.h>
+    #include <psapi.h>
 #endif
 
 #include <glad/glad.h>
@@ -1827,6 +1828,15 @@ void scrollCallback(GLFWwindow * window, double xOffset, double yOffset) {
 
 void minimizedCallback(GLFWwindow* window, int isMinimized) {
     minimized = isMinimized != 0;
+
+#ifdef _WIN32
+    if (minimized) {
+        setEfficiencyMode(true);
+        EmptyWorkingSet(GetCurrentProcess());
+    } else {
+        setEfficiencyMode(false);
+    }
+#endif
 }
 
 void maximizedCallback(GLFWwindow* window, int min) {
@@ -1836,6 +1846,17 @@ void maximizedCallback(GLFWwindow* window, int min) {
 void windowFocusCallback(GLFWwindow *window, int isFocused) {
     focused = isFocused != 0;
 }
+
+#ifdef _WIN32
+void setEfficiencyMode(bool efficiencyModeOn) {
+    PROCESS_POWER_THROTTLING_STATE ppts{};
+    ppts.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    ppts.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+    ppts.StateMask = efficiencyModeOn ? (PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION) : 0;
+    SetPriorityClass(GetCurrentProcess(), efficiencyModeOn ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
+    SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &ppts, sizeof(ppts));
+}
+#endif
 
 vector<ExplorerNode> createExplorerNodesFromIndex(vector<VaultIndexEntry>& index) {
     vector<ExplorerNode> nodes;
