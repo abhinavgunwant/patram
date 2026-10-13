@@ -7617,43 +7617,37 @@ void renderElement(
         }
 
         case UIElementType::IconButton: {
-            glm::vec4 bg = darkTheme ? ICON_BUTTON_BG_DARK : ICON_BUTTON_BG;
-            glm::vec4 hv = darkTheme ? ICON_BUTTON_HOVER_BG_DARK : ICON_BUTTON_HOVER_BG;
-            glm::vec4 color = darkTheme ? ICON_BUTTON_COLOR_DARK : ICON_BUTTON_COLOR;
+            uint32_t colorIndex = darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX;
+            uint32_t textColorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
             if (elem.id == TAB_BAR_PREV_TAB_ID || elem.id == TAB_BAR_NEXT_TAB_ID) {
-                bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                colorIndex = darkTheme ? TOOL_BAR_BG_DARK_INDEX : TOOL_BAR_BG_INDEX;
             }
 
             if (grInfo.redrawUI) {
                 Character c;
 
-                vector<TextVertex> vertices;
-                vertices.reserve(6);
-
                 switch (elem.icon) {
                     case Icon::ChevronRight:    c = icons[ICON_CHEVRON_RIGHT]; break;
                     case Icon::ChevronLeft:     c = icons[ICON_CHEVRON_LEFT]; break;
-                    default:
-                        elem.reDraw = false;
-                        return;
+                    default: return;
                 }
 
                 float dimension = TAB_BAR_HEIGHT;
 
-                float width = static_cast<float>(c.width) / 2;
-                float height = static_cast<float>(c.height) / 2;
+                float width = static_cast<float>(c.width) * 0.5;
+                float height = static_cast<float>(c.height) * 0.5;
 
-                float left = elem.left + (dimension - width) / 2;
-                float top = elem.top + (dimension - height)/2;
-                uint32_t colorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
+                float left = elem.left + (dimension - width) * 0.5;
+                float top = elem.top + (dimension - height) * 0.5;
 
-                PUSH_ICON_VERTICES(vertices, c, left, top, width, height, colorIndex);
+                PUSH_ICON_VERTICES(uiIconLayer, c, left, top, width, height, textColorIndex);
 
-                // TODO: draw
+                addRectangle(
+                    elem.left, elem.top, dimension, dimension,
+                    colorIndex, dimension * 0.5, uiRectLayer0
+                );
             }
-
-            elem.reDraw = false;
             break;
         }
 
