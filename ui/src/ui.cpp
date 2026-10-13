@@ -332,7 +332,7 @@ void addRectangle(
 inline void drawRectangles(RenderInfo& ri, vector<RectVertex>& rva, bool redraw) {
     glBindVertexArray(ri.vao);
 
-    if (redraw) {
+    if (redraw && !rva.empty()) {
         #ifdef DEBUG_RENDER
         if (!rva.empty()) {
             cout << "\nDEBUG: redrawing rectangles (" << rva.size() << " vertices).";
@@ -2576,6 +2576,10 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_TEXT(grInfo.uiTextLayer1.vao, grInfo.uiTextLayer1.vbo, textVertices_100);
     grInfo.uiTextLayer1.numVertices = 600;
     grInfo.uiTextLayer1.bufferSize = sizeof(textVertices_100);
+
+    SETUP_BUFFERS_TEXT(grInfo.uiIconLayer.vao, grInfo.uiIconLayer.vbo, textVertices_10);
+    grInfo.uiIconLayer.numVertices = 60;
+    grInfo.uiIconLayer.bufferSize = sizeof(textVertices_10);
 
     SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, textVertices_100);
     grInfo.extraText.numVertices = 600;
@@ -6360,6 +6364,11 @@ inline void toggleExplorer() {
 inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
     bool updated = false;
 
+    float oldLeft = elem->left;
+    float oldTop = elem->top;
+    float oldWidth = elem->width;
+    float oldHeight = elem->height;
+
     if (elem->preferences != nullptr) {
         switch (elem->preferences->widthPreference) {
             case UISizePreference::Full:
@@ -6584,6 +6593,16 @@ inline bool updateElementDimensionsAccordingToPreferences(UIElement* elem) {
                 }
                 break;
         }
+    }
+
+    if (
+        updated && (
+            oldLeft != elem->left || oldTop != elem->top
+            || oldWidth != elem->width || oldHeight != elem->height
+        )
+    ) {
+        REDRAW_UI();
+        rerenderUI = true;
     }
 
     return updated;
@@ -6887,6 +6906,41 @@ void render() {
         uiIconLayer
     );
 
+    if (grInfo.redrawUI) {
+        if (uiIconLayer.empty()) {
+            uiIconLayer.insert(uiIconLayer.begin(), {
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0}
+            });
+        }
+
+        if (uiTextLayer0.empty()) {
+            uiTextLayer0.insert(uiTextLayer0.begin(), {
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0}
+            });
+        }
+
+        if (uiTextLayer1.empty()) {
+            uiTextLayer1.insert(uiTextLayer1.begin(), {
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0},
+                TextVertex {0}
+            });
+        }
+    }
+
     #ifdef DEBUG_RENDER
     if (grInfo.redrawUI) {
         cout << "\nLayer 0";
@@ -6954,6 +7008,7 @@ void render() {
         grInfo.redrawUI = false;
     } else {
         rerenderUI = false;
+        grInfo.redrawUI = true;
     }
 }
 
@@ -7135,7 +7190,7 @@ void renderElement(
                         }
                     }
                 } else {
-                    REDRAW_UI();
+                    // REDRAW_UI();
 
                     for (uint32_t i=0; i<elem.totalChildren; ++i) {
                         if (elem.children[i]->show) {
@@ -7553,6 +7608,15 @@ void renderElement(
                     static_cast<float>(elem.borderRadius),
                     elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
                 );
+
+                appendTextVertices(
+                    left + padding,
+                    top + padding,
+                    elem.text,
+                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                    elem.fontSize,
+                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                );
             } else {
                 if (
                     elem.positioning == UIPositioning::Relative_sibling
@@ -7574,17 +7638,6 @@ void renderElement(
                         }
                     }
                 }
-            }
-
-            if (grInfo.redrawUI) {
-                appendTextVertices(
-                    left + padding,
-                    top + padding,
-                    elem.text,
-                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                    elem.fontSize,
-                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
-                );
             }
 
             if (
@@ -8550,7 +8603,7 @@ inline bool renderContentBlock(
 
         tab->maxHeight = cb->top + cb->height;
         tab->scrollbarUpdated = false;
-        REDRAW_UI();
+        rerenderUI = true;
     }
 
     return visible;
@@ -10509,7 +10562,8 @@ void processCBCommand(ContentCommand cmd) {
 
     if (append) {
         if (!tab->updated) {
-            REDRAW_UI();
+            rerenderUI = true;
+            // REDRAW_UI();
         }
 
         tab->updated = true;

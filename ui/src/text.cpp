@@ -327,29 +327,12 @@ inline void drawTextBuffers(
     bool redraw,
     uint32_t texture
 ) {
-    if (vao == 0 && !vertices.empty()) {
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
-
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-        bufferSize = vertices.size() * sizeof(TextVertex);
-        glBufferData(GL_ARRAY_BUFFER, bufferSize, NULL, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), 0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void*) (2 * sizeof(float)));
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void*) (4 * sizeof(float)));\
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-    }
-
     glUseProgram(shaders[SHADER_TEXT]);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(vao);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    if (redraw && bufferSize > 0) {
+    if (redraw && !vertices.empty()) {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
         numVertices = vertices.size();
@@ -680,12 +663,12 @@ RopeRenderResult appendTextVertices(
     vector<TextVertex>& vertices
 ) {
     float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
-        glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
+        glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight = 0;
     float infinity = numeric_limits<float>::infinity();
 
-    uint32_t rows;
+    uint32_t rows = 0;
 
-    bool renderNextContentBlock;
+    bool renderNextContentBlock = false;
 
     for (char c: text) {
         // appendCharVertices(x, y, characters[(int)c], vertices);
