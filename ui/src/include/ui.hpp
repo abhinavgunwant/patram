@@ -278,7 +278,7 @@ extern bool ctrlKeyDown;
 extern uint8_t* moveCursorBitmap;
 
 enum class BoundSourceType : uint8_t {
-    Element,
+    Button,
     ContentBlock,
     Tab,
     TabClose,
@@ -288,6 +288,7 @@ enum class BoundSourceType : uint8_t {
 union BoundSource {
     UIElement* elem;
     uint32_t tabIndex;
+    uint32_t buttonId;
     struct {
         uint32_t tabIndex;
         uint32_t index;
@@ -301,7 +302,9 @@ struct Bounds {
     float y2;
 
     BoundSourceType type;
-    uint8_t flags;
+
+    bool enableHover;
+    bool enableClick;
 
     BoundSource source;
 };

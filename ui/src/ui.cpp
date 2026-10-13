@@ -808,7 +808,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 b != gmei.bounds.end();
                 ++b, ++boundsIndex
             ) {
-                if (mouseX > b->x1 && mouseX < b->x2 && mouseY > b->y1 && mouseY < b->y2) {
+                if (
+                    b->enableClick
+                    && mouseX > b->x1 && mouseX < b->x2
+                    && mouseY > b->y1 && mouseY < b->y2
+                ) {
                     mouseDown = true;
 
                     if (!(gmei.mouseDown && gmei.mouseDownIndex == boundsIndex)) {
@@ -1224,7 +1228,11 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         b != gmei.bounds.end();
         ++b, ++boundsIndex
     ) {
-        if (xpos > b->x1 && xpos < b->x2 && ypos > b->y1 && ypos < b->y2) {
+        if (
+            b->enableHover
+            && xpos > b->x1 && xpos < b->x2
+            && ypos > b->y1 && ypos < b->y2
+        ) {
             hover = true;
 
             if (!(gmei.hover && gmei.hoverIndex == boundsIndex)) {
@@ -8348,7 +8356,7 @@ inline bool renderContentBlock(
 
                         gmei.bounds.push_back(Bounds {
                             pos.x, pos.y, pos.x + r.width, pos.y + r.height,
-                            BoundSourceType::Link, BOUNDS_ENABLE_HOVER | BOUNDS_ENABLE_CLICK,
+                            BoundSourceType::Link, true, true,
                             { .cb = { .tabIndex = activeTabIndex, .index = index } },
                         });
                     }
