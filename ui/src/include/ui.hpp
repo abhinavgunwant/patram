@@ -122,38 +122,42 @@
 #define LINK_COLOR_DARK             glm::vec4(0.18f, 0.44f, 0.98f, 1.0f)
 #define SCROLL_AREA_BG_DARK         glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
 
-#define TRANSPARENT_INDEX               0
-#define WHITE_INDEX                     1
-#define BLACK_INDEX                     2
-#define OVERLAY_INDEX                   3
-#define CODE_INDEX                      4
-#define CODE_DARK_INDEX                 5
-#define LINK_COLOR_INDEX                6
-#define LINK_COLOR_DARK_INDEX           7
-#define LIGHT_TEXT_COLOR_INDEX          8
-#define LIGHT_TEXT_COLOR_DARK_INDEX     9
-#define TOOL_BAR_BG_INDEX               10
-#define TOOL_BAR_BG_DARK_INDEX          11
-#define CURSOR_COLOR_INDEX              12
-#define CURSOR_COLOR_DARK_INDEX         13
-#define SELECT_COLOR_INDEX              14
-#define SELECT_COLOR_DARK_INDEX         15
-#define TEXT_INPUT_BG_INDEX             16
-#define TEXT_INPUT_BG_DARK_INDEX        17
-#define TEXT_INPUT_HOVER_BG_INDEX       18
-#define TEXT_INPUT_HOVER_BG_DARK_INDEX  19
-#define ROOT_BG_INDEX                   20
-#define ROOT_BG_DARK_INDEX              21
-#define EXPLORER_HOVER_BG_INDEX         22
-#define EXPLORER_HOVER_BG_DARK_INDEX    23
-#define EXPLORER_LINE_COLOR_INDEX       24
-#define EXPLORER_LINE_COLOR_DARK_INDEX  25
-#define EXPLORER_BG_INDEX               26
-#define EXPLORER_BG_DARK_INDEX          27
-#define SCROLL_AREA_BG_INDEX            28
-#define SCROLL_AREA_BG_DARK_INDEX       29
-#define CM_DELETE_BUTTON_BG_INDEX       30
-#define CM_DELETE_BUTTON_BG_DARK_INDEX  31
+#define TRANSPARENT_INDEX                   0
+#define WHITE_INDEX                         1
+#define BLACK_INDEX                         2
+#define OVERLAY_INDEX                       3
+#define CODE_INDEX                          4
+#define CODE_DARK_INDEX                     5
+#define LINK_COLOR_INDEX                    6
+#define LINK_COLOR_DARK_INDEX               7
+#define LIGHT_TEXT_COLOR_INDEX              8
+#define LIGHT_TEXT_COLOR_DARK_INDEX         9
+#define TOOL_BAR_BG_INDEX                   10
+#define TOOL_BAR_BG_DARK_INDEX              11
+#define CURSOR_COLOR_INDEX                  12
+#define CURSOR_COLOR_DARK_INDEX             13
+#define SELECT_COLOR_INDEX                  14
+#define SELECT_COLOR_DARK_INDEX             15
+#define TEXT_INPUT_BG_INDEX                 16
+#define TEXT_INPUT_BG_DARK_INDEX            17
+#define TEXT_INPUT_HOVER_BG_INDEX           18
+#define TEXT_INPUT_HOVER_BG_DARK_INDEX      19
+#define ROOT_BG_INDEX                       20
+#define ROOT_BG_DARK_INDEX                  21
+#define EXPLORER_HOVER_BG_INDEX             22
+#define EXPLORER_HOVER_BG_DARK_INDEX        23
+#define EXPLORER_LINE_COLOR_INDEX           24
+#define EXPLORER_LINE_COLOR_DARK_INDEX      25
+#define EXPLORER_BG_INDEX                   26
+#define EXPLORER_BG_DARK_INDEX              27
+#define SCROLL_AREA_BG_INDEX                28
+#define SCROLL_AREA_BG_DARK_INDEX           29
+#define CM_DELETE_BUTTON_BG_INDEX           30
+#define CM_DELETE_BUTTON_BG_DARK_INDEX      31
+#define CONTENT_HIGHLIGHT_BG_INDEX          32
+#define CONTENT_HIGHLIGHT_BG_DARK_INDEX     33
+#define CONTENT_HIGHLIGHT_DRAG_INDEX        34
+#define CONTENT_HIGHLIGHT_DRAG_DARK_INDEX   35
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 
@@ -708,13 +712,6 @@ struct HighlightedContentBlock {
     float left;
     float bottom;
     float right;
-
-    uint32_t backgroundVAO;
-    uint32_t backgroundVBO;
-    uint32_t dragTabVAO;
-    uint32_t dragTabVBO;
-    uint32_t iconVAO;
-    uint32_t iconVBO;
 };
 
 struct ContentBlockMoveMarker {
@@ -981,7 +978,7 @@ bool renderContentBlock(
     vector<TextVertex>& cbTextVertices,
     vector<RectVertex>& rva
 );
-void renderContentBlockHighlight();
+inline void renderContentBlockHighlight(vector<TextVertex>& iconVerts, vector<RectVertex>& rv);
 void renderCBTextSelection(ContentTab* tab);
 void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);

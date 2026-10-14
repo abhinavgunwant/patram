@@ -132,23 +132,7 @@ bool rerenderUI = false;
 float contentLeft = CONTENT_HORIZONTAL_MARGIN;
 float contentRight = 530.0f;
 
-HighlightedContentBlock highlightedContentBlock = {
-    .cbIndex = 0,
-    .show =  false,
-    .updated =  false,
-    .mouseDown = false,
-    .showContentMenu = false,
-    .top =  0.0f,
-    .left =  0.0f,
-    .bottom =  0.0f,
-    .right =  0.0f,
-    .backgroundVAO = 0,
-    .backgroundVBO = 0,
-    .dragTabVAO = 0,
-    .dragTabVBO = 0,
-    .iconVAO = 0,
-    .iconVBO = 0,
-};
+HighlightedContentBlock highlightedContentBlock = { 0 };
 
 ContentBlockMoveMarker cbMove = { 0, 0, 0, false, true };
 
@@ -345,15 +329,9 @@ inline void drawRectangles(RenderInfo& ri, vector<RectVertex>& rva, bool redraw)
 
         glBindBuffer(GL_ARRAY_BUFFER, ri.vbo);
 
-        if (rva.empty()) {
-            glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(RectVertex), NULL, GL_STATIC_DRAW);
-            ri.numVertices = 16;
-            ri.bufferSize = 16 * sizeof(RectVertex);
-            return;
-        }
-
         if (ri.numVertices < rva.size()) {
             ri.numVertices = rva.size();
+            ri.bufferSize = rva.size() * sizeof(RectVertex);
             glBufferData(GL_ARRAY_BUFFER, rva.size() * sizeof(RectVertex), &rva[0], GL_DYNAMIC_DRAW);
         } else {
             for (uint32_t i=rva.size(); i<ri.numVertices; i+=6) {
@@ -367,7 +345,7 @@ inline void drawRectangles(RenderInfo& ri, vector<RectVertex>& rva, bool redraw)
                 });
             }
 
-            if (rva.size() > ri.numVertices) {
+            if (rva.size() != ri.numVertices) {
                 ri.numVertices = rva.size();
                 ri.bufferSize = rva.size() * sizeof(RectVertex);
             }
@@ -1313,12 +1291,15 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         ContentTab* tab = CURRENT_TAB;
 
         float top;
+        uint32_t i = 0;
+        uint32_t oldIndex = highlightedContentBlock.cbIndex;
+        bool oldShow = highlightedContentBlock.show;
         highlightedContentBlock.show = false;
 
         for (
             auto itr = tab->contentBlocks.begin();
             itr != tab->contentBlocks.end();
-            ++itr
+            ++itr, ++i
         ) {
             top = (*itr).top - tab->scrollOffsetY;
 
@@ -1341,21 +1322,10 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
 
                 tab->activeCBIndex = std::distance(tab->contentBlocks.begin(), itr);
 
-                if (glyphDescender < 0) {
-                    highlightedContentBlock.bottom = top + (*itr).height - glyphDescender;
-                } else {
-                    highlightedContentBlock.bottom = top + (*itr).height;
-                }
+                highlightedContentBlock.bottom = top + (*itr).height - (glyphDescender < 0) ? glyphDescender : 0;
 
                 highlightedContentBlock.right = contentRight;
-
-                uint32_t index = std::distance(tabs[activeTabIndex].contentBlocks.begin(), itr);
-
-                if (highlightedContentBlock.cbIndex != index) {
-                    highlightedContentBlock.updated = true;
-                }
-
-                highlightedContentBlock.cbIndex = index;
+                highlightedContentBlock.cbIndex = i;
                 break;
             }
 
@@ -1363,6 +1333,14 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             if (top > windowHeight) {
                 break;
             }
+        }
+
+        if (
+            oldShow != highlightedContentBlock.show
+            || highlightedContentBlock.show
+            && oldIndex != highlightedContentBlock.cbIndex
+        ) {
+            REDRAW_CB();
         }
 
         if (tab->cbTextMouseDown) {
@@ -1886,6 +1864,10 @@ void setupWelcomeScreen() {
     UIElement* createVaultButton = &elements[15];
     UIElement* switchVaultButton = &elements[16];
 
+    if (WELCOME_MAIN_CONTAINER.totalChildren) {
+        destroyWelcomeScreen();
+    }
+
     initArena(mainUIArena, 8192);
 
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
@@ -2396,6 +2378,10 @@ void setupUBO() {
         SCROLL_AREA_BG_DARK,
         CM_DELETE_BUTTON_BG,
         CM_DELETE_BUTTON_BG_DARK,
+        CONTENT_HIGHLIGHT_BG,
+        CONTENT_HIGHLIGHT_BG_DARK,
+        CONTENT_HIGHLIGHT_DRAG,
+        CONTENT_HIGHLIGHT_DRAG_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -2473,10 +2459,6 @@ void setupUI(bool isDarkTheme) {
     SETUP_BUFFERS_RECT(globalCursor.selection.vao, globalCursor.selection.vbo, NULL, 6 * sizeof(RectVertex));
     globalCursor.selection.numVertices = 6;
     globalCursor.selection.bufferSize = 6 * sizeof(RectVertex);
-
-    SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.backgroundVAO, highlightedContentBlock.backgroundVBO, vertices);
-    SETUP_BUFFERS_DYNAMIC(highlightedContentBlock.dragTabVAO, highlightedContentBlock.dragTabVBO, vertices);
-    SETUP_BUFFERS_TEXT(highlightedContentBlock.iconVAO, highlightedContentBlock.iconVBO, textVertices);
 
     initElement(ROOT_CONTAINER, UIElementType::Container, 0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     initElement(CONTENT_CONTAINER, UIElementType::ContentContainer, TAB_BAR_HEIGHT, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT - 64.0f);
@@ -7295,9 +7277,6 @@ void renderElement(
             glScissor(elem.left, resolution.y - elem.top - elem.height, width, height);
             glEnable(GL_SCISSOR_TEST);
 
-            renderContentBlockHighlight();
-            renderCBTextSelection(tab);
-
             uint32_t i=0;
 
             uint32_t offset = 0;
@@ -7320,9 +7299,16 @@ void renderElement(
                 cbImageLoader.renderQueue.clear();
                 vector<Bounds> temp;
                 std::swap(gmei.bounds, temp);
+
+                addRectangle(0, 0, 0, 0, 0, 0, rva);
+                appendCharVertices(0, 0, characters[0], 0, iconVertices);
+
+                renderContentBlockHighlight(iconVertices, rva);
             }
 
             bool visible = false;
+
+            renderCBTextSelection(tab);
 
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
@@ -8657,73 +8643,37 @@ inline bool renderContentBlock(
     return visible;
 }
 
-void renderContentBlockHighlight() {
-    if (!highlightedContentBlock.show) {
-        return;
-    }
+void renderContentBlockHighlight(vector<TextVertex>& iconVerts, vector<RectVertex>& rv) {
+    if (!highlightedContentBlock.show) { return; }
 
-    glBindVertexArray(highlightedContentBlock.backgroundVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.backgroundVBO);
+    float height = highlightedContentBlock.bottom - highlightedContentBlock.top;
+    float iconHeight = 16.0f * (1 - glyphDescender);
+    float y = highlightedContentBlock.top;
 
-    if (highlightedContentBlock.updated) {
-        float vertices[] = {
-            highlightedContentBlock.right, highlightedContentBlock.top,
-            highlightedContentBlock.right, highlightedContentBlock.bottom,
-            highlightedContentBlock.left, highlightedContentBlock.top,
-            highlightedContentBlock.left, highlightedContentBlock.bottom,
-        };
+    addRectangle(
+        highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, y,
+        highlightedContentBlock.right - highlightedContentBlock.left + CONTENT_BLOCK_DRAGTAB_WIDTH,
+        height,
+        darkTheme ? CONTENT_HIGHLIGHT_BG_DARK_INDEX : CONTENT_HIGHLIGHT_BG_INDEX,
+        0, rv
+    );
 
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-    }
+    addRectangle(
+        highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH,
+        y,
+        CONTENT_BLOCK_DRAGTAB_WIDTH,
+        height,
+        darkTheme ? CONTENT_HIGHLIGHT_DRAG_DARK_INDEX : CONTENT_HIGHLIGHT_DRAG_INDEX,
+        3, rv
+    );
 
-    glm::vec4 color = darkTheme ? CONTENT_HIGHLIGHT_BG_DARK : CONTENT_HIGHLIGHT_BG;
-    DRAW_RECT(highlightedContentBlock.backgroundVAO, color);
-
-    glBindVertexArray(highlightedContentBlock.dragTabVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.dragTabVBO);
-
-    if (highlightedContentBlock.updated) {
-        float vertices[] = {
-            highlightedContentBlock.left, highlightedContentBlock.top,
-            highlightedContentBlock.left, highlightedContentBlock.bottom,
-            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.top,
-            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH, highlightedContentBlock.bottom,
-        };
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-    }
-
-    color = darkTheme ? CONTENT_HIGHLIGHT_DRAG_DARK : CONTENT_HIGHLIGHT_DRAG;
-
-    DRAW_RECT(highlightedContentBlock.dragTabVAO, color);
-
-    vector<TextVertex> iVertices;
-
-    if (highlightedContentBlock.updated) {
-        glBindVertexArray(highlightedContentBlock.iconVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, highlightedContentBlock.iconVBO);
-
-        iVertices.reserve(24);
-
-        float height = highlightedContentBlock.bottom - highlightedContentBlock.top;
-        float iconHeight = 16.0f - glyphDescender * 16.0f;
-
-        appendCharVertices(
-            highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH/2,
-            highlightedContentBlock.top + height / 2 - iconHeight,
-            icons[ICON_MORE_VERTICAL],
-            darkTheme ? WHITE_INDEX : BLACK_INDEX,
-            iVertices
-        );
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, iVertices.size() * sizeof(TextVertex), &iVertices[0]);
-    }
-
-    color = WHITE;
-
-    DRAW_ICON(highlightedContentBlock.iconVAO, glm::value_ptr(color), 6);
-
-    highlightedContentBlock.updated = false;
+    appendCharVertices(
+        highlightedContentBlock.left - CONTENT_BLOCK_DRAGTAB_WIDTH * 0.5,
+        y + height * 0.5 - iconHeight,
+        icons[ICON_MORE_VERTICAL],
+        darkTheme ? WHITE_INDEX : BLACK_INDEX,
+        iconVerts
+    );
 }
 
 void renderCBTextSelection(ContentTab* tab) {
@@ -11757,7 +11707,7 @@ void printRectVertex(vector<RectVertex> rv) {
     for (
         vector<RectVertex>::iterator j = rv.begin();
         j != rv.end();
-        ++j
+        ++j, ++i
     ) {
         if (i % 6 == 0) {
             cout << "\nDEBUG: RECTANGLE:";
