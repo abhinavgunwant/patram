@@ -210,6 +210,7 @@
 // #define THROTTLE_NORMAL             0.18
 // #define THROTTLE_SLOW               0.25
 
+// #define DEBUG_BOUNDS
 // #define DEBUG_TEST_NOTE_TAB
 #define DEBUG_TEXT_SELECTION
 #define DEBUG_TEXT_INPUT
@@ -1057,6 +1058,11 @@ void showNewFolderDialog();
 void showNewNoteDialog();
 void showErrorDialog(string title, string message);
 void hideContextMenus();
+
+#ifdef DEBUG_BOUNDS
+void initBoundsRendering();
+void renderBounds(Bounds b);
+#endif
 
 #ifdef DEBUG_RENDER
 void printRectVertex(vector<RectVertex> rv);

@@ -2718,6 +2718,10 @@ void enterRenderLoop() {
         );
     #endif
 
+    #ifdef DEBUG_BOUNDS
+    initBoundsRendering();
+    #endif
+
     info("Starting UI rendering.");
 
     while (!glfwWindowShouldClose(window)) {
@@ -7010,6 +7014,12 @@ void render() {
         rerenderUI = false;
         grInfo.redrawUI = true;
     }
+
+#ifdef DEBUG_BOUNDS
+    for (Bounds b: uiMouseEvents.bounds) {
+        renderBounds(b);
+    }
+#endif
 }
 
 void updateTextCursor(Cursor& c, float x, float y, float height) {
@@ -11680,6 +11690,37 @@ void hideContextMenus() {
         }
     }
 }
+
+#ifdef DEBUG_BOUNDS
+uint32_t boundsVAO = 0;
+uint32_t boundsVBO = 0;
+
+void initBoundsRendering() {
+    glGenVertexArrays(1, &boundsVAO);
+    glBindVertexArray(boundsVAO);
+    glGenBuffers(1, &boundsVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, boundsVBO);
+    glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+}
+
+void renderBounds(Bounds b) {
+    float vertices[8] = {
+        b.x1, b.y1,
+        b.x2, b.y1,
+        b.x2, b.y2,
+        b.x1, b.y2,
+    };
+    glBindVertexArray(boundsVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, boundsVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    glUseProgram(shaders[SHADER_DEFAULT]);
+    glm::vec4 color = RED;
+    glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, 1.0f);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+}
+#endif
 
 #ifdef DEBUG_RENDER
 void printRectVertex(vector<RectVertex> rv) {
