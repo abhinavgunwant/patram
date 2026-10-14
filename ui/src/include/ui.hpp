@@ -278,6 +278,7 @@ extern bool ctrlKeyDown;
 extern uint8_t* moveCursorBitmap;
 
 enum class BoundSourceType : uint8_t {
+    None,
     Button,
     ContentBlock,
     Tab,
@@ -609,12 +610,15 @@ struct RenderInfo {
     uint32_t numVertices;
 };
 
-struct GlobalMouseEventInfo {
+struct MouseEventInfo {
     bool hover;
     bool mouseDown;
 
     uint16_t hoverIndex;
     uint16_t mouseDownIndex;
+
+    Bounds hoverBounds;
+    Bounds clickBounds;
 
     vector<Bounds> bounds;
 };
@@ -901,6 +905,7 @@ void textInputUnselect(TextInputData * tid, string token = "");
 
 void scrollAreaMouseDownCallback(UIElement*, float, float, glm::vec2);
 void scrollAreaMouseDragCallback(UIElement*, float, float, glm::vec2);
+bool updateHoverMouseEvents(float x, float y, MouseEventInfo& mei);
 
 void showTooltip(
     float bbx1, float bby1, float bbx2, float bby2,

@@ -204,8 +204,8 @@ Explorer explorer = {
 };
 
 GlobalRenderInfo grInfo;
-GlobalMouseEventInfo gmei;
-GlobalMouseEventInfo uiMouseEvents;
+MouseEventInfo gmei;
+MouseEventInfo uiMouseEvents;
 Tooltip tooltip = { 0 };
 CBImageLoader cbImageLoader = { 0 };
 
@@ -1316,41 +1316,12 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     mouseY = ypos;
 
     CursorShape cShape = CursorShape::Default;
-    uint32_t boundsIndex = 0;
-    bool updated = false;
-    bool hover = false;
 
-    for (
-        vector<Bounds>::iterator b = gmei.bounds.begin();
-        b != gmei.bounds.end();
-        ++b, ++boundsIndex
-    ) {
-        if (
-            b->enableHover
-            && xpos > b->x1 && xpos < b->x2
-            && ypos > b->y1 && ypos < b->y2
-        ) {
-            hover = true;
+    if (updateHoverMouseEvents(xpos, ypos, gmei)) { REDRAW_CB(); }
+    if (updateHoverMouseEvents(xpos, ypos, uiMouseEvents)) { rerenderUI = true; }
 
-            if (!(gmei.hover && gmei.hoverIndex == boundsIndex)) {
-                gmei.hoverIndex = boundsIndex;
-                updated = true;
-            }
-
-            break;
-        }
-    }
-
-    if (updated) {
-        grInfo.redraw = true;
-        gmei.hover = hover;
-    } else if (gmei.hover && !hover) {
-        grInfo.redraw = true;
-        gmei.hover = false;
-    }
-
-    if (gmei.hover && gmei.bounds.size() > gmei.hoverIndex) {
-        Bounds b = gmei.bounds[gmei.hoverIndex];
+    if (gmei.hover) {
+        Bounds b = gmei.hoverBounds;
 
         if (b.type == BoundSourceType::Link && !tooltip.show) {
             ContentTab tab = tabs[b.source.cb.tabIndex];
@@ -1376,39 +1347,6 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
     } else {
         hideTooltip();
     }
-
-    boundsIndex = 0;
-    updated = false;
-    hover = false;
-
-    for (
-        vector<Bounds>::iterator b = uiMouseEvents.bounds.begin();
-        b != uiMouseEvents.bounds.end();
-        ++b, ++boundsIndex
-    ) {
-        if (
-            b->enableHover
-            && xpos > b->x1 && xpos < b->x2
-            && ypos > b->y1 && ypos < b->y2
-        ) {
-            hover = true;
-
-            if (!(uiMouseEvents.hover && uiMouseEvents.hoverIndex == boundsIndex)) {
-                uiMouseEvents.hoverIndex = boundsIndex;
-                updated = true;
-            }
-
-            break;
-        }
-    }
-
-    if (updated) {
-        uiMouseEvents.hover = hover;
-    } else if (gmei.hover && !hover) {
-        uiMouseEvents.hover = false;
-    }
-
-    // TODO: handle hover for ui here...
 
     if (!highlightedContentBlock.mouseDown && !tabs.empty()) {
         ContentTab* tab = CURRENT_TAB;
@@ -5667,6 +5605,41 @@ void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, gl
     }
 
     scrollAreaMouseDownCallback(elem, mouseX, mouseY, res);
+}
+
+bool updateHoverMouseEvents(float x, float y, MouseEventInfo& mei) {
+    uint32_t boundsIndex = 0;
+    bool hover = false;
+
+    for (
+        vector<Bounds>::iterator b = mei.bounds.begin();
+        b != mei.bounds.end();
+        ++b, ++boundsIndex
+    ) {
+        if (
+            b->enableHover
+            && x > b->x1 && x < b->x2
+            && y > b->y1 && y < b->y2
+        ) {
+            hover = true;
+            break;
+        }
+    }
+
+    if (hover != mei.hover || mei.hoverIndex != boundsIndex) {
+        mei.hover = hover;
+        mei.hoverIndex = boundsIndex;
+
+        if (hover) {
+            mei.hoverBounds = mei.bounds[mei.hoverIndex];
+        } else {
+            mei.hoverBounds = Bounds { 0 };
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 void setTooltipDirection(
