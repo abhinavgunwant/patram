@@ -834,6 +834,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 Bounds b = uiMouseEvents.clickBounds;
 
                 switch (b.type) {
+                    case BoundSourceType::None: break;
+                    case BoundSourceType::ContentBlock: break;
+                    case BoundSourceType::Link: break;
                     case BoundSourceType::Button: {
                         if (grInfo.activeLayer == 0) {
                             switch(b.source.elem->id) {
@@ -923,7 +926,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         closeTab(b.source.tabIndex);
                         break;
 
-                    case BoundSourceType::Tab:
+                    case BoundSourceType::Tab: {
                         actionFound = true;
                         activeTabIndex = b.source.tabIndex;
                         TAB_BAR.active = false;
@@ -938,7 +941,28 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         ContentTab* tab = CURRENT_TAB;
                         tab->redrawCursor = true;
                         REDRAW_CB();
-                        break;
+                    }
+                    break;
+
+                    case BoundSourceType::ExplorerElement: {
+                        auto node_tuple = getClickedExplorerNodePath(explorer.nodes, b.source.explorerY, mouseY);
+                        ExplorerNodeType t = get<0>(node_tuple);
+                        filesystem::path p = get<1>(node_tuple);
+
+                        float time = TIME();
+
+                        if (t == ExplorerNodeType::Note) {
+                            if (time - explorer.lastClickedTime < 0.4f) {
+                                explorer.lastClickedTime = 0.0f;
+
+                                filesystem::path nodePath = getVaultPath(selectedVault) / p;
+                                openFile(false, nodePath);
+                            } else {
+                                explorer.lastClickedTime = time;
+                            }
+                        }
+                    }
+                    break;
                 }
 
                 if (actionFound) {
@@ -1015,9 +1039,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         break;
                     case UIElementType::Explorer:
                         unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
-                        float y = EXPLORER.top + elem->scrollData->yOffset;
-                        float time = glfwGetTime();
-
                         if (
                             elem->scrollData->showVerticalScrollbar
                             && mouseX > elem->width - SCROLL_BAR_THICKNESS
@@ -1025,25 +1046,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             elem->scrollData->mouseDown = true;
                             elem->scrollData->mouseDownX = mouseX;
                             elem->scrollData->mouseDownY = mouseY;
-                            break;
                         }
-
-                        auto node_tuple = getClickedExplorerNodePath(explorer.nodes, y, mouseY);
-                        ExplorerNodeType t = get<0>(node_tuple);
-                        filesystem::path p = get<1>(node_tuple);
-
-                        if (t == ExplorerNodeType::Note) {
-                            if (time - explorer.lastClickedTime < 0.4f) {
-                                explorer.lastClickedTime = 0.0f;
-
-                                filesystem::path nodePath = getVaultPath(selectedVault) / p;
-                                openFile(false, nodePath);
-                            } else {
-                                explorer.lastClickedTime = time;
-                            }
-                        }
-
-                        REDRAW_UI();
                         break;
                 }
             } else if (activeElement != nullptr) {
@@ -2002,12 +2005,15 @@ void destroyWelcomeScreen() {
     WELCOME_MAIN_CONTAINER.children = nullptr;
 }
 
-inline void appendTextVerticesForExplorerNode(
+inline void appendVerticesForExplorerNode(
     float x,
     float& y,
+    uint32_t textColor,
+    uint32_t rectColor,
     vector<ExplorerNode>& nodes,
     vector<TextVertex>& vertices,
-    vector<TextVertex>& iVertices
+    vector<TextVertex>& iVertices,
+    vector<RectVertex>& rv
 ) {
     float initialY = y;
 
@@ -2016,35 +2022,41 @@ inline void appendTextVerticesForExplorerNode(
         itr != nodes.end();
         ++itr, y += EXPLORER_ELEMENT_HEIGHT
     ) {
-        appendTextVertices(x, y, (*itr).name, darkTheme ? WHITE_INDEX : BLACK_INDEX, 16, vertices);
-        (*itr).top = y;
+        appendTextVertices(x, y, itr->name, textColor, 16, vertices);
+        itr->top = y;
 
-        if (GET_FLAG((*itr).flags, EXPLORER_FLAG_ACTIVE)) {
-            explorer.elementActive = true;
+        uiMouseEvents.bounds.push_back(Bounds {
+            0, y - 4.0f, EXPLORER.width, y - 4.0f + EXPLORER_ELEMENT_HEIGHT,
+            BoundSourceType::ExplorerElement, true, true, { .explorerY = y }
+        });
+
+        if (GET_FLAG(itr->flags, EXPLORER_FLAG_ACTIVE)) {
             explorer.activeY = y - 4.0f;
+
+            addRectangle(
+                0, y - 4.0f, EXPLORER.width, EXPLORER_ELEMENT_HEIGHT,
+                rectColor, 4, rv
+            );
         }
 
-        if ((*itr).type == ExplorerNodeType::Folder) {
+        if (itr->type == ExplorerNodeType::Folder) {
             if (
-                GET_FLAG((*itr).flags, EXPLORER_FLAG_EXPANDED)
-                && !(*itr).children.empty()
+                GET_FLAG(itr->flags, EXPLORER_FLAG_EXPANDED)
+                && !itr->children.empty()
             ) {
                 appendCharVertices(
-                    x - 16.0f,
-                    y - 8.0f,
-                    icons[ICON_CHEVRON_DOWN],
-                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                    iVertices
+                    x - 16.0f, y - 8.0f, icons[ICON_CHEVRON_DOWN],
+                    textColor, iVertices
                 );
                 y += EXPLORER_ELEMENT_HEIGHT;
-                appendTextVerticesForExplorerNode(x + 24.0f, y, (*itr).children, vertices, iVertices);
+                appendVerticesForExplorerNode(
+                    x + 24.0f, y, textColor, rectColor, itr->children,
+                    vertices, iVertices, rv
+                );
             } else {
                 appendCharVertices(
-                    x - 12.0f,
-                    y - 10.0f,
-                    icons[ICON_CHEVRON_RIGHT],
-                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                    iVertices
+                    x - 12.0f, y - 10.0f, icons[ICON_CHEVRON_RIGHT],
+                    textColor, iVertices
                 );
             }
         }
@@ -2132,17 +2144,26 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
     }
 }
 
-void setupExplorer(vector<TextVertex>& vertices, vector<TextVertex>& iVertices) {
+void setupExplorer(
+    vector<TextVertex>& vertices,
+    vector<TextVertex>& iVertices,
+    vector<RectVertex>& rv
+) {
     if (explorer.nodes.empty()) { return; }
-    explorer.elementActive = false;
 
     const float y0 = EXPLORER.top + 4.0f - EXPLORER.scrollData->yOffset;
     float y = y0;
 
-    vertices.reserve(64000);
-    iVertices.reserve(2400);
+    vertices.reserve(1800);
+    iVertices.reserve(240);
 
-    appendTextVerticesForExplorerNode(24.0f, y, explorer.nodes, vertices, iVertices);
+    appendVerticesForExplorerNode(
+        24.0f, y,
+        darkTheme ? WHITE_INDEX : BLACK_INDEX,
+        darkTheme ? EXPLORER_HOVER_BG_DARK_INDEX : EXPLORER_HOVER_BG_INDEX,
+        explorer.nodes, vertices, iVertices, rv
+    );
+
     float scrollHeight = y - y0 + 32.0f;
 
     EXPLORER.scrollData->height = scrollHeight;
@@ -8237,6 +8258,9 @@ void renderElement(
                 break;
             }
 
+            glScissor(0, 0, elem.width, elem.height);
+            glEnable(GL_SCISSOR_TEST);
+
             if (grInfo.redrawUI) {
                 updateElementDimensionsAccordingToPreferences(&elem);
 
@@ -8245,20 +8269,6 @@ void renderElement(
                     darkTheme ? EXPLORER_BG_DARK_INDEX : EXPLORER_BG_INDEX,
                     0, uiRectLayer0
                 );
-            }
-
-            glScissor(0, 0, elem.width, elem.height);
-            glEnable(GL_SCISSOR_TEST);
-
-            if (grInfo.redrawUI) {
-                if (explorer.elementActive) {
-                    addRectangle(
-                        0, explorer.activeY, EXPLORER.width, EXPLORER_ELEMENT_HEIGHT,
-                        darkTheme ? EXPLORER_HOVER_BG_DARK_INDEX : EXPLORER_HOVER_BG_INDEX,
-                        4,
-                        uiRectLayer0
-                    );
-                }
 
                 if (explorer.elementHover) {
                     addRectangle(
@@ -8278,7 +8288,7 @@ void renderElement(
                     );
                 }
 
-                setupExplorer(uiTextLayer0, uiIconLayer);
+                setupExplorer(uiTextLayer0, uiIconLayer, uiRectLayer0);
             }
 
             glDisable(GL_SCISSOR_TEST);

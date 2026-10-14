@@ -287,6 +287,7 @@ enum class BoundSourceType : uint8_t {
     Tab,
     TabClose,
     Link,
+    ExplorerElement,
 };
 
 union BoundSource {
@@ -296,6 +297,7 @@ union BoundSource {
         uint32_t tabIndex;
         uint32_t index;
     } cb;
+    float explorerY;
 };
 
 struct Bounds {
@@ -353,7 +355,11 @@ void setEfficiencyMode(bool efficiencyModeOn);
 void showWindow();
 void toggleFullscreen();
 void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices);
-void setupExplorer(vector<float>& vertices, vector<float>& iVertices);
+void setupExplorer(
+    vector<TextVertex>& vertices,
+    vector<TextVertex>& iVertices,
+    vector<RectVertex>& rv
+);
 void renameActiveExplorerNode();
 void deleteActiveExplorerNode();
 void createNoteInActiveExplorerNode();
@@ -828,7 +834,6 @@ struct Explorer {
     float lastClickedTime;
 
     bool elementHover;
-    bool elementActive;
     bool lineHover;
     bool lineMouseDown;
     bool redrawLine;
