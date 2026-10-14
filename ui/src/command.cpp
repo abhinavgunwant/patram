@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void appendCommand(CommandList &list, Command* newCommand) {
+void appendCommand(CommandList &list, Command* newCommand, Arena* arena) {
     if (list.currentCommand->next != nullptr) {
         Command * c = list.currentCommand;
 
@@ -16,7 +16,7 @@ void appendCommand(CommandList &list, Command* newCommand) {
         // Delete all the commands till current command
         while (c != list.currentCommand) {
             Command * prev = c->prev;
-            deleteCommand(c);
+            deleteCommand(c, arena == nullptr);
             list.length--;
             c = prev;
         }
@@ -53,12 +53,14 @@ void moveToNextCommand(CommandList &list) {
     }
 }
 
-void deleteCommand(Command* c) {
+void deleteCommand(Command* c, bool del) {
     if (c->prev != nullptr) {
         c->prev->next = nullptr;
     }
 
-    delete c;
+    if (del) {
+        delete c;
+    }
 }
 
 string commandStr(Command* c) {

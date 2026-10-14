@@ -469,6 +469,7 @@ struct UIPreferences {
 
 struct TextInputData {
     uint32_t cursorPosition;
+    uint32_t startIndex;
 
     uint32_t textSelectStartRow;
     uint32_t textSelectStartCol;
@@ -927,7 +928,10 @@ void renderTooltip();
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
 SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
 void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
-void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height);
+void initElement(
+    UIElement& elem, UIElementType type,
+    float top, float left, float width, float height, Arena* arena = nullptr
+);
 void insertContentBlock(uint32_t tabIndex, ContentBlockType type, string text, uint32_t index);
 void appendContentBlock(uint32_t tabIndex, ContentBlockType type, string text);
 void moveContentBlock(uint32_t tabIndex, uint32_t newIndex, uint32_t oldIndex);
@@ -936,7 +940,7 @@ void closeTab(uint32_t index);
 void closeCurrentTab();
 void adjustTabOffset();
 string getSelectedTextFromCurrentTab();
-UIPreferences* initPreferences();
+UIPreferences* initPreferences(Arena* arena = nullptr);
 void initializeCapacity(UIElement* parent, int capacity, Arena* arena = nullptr);
 void growCapacity(UIElement* parent, Arena* arena = nullptr);
 void addChild(UIElement* parent, UIElement* child, Arena* arena = nullptr);

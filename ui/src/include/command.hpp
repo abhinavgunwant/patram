@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 
+#include "arena.hpp"
+
 #define MAX_COMMANDS 16
 // #define DEBUG_COMMANDS
 
@@ -121,7 +123,7 @@ struct Command {
     }
 };
 
-void deleteCommand(Command* c);
+void deleteCommand(Command* c, bool del);
 string commandStr(Command* c);
 string commandTypeStr(CommandType type);
 
@@ -130,9 +132,14 @@ string commandTypeStr(CommandType type);
  */
 struct CommandList {
     uint8_t length;
+    Arena* arena;
     Command* currentCommand;
 
-    CommandList(): length(1), currentCommand(new Command()) {}
+    CommandList(Arena* arena): arena(arena) {
+        currentCommand = (Command*) arenaAllocate(*arena, sizeof(Command));
+    }
+
+    CommandList(): length(1), currentCommand(new Command()), arena(nullptr) {}
 
     ~CommandList() {
         if (currentCommand == nullptr) {
@@ -146,7 +153,7 @@ struct CommandList {
 
         while (cmd != nullptr) {
             Command* prev = cmd->prev;
-            deleteCommand(cmd);
+            deleteCommand(cmd, arena == nullptr);
             cmd = prev;
         }
 
@@ -159,7 +166,7 @@ struct CommandList {
  * the current command before appending.
  * So, not quite "append" in the usual way, but whatever.
  */
-void appendCommand(CommandList &list, Command* newCommand);
+void appendCommand(CommandList &list, Command* newCommand, Arena* arena = nullptr);
 void moveToPrevCommand(CommandList &list);
 void moveToNextCommand(CommandList &list);
 void printCommands(CommandList& list);

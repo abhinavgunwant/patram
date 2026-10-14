@@ -183,6 +183,7 @@ GLFWcursor* moveCursor;
 
 UIElement elements[DEFAULT_ELEM_LENGTH];
 Arena floatingArena;
+Arena mainUIArena;
 float lastFloatingUIShown = 0;
 bool dialogOpen = false;
 
@@ -198,9 +199,7 @@ uint32_t colorUBO = 0;
 uint32_t commonUBO = 0;
 
 Explorer explorer = {
-    0, 0, 0, 0, 0, 0, 0,
-    false, false, false, false, false,
-    vector<ExplorerNode>()
+    0, 0, 0, 0, 0, 0, 0, false, false, false, false, vector<ExplorerNode>()
 };
 
 GlobalRenderInfo grInfo;
@@ -546,14 +545,16 @@ void onCreateANewVaultClicked() {
     UIElement* createVaultButton    = &elements[14];
     UIElement* backButton           = &elements[15];
 
-    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultSetup, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultNameLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultPasswordLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*vaultNameInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f);
-    initElement(*vaultPasswordInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f);
-    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+    initArena(mainUIArena, 8192);
+
+    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*vaultSetup, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*vaultNameLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*vaultPasswordLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*vaultNameInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f, &mainUIArena);
+    initElement(*vaultPasswordInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f, &mainUIArena);
+    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
 
     for (int i=8; i<16; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
@@ -591,14 +592,14 @@ void onCreateANewVaultClicked() {
     createVaultButton->id   = VAULT_SETUP_CREATE_VAULT_BUTTON_ID;
     backButton->id          = VAULT_BACK_BUTTON_ID;
 
-    addChild(&WELCOME_MAIN_CONTAINER, title);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultSetup);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultNameLabel);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultNameInput);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordLabel);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordInput);
-    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton);
-    addChild(&WELCOME_MAIN_CONTAINER, backButton);
+    addChild(&WELCOME_MAIN_CONTAINER, title, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultSetup, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultNameLabel, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultNameInput, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordLabel, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordInput, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, backButton, &mainUIArena);
 }
 
 void onSwitchVaultClicked() {
@@ -1885,24 +1886,26 @@ void setupWelcomeScreen() {
     UIElement* createVaultButton = &elements[15];
     UIElement* switchVaultButton = &elements[16];
 
-    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*line1, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+    initArena(mainUIArena, 8192);
+
+    initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*version, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*line1, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
 
     if (vaultSelected) {
-        initElement(*line2, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line3, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line4, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line5, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line2, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line3, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line4, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line5, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     } else {
-        initElement(*line2, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line3, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line4, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
-        initElement(*line5, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f);
+        initElement(*line2, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line3, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line4, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+        initElement(*line5, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     }
 
-    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
-    initElement(*switchVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f);
+    initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    initElement(*switchVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
 
     for (uint32_t i=8; i<17; ++i) {
         elements[i].preferences->horizontalAlign = UIAlignment::Center;
@@ -1948,60 +1951,31 @@ void setupWelcomeScreen() {
     createVaultButton->id = CREATE_VAULT_BUTTON_ID;
     createVaultButton->marginTop = 8;
 
-    addChild(&WELCOME_MAIN_CONTAINER, title);
-    addChild(&WELCOME_MAIN_CONTAINER, version);
-    addChild(&WELCOME_MAIN_CONTAINER, line1);
-    addChild(&WELCOME_MAIN_CONTAINER, line2);
-    addChild(&WELCOME_MAIN_CONTAINER, line3);
-    addChild(&WELCOME_MAIN_CONTAINER, line4);
-    addChild(&WELCOME_MAIN_CONTAINER, line5);
-    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton);
+    addChild(&WELCOME_MAIN_CONTAINER, title, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, version, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, line1, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, line2, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, line3, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, line4, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, line5, &mainUIArena);
+    addChild(&WELCOME_MAIN_CONTAINER, createVaultButton, &mainUIArena);
 
     if (vaultSelected) {
-        addChild(&WELCOME_MAIN_CONTAINER, switchVaultButton);
+        addChild(&WELCOME_MAIN_CONTAINER, switchVaultButton, &mainUIArena);
     }
 
     REDRAW_UI();
 }
 
 void destroyWelcomeScreen() {
+    destroyArena(mainUIArena);
+
     for (int i=8; i<17; ++i) {
-        if (elements[i].preferences != nullptr) {
-            delete elements[i].preferences;
-            elements[i].preferences = nullptr;
-        }
-
-        if (
-            elements[i].type == UIElementType::TextInput
-            && elements[i].type == UIElementType::TextArea
-        ) {
-            TextInputData* tid = elements[i].textInputData;
-
-            delete tid;
-            elements[i].textInputData = nullptr;
-        }
-
-        elements[i].parent = nullptr;
-
-        if (
-            elements[i].totalChildren
-            && !(
-                *elements[i].children >= &elements[0]
-                && *elements[i].children <= &elements[DEFAULT_ELEM_LENGTH - 1]
-            )
-        ) {
-            cout << "\nDEBUG: Deleting elements for " << elements[i].text;
-            for (uint32_t j=0; i<elements[i].totalChildren; ++j) {
-                delete elements[i].children[j];
-            }
-
-            delete [] elements[i].children;
-        }
+        elements[i].text.~string();
     }
 
     WELCOME_MAIN_CONTAINER.totalChildren = 0;
     WELCOME_MAIN_CONTAINER.capacity = 0;
-    delete [] WELCOME_MAIN_CONTAINER.children;
     WELCOME_MAIN_CONTAINER.children = nullptr;
 }
 
@@ -4399,7 +4373,7 @@ Command* replaceSelectedText(UIElement* elem, Command* oldCommand) {
     elem->text.erase(tid->textSelectStartCol, len);
     elem->text.insert(tid->textSelectStartCol, oldCommand->str);
 
-    deleteCommand(oldCommand);
+    deleteCommand(oldCommand, elem->textInputData->cmdList.arena == nullptr);
 
     textInputUnselect(tid);
 
@@ -5131,6 +5105,10 @@ void saveFile() {
 }
 
 void newNote(filesystem::path p) {
+    if (WELCOME_MAIN_CONTAINER.totalChildren) {
+        destroyWelcomeScreen();
+    }
+
     if (p.empty()) {
         string title;
 
@@ -5882,7 +5860,11 @@ void renderTooltip() {
     );
 }
 
-void initElement(UIElement& elem, UIElementType type, float top, float left, float width, float height) {
+void initElement(
+    UIElement& elem, UIElementType type,
+    float top, float left, float width, float height,
+    Arena* arena
+) {
     uint8_t borderRadius = 0;
     UIPositioning positioning = UIPositioning::Absolute;
 
@@ -5894,60 +5876,86 @@ void initElement(UIElement& elem, UIElementType type, float top, float left, flo
 
     switch (type) {
         case UIElementType::Button: {
-            pref = initPreferences();
+            pref = initPreferences(arena);
             borderRadius = 4;
             break;
         }
 
         case UIElementType::Label:
-            pref = initPreferences();
+            pref = initPreferences(arena);
             pref->widthPreference = UISizePreference::Grow;
             break;
 
         case UIElementType::TabBar:
         case UIElementType::Container:
-            pref = initPreferences();
+            pref = initPreferences(arena);
             break;
 
         case UIElementType::Explorer:
         case UIElementType::ContentContainer:
         case UIElementType::ScrollArea:
-            pref = initPreferences();
+            pref = initPreferences(arena);
             pref->widthPreference = UISizePreference::Grow;
 
-            sd = new ScrollData {
-                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                false, false, false, false,
-                0, 0, 0, 0, 0, 0, 0, 0
-            };
+            if (arena == nullptr) {
+                sd = new ScrollData;
+            } else {
+                sd = (ScrollData*) arenaAllocate(*arena, sizeof(ScrollData));
+            }
+
+            sd->xOffset = 0;
+            sd->yOffset = 0;
+            sd->width = 0;
+            sd->height = 0;
+            sd->mouseDownX = 0;
+            sd->mouseDownY = 0;
+            sd->lastScrolled = 0;
+            sd->showVerticalScrollbar = false;
+            sd->showHorizontalScrollbar = false;
+            sd->renderedUpdate = false;
+            sd->mouseDown = false;
+            sd->verticalScrollBarVAO = 0;
+            sd->verticalScrollBarVBO = 0;
+            sd->horizontalScrollBarVAO = 0;
+            sd->horizontalScrollBarVBO = 0;
+            sd->verticalScrollThumbVAO = 0;
+            sd->verticalScrollThumbVBO = 0;
+            sd->horizontalScrollThumbVAO = 0;
+            sd->horizontalScrollThumbVBO = 0;
 
             break;
 
         case UIElementType::TextArea:
         case UIElementType::TextInput:
-            pref = initPreferences();
+            pref = initPreferences(arena);
             borderRadius = 4;
 
-            tid = new TextInputData {
-                .cursorPosition = 0,
-                .textSelectStartRow = 0,
-                .textSelectStartCol = 0,
-                .textSelectEndRow = 0,
-                .textSelectEndCol = 0,
-                .initialCursorPosition = 0,
-                .initialRow = 0,
-                .initialCol = 0,
-                .prevRow = 0,
-                .textSelected = false,
-                .mouseDown = false,
-                .textSelectUpdated = false,
-                .password = false,
-                .alignment = TextInputAlignment::Left,
-                .mouseDownX = 0.0f,
-                .mouseDownY = 0.0f,
-                .lastActiveTime = 0.0f,
-                .cmdList = CommandList(),
-            };
+            if (arena == nullptr) {
+                tid = new TextInputData;
+                tid->cmdList = CommandList();
+            } else {
+                tid = (TextInputData*) arenaAllocate(*arena, sizeof(TextInputData));
+                tid->cmdList = CommandList(arena);
+            }
+
+            tid->cursorPosition = 0;
+            tid->startIndex = 0;
+            tid->textSelectStartRow = 0;
+            tid->textSelectStartCol = 0;
+            tid->textSelectEndRow = 0;
+            tid->textSelectEndCol = 0;
+            tid->initialCursorPosition = 0;
+            tid->initialRow = 0;
+            tid->initialCol = 0;
+            tid->prevRow = 0;
+            tid->textSelected = false;
+            tid->mouseDown = false;
+            tid->textSelectUpdated = false;
+            tid->password = false;
+            tid->alignment = TextInputAlignment::Left;
+            tid->mouseDownX = 0.0f;
+            tid->mouseDownY = 0.0f;
+            tid->lastActiveTime = 0.0f;
 
             break;
     }
@@ -6243,6 +6251,7 @@ void closeTab(uint32_t index) {
 
     updateWindowTitle();
     grInfo.redraw = true;
+    setupWelcomeScreen();
     REDRAW_UI();
 }
 
@@ -6292,8 +6301,14 @@ string getSelectedTextFromCurrentTab() {
     return "";
 }
 
-UIPreferences* initPreferences() {
-    UIPreferences* pref = new UIPreferences;
+UIPreferences* initPreferences(Arena *arena) {
+    UIPreferences* pref;
+
+    if (arena == nullptr) {
+        pref = new UIPreferences;
+    } else {
+        pref = (UIPreferences*) arenaAllocate(*arena, sizeof(UIPreferences));
+    }
 
     pref->maxWidth = -1;
     pref->maxHeight = -1;
@@ -11488,14 +11503,14 @@ vector<UIElement*> initBasicDialog(
     float top = static_cast<float>(windowHeight)/2 - dialogHeight/2;
     float left = static_cast<float>(windowWidth)/2 - dialogWidth/2;
 
-    initElement(elems[0], UIElementType::Container, 0, 0, windowWidth, windowHeight);
-    initElement(elems[1], UIElementType::Container, top, left, dialogWidth, dialogHeight);
-    initElement(elems[2], UIElementType::Label, 0, 0, 200, 50);
-    initElement(elems[3], UIElementType::Label, 0, 0, dialogWidth - 50, 50);
-    initElement(elems[4], UIElementType::TextInput, 0, 0, 200, 32);
-    initElement(elems[5], UIElementType::Container, 0, 0, 140, 50);
-    initElement(elems[6], UIElementType::Button, 50, 0, 60, 40);
-    initElement(elems[7], UIElementType::Button, 50, 0, 75, 40);
+    initElement(elems[0], UIElementType::Container, 0, 0, windowWidth, windowHeight, &floatingArena);
+    initElement(elems[1], UIElementType::Container, top, left, dialogWidth, dialogHeight, &floatingArena);
+    initElement(elems[2], UIElementType::Label, 0, 0, 200, 50, &floatingArena);
+    initElement(elems[3], UIElementType::Label, 0, 0, dialogWidth - 50, 50, &floatingArena);
+    initElement(elems[4], UIElementType::TextInput, 0, 0, 200, 32, &floatingArena);
+    initElement(elems[5], UIElementType::Container, 0, 0, 140, 50, &floatingArena);
+    initElement(elems[6], UIElementType::Button, 50, 0, 60, 40, &floatingArena);
+    initElement(elems[7], UIElementType::Button, 50, 0, 75, 40, &floatingArena);
 
     float vertices[8] = { 0 };
 
