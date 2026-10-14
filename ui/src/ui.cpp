@@ -801,41 +801,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouseDownX = mouseX;
             mouseDownY = mouseY;
 
-            uint32_t boundsIndex = 0;
-            bool updated = false;
-            bool mouseDown = false;
+            if (updateMouseDownEvents(mouseX, mouseY, gmei)) { REDRAW_CB(); }
+            if (updateMouseDownEvents(mouseX, mouseY, uiMouseEvents)) { rerenderUI = true; }
 
-            for (
-                vector<Bounds>::iterator b = gmei.bounds.begin();
-                b != gmei.bounds.end();
-                ++b, ++boundsIndex
-            ) {
-                if (
-                    b->enableClick
-                    && mouseX > b->x1 && mouseX < b->x2
-                    && mouseY > b->y1 && mouseY < b->y2
-                ) {
-                    mouseDown = true;
-
-                    if (!(gmei.mouseDown && gmei.mouseDownIndex == boundsIndex)) {
-                        gmei.mouseDownIndex = boundsIndex;
-                        updated = true;
-                    }
-
-                    break;
-                }
-            }
-
-            if (updated) {
-                grInfo.redraw = true;
-                gmei.mouseDown = mouseDown;
-            } else if (gmei.mouseDown && !mouseDown) {
-                grInfo.redraw = true;
-                gmei.mouseDown = false;
-            }
-
-            if (gmei.mouseDown && gmei.bounds.size() > gmei.mouseDownIndex) {
-                Bounds b = gmei.bounds[gmei.mouseDownIndex];
+            if (gmei.mouseDown) {
+                Bounds b = gmei.clickBounds;
 
                 if (b.type == BoundSourceType::Link && ctrlKeyDown) {
                     ContentTab tab = tabs[b.source.cb.tabIndex];
@@ -859,40 +829,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
             }
 
-            boundsIndex = 0;
-            updated = false;
-            mouseDown = false;
-
-            for (
-                vector<Bounds>::iterator b = uiMouseEvents.bounds.begin();
-                b != uiMouseEvents.bounds.end();
-                ++b, ++boundsIndex
-            ) {
-                if (
-                    b->enableClick
-                    && mouseX > b->x1 && mouseX < b->x2
-                    && mouseY > b->y1 && mouseY < b->y2
-                ) {
-                    mouseDown = true;
-
-                    if (!(uiMouseEvents.mouseDown && uiMouseEvents.mouseDownIndex == boundsIndex)) {
-                        uiMouseEvents.mouseDownIndex = boundsIndex;
-                        updated = true;
-                    }
-
-                    break;
-                }
-            }
-
-            if (updated) {
-                uiMouseEvents.mouseDown = mouseDown;
-            } else if (uiMouseEvents.mouseDown && !mouseDown) {
-                uiMouseEvents.mouseDown = false;
-            }
-
-            if (uiMouseEvents.mouseDown && uiMouseEvents.bounds.size() > uiMouseEvents.mouseDownIndex) {
+            if (uiMouseEvents.mouseDown) {
                 bool actionFound = false;
-                Bounds b = uiMouseEvents.bounds[uiMouseEvents.mouseDownIndex];
+                Bounds b = uiMouseEvents.clickBounds;
 
                 switch (b.type) {
                     case BoundSourceType::Button: {
@@ -978,6 +917,28 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
                     }
                     break;
+
+                    case BoundSourceType::TabClose:
+                        actionFound = true;
+                        closeTab(b.source.tabIndex);
+                        break;
+
+                    case BoundSourceType::Tab:
+                        actionFound = true;
+                        activeTabIndex = b.source.tabIndex;
+                        TAB_BAR.active = false;
+
+                        if (activeElement != nullptr) {
+                            activeElement->active = false;
+                        }
+
+                        activeElement = &CONTENT_CONTAINER;
+                        CONTENT_CONTAINER.active = true;
+
+                        ContentTab* tab = CURRENT_TAB;
+                        tab->redrawCursor = true;
+                        REDRAW_CB();
+                        break;
                 }
 
                 if (actionFound) {
@@ -1052,13 +1013,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     case UIElementType::TextInput:
                         textInputMouseDownCallback(elem, mouseX, mouseY, resolution);
                         break;
-                    case UIElementType::TabBar:
-                        if (!tabs.empty()) {
-                            tabBarMouseDownCallback(elem, mouseX, mouseY, resolution, GLFW_MOUSE_BUTTON_1);
-                        } else {
-                            activeElement = prevActiveElement;
-                        }
-                        break;
                     case UIElementType::Explorer:
                         unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                         float y = EXPLORER.top + elem->scrollData->yOffset;
@@ -1103,6 +1057,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             mouse1Down = false;
             explorer.lineMouseDown = false;
             EXPLORER.scrollData->mouseDown = false;
+
+            gmei.mouseDown = false;
+            uiMouseEvents.mouseDown = false;
 
             if (ignoreMouse1Up) {
                 ignoreMouse1Up = false;
@@ -1317,8 +1274,8 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
 
     CursorShape cShape = CursorShape::Default;
 
-    if (updateHoverMouseEvents(xpos, ypos, gmei)) { REDRAW_CB(); }
-    if (updateHoverMouseEvents(xpos, ypos, uiMouseEvents)) { rerenderUI = true; }
+    if (updateMouseHoverEvents(xpos, ypos, gmei)) { REDRAW_CB(); }
+    if (updateMouseHoverEvents(xpos, ypos, uiMouseEvents)) { rerenderUI = true; }
 
     if (gmei.hover) {
         Bounds b = gmei.hoverBounds;
@@ -2122,20 +2079,33 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         tab.xOffset = static_cast<uint16_t>(x);
 
         x += TAB_HORIZONTAL_PADDING;
+
         x += appendTextVertices(
             x - tabsDisplay.xOffset, verticalPadding, tabtext, textIndex,
             16, textVertices
         ).width;
+
         x += TAB_HORIZONTAL_PADDING;
 
-        tab.closeX = static_cast<uint16_t>(x - prevX);
+        float closeX = x;
 
         x += appendCharVertices(
-            x - tabsDisplay.xOffset, -2, icons[ICON_CLOSE], textIndex, xVertices
+            closeX, -2, icons[ICON_CLOSE], textIndex, xVertices
         );
+
+        uiMouseEvents.bounds.push_back(Bounds {
+            closeX - 5, verticalPadding + 2, x + 5, verticalPadding + 10 + x - closeX,
+            BoundSourceType::TabClose, false, true, { .tabIndex = i }
+        });
+
         x += TAB_HORIZONTAL_PADDING;
 
         tab.width = static_cast<uint16_t>(x - prevX);
+
+        uiMouseEvents.bounds.push_back(Bounds {
+            prevX, 0, x, TAB_BAR_HEIGHT,
+            BoundSourceType::Tab, false, true, { .tabIndex = i }
+        });
 
         ++i;
     }
@@ -5613,7 +5583,7 @@ void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, gl
     scrollAreaMouseDownCallback(elem, mouseX, mouseY, res);
 }
 
-bool updateHoverMouseEvents(float x, float y, MouseEventInfo& mei) {
+bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei) {
     uint32_t boundsIndex = 0;
     bool hover = false;
 
@@ -5640,6 +5610,40 @@ bool updateHoverMouseEvents(float x, float y, MouseEventInfo& mei) {
             mei.hoverBounds = mei.bounds[mei.hoverIndex];
         } else {
             mei.hoverBounds = Bounds { 0 };
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool updateMouseDownEvents(float x, float y, MouseEventInfo& mei) {
+    uint32_t boundsIndex = 0;
+    bool updated = false;
+    bool mouseDown = false;
+
+    for (
+        vector<Bounds>::iterator b = mei.bounds.begin();
+        b != mei.bounds.end();
+        ++b, ++boundsIndex
+    ) {
+        if (
+            b->enableClick
+            && mouseX > b->x1 && mouseX < b->x2
+            && mouseY > b->y1 && mouseY < b->y2
+        ) {
+            mouseDown = true;
+            break;
+        }
+    }
+
+    if (mouseDown != mei.mouseDown || boundsIndex != mei.mouseDownIndex) {
+        mei.mouseDown = mouseDown;
+        mei.mouseDownIndex = boundsIndex;
+
+        if (mouseDown) {
+            mei.clickBounds = mei.bounds[mei.mouseDownIndex];
         }
 
         return true;

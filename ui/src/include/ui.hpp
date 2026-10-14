@@ -908,7 +908,8 @@ void textInputUnselect(TextInputData * tid, string token = "");
 
 void scrollAreaMouseDownCallback(UIElement*, float, float, glm::vec2);
 void scrollAreaMouseDragCallback(UIElement*, float, float, glm::vec2);
-bool updateHoverMouseEvents(float x, float y, MouseEventInfo& mei);
+bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei);
+bool updateMouseDownEvents(float x, float y, MouseEventInfo& mei);
 
 void showTooltip(
     float bbx1, float bby1, float bbx2, float bby2,
