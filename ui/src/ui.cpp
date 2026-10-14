@@ -7862,6 +7862,8 @@ void renderElement(
                         top = yPrev + elem.marginTop;
                     }
                 }
+
+                elem.top = top;
             }
 
             if (elem.parent->type == UIElementType::ScrollArea) {
@@ -7909,71 +7911,70 @@ void renderElement(
                     static_cast<float>(elem.borderRadius),
                     elem.layer == 0 ? uiRectLayer0 : uiRectLayer1
                 );
-            }
 
-            TextInputData* tid = elem.textInputData;
+                TextInputData* tid = elem.textInputData;
 
-            glm::vec2 pos = glm::vec2(left + TEXT_INPUT_PADDING, top + TEXT_INPUT_PADDING);
+                glm::vec2 pos = glm::vec2(left + TEXT_INPUT_PADDING, top + TEXT_INPUT_PADDING);
 
-            string text;
-            text.reserve(elem.text.length());
+                string text;
+                text.reserve(elem.text.length());
 
-            if (tid->password) {
-                for (int i=0; i < elem.text.length(); ++i) {
-                    text += "*";
+                if (tid->password) {
+                    for (int i=0; i < elem.text.length(); ++i) {
+                        text += "*";
+                    }
+                } else {
+                    text = elem.text.substr(tid->startIndex, elem.text.length() - tid->startIndex);
                 }
-            } else {
-                text = elem.text;
-            }
 
-            float dx = pos.x;
-            float dy = pos.y;
+                float dx = pos.x;
+                float dy = pos.y;
 
-            TextRenderResult rRes = getInputTextDimensions(
-                text,
-                tid,
-                pos,
-                elem.fontSize,
-                elem.parent->left,
-                elem.parent->width
-            );
+                TextRenderResult rRes = getInputTextDimensions(
+                    text,
+                    tid,
+                    pos,
+                    elem.fontSize,
+                    left + TEXT_INPUT_PADDING,
+                    elem.width - 2 * TEXT_INPUT_PADDING,
+                    false
+                );
 
-            switch (tid->alignment) {
-                case TextInputAlignment::Center:
-                    pos.x = left + (elem.width - rRes.width)/2;
-                    pos.y = top + TEXT_INPUT_PADDING;
-                    break;
+                switch (tid->alignment) {
+                    case TextInputAlignment::Center:
+                        pos.x = left + (elem.width - rRes.width)/2;
+                        pos.y = top + TEXT_INPUT_PADDING;
+                        break;
 
-                case TextInputAlignment::Right:
-                    pos.x = left + elem.width - rRes.width;
-                    pos.y = top + TEXT_INPUT_PADDING;
-                    break;
-            }
+                    case TextInputAlignment::Right:
+                        pos.x = left + elem.width - rRes.width;
+                        pos.y = top + TEXT_INPUT_PADDING;
+                        break;
+                }
 
-            dx = pos.x - dx;
-            dy = pos.y - dy;
+                dx = pos.x - dx;
+                dy = pos.y - dy;
 
-            rRes.x += dx;
-            rRes.cursorX += dx;
-            rRes.selStartX += dx;
+                rRes.x += dx;
+                rRes.cursorX += dx;
+                rRes.selStartX += dx;
 
-            rRes.y += dy;
-            rRes.cursorY += dy;
-            rRes.selStartY += dy;
+                rRes.y += dy;
+                rRes.cursorY += dy;
+                rRes.selStartY += dy;
 
-            uint32_t currentIndex = 0;
-            float x = left + TEXT_INPUT_PADDING;
-            float y = top + TEXT_INPUT_PADDING;
+                uint32_t currentIndex = 0;
+                float x = left + TEXT_INPUT_PADDING;
+                float y = top + TEXT_INPUT_PADDING;
 
-            float cursorX = rRes.cursorX;
-            float cursorY = rRes.cursorY - static_cast<float>(elem.fontSize) * glyphDescender;
-            float selectStartX = rRes.selStartX;
-            float selectEndX = selectStartX + rRes.selWidth;
+                float cursorX = rRes.cursorX;
+                float cursorY = rRes.cursorY - static_cast<float>(elem.fontSize) * glyphDescender;
+                float selectStartX = rRes.selStartX;
+                float selectEndX = selectStartX + rRes.selWidth;
 
-            if (elem.active && tid->textSelected) {
-                globalCursor.showSelection = true;
+                if (elem.active && tid->textSelected) {
+                    globalCursor.showSelection = true;
 
-                if (grInfo.redrawUI) {
                     vector<RectVertex> rv;
                     rv.reserve(6);
 
@@ -7993,31 +7994,31 @@ void renderElement(
                         debugv("Text selection: CursorY: {}", cursorY);
                     #endif
                 }
-            }
 
-            if (grInfo.redrawUI && !elem.text.empty()) {
-                appendTextVertices(
-                    pos.x,
-                    pos.y,
-                    elem.text,
-                    darkTheme ? WHITE_INDEX : BLACK_INDEX,
-                    elem.fontSize,
-                    elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
-                );
-            }
-
-            // When text input is active, draw the cursor.
-            if (elem.active) {
-                globalCursor.show = true;
-
-                if (text.empty()) {
-                    cursorY = elem.top + elem.height - TEXT_INPUT_PADDING;
+                if (!text.empty()) {
+                    appendTextVertices(
+                        pos.x,
+                        pos.y,
+                        (rRes.columns < text.length()) ? text.substr(0, rRes.columns) : text,
+                        darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                        elem.fontSize,
+                        elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
+                    );
                 }
 
-                if (grInfo.redrawUI) {
-                    float height = static_cast<float>(elem.fontSize) * (1 - glyphDescender);
+                // When text input is active, draw the cursor.
+                if (elem.active) {
+                    globalCursor.show = true;
 
-                    updateTextCursor(globalCursor, cursorX, cursorY - height, height);
+                    if (text.empty()) {
+                        cursorY = elem.top + elem.height - TEXT_INPUT_PADDING;
+                    }
+
+                    if (grInfo.redrawUI) {
+                        float height = static_cast<float>(elem.fontSize) * (1 - glyphDescender);
+
+                        updateTextCursor(globalCursor, cursorX, cursorY - height, height);
+                    }
                 }
             }
 
@@ -8025,7 +8026,6 @@ void renderElement(
                 elem.positioning == UIPositioning::Relative_sibling
                 && elem.parent != nullptr
             ) {
-                elem.top = top;
                 yPrev = top + elem.height;
             }
             break;

@@ -516,7 +516,7 @@ TextRenderResult getInputTextDimensions(
     float parentLeft, float parentWidth, bool breakLine
 ) {
     TextRenderResult result = TextRenderResult {
-        pos.x, pos.y, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, true
+        pos.x, pos.y, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0, true
     };
 
     float xpos = pos.x;
@@ -600,6 +600,8 @@ TextRenderResult getInputTextDimensions(
     if (result.rows) {
         ++result.rows;
     }
+
+    result.columns = i;
 
     return result;
 }

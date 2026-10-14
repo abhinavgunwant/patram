@@ -110,6 +110,7 @@ struct TextRenderResult {
     float height;
     float width;
     uint32_t rows;
+    uint32_t columns;
     bool renderNextContentBlock;
 };
 
