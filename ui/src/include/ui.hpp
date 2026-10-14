@@ -152,6 +152,8 @@
 #define EXPLORER_BG_DARK_INDEX          27
 #define SCROLL_AREA_BG_INDEX            28
 #define SCROLL_AREA_BG_DARK_INDEX       29
+#define CM_DELETE_BUTTON_BG_INDEX       30
+#define CM_DELETE_BUTTON_BG_DARK_INDEX  31
 
 #define EXPLORER_CONTEXT_MENU_PADDING               4
 

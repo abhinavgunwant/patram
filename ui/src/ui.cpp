@@ -2429,6 +2429,8 @@ void setupUBO() {
         EXPLORER_BG_DARK,
         SCROLL_AREA_BG,
         SCROLL_AREA_BG_DARK,
+        CM_DELETE_BUTTON_BG,
+        CM_DELETE_BUTTON_BG_DARK,
     };
 
     CommonUniforms c = { resolution, darkTheme };
@@ -7581,14 +7583,23 @@ void renderElement(
 
                 uint32_t colorIndex = darkTheme ? TEXT_INPUT_BG_DARK_INDEX : TEXT_INPUT_BG_INDEX;
 
+                if (uiMouseEvents.hover) {
+                    Bounds b = uiMouseEvents.hoverBounds;
+
+                    if (
+                        b.type == BoundSourceType::Button
+                        && b.source.elem == &elem
+                    ) {
+                        if (b.source.elem->id == EXPLORER_MENU_DELETE_ID) {
+                            colorIndex = darkTheme ? CM_DELETE_BUTTON_BG_DARK_INDEX : CM_DELETE_BUTTON_BG_INDEX;
+                        } else {
+                            colorIndex = darkTheme ? TEXT_INPUT_HOVER_BG_DARK_INDEX : TEXT_INPUT_HOVER_BG_INDEX;
+                        }
+                    }
+                }
+
                 if (elem.id == SWITCH_VAULT_OPTION_ID) {
                     colorIndex = TRANSPARENT_INDEX;
-                } else if (
-                    elem.id == EXPLORER_MENU_DELETE_ID
-                    || elem.id == DELETE_DIALOG_DELETE_BUTTON_ID
-                ) {
-                    // TODO: handle hover colors for delete button
-                    // hv = darkTheme ? CM_DELETE_BUTTON_BG_DARK : CM_DELETE_BUTTON_BG;
                 }
 
                 uiMouseEvents.bounds.push_back(Bounds {
