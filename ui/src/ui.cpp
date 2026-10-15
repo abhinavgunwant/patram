@@ -1291,7 +1291,6 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         ContentTab* tab = CURRENT_TAB;
 
         float top;
-        uint32_t i = 0;
         uint32_t oldIndex = highlightedContentBlock.cbIndex;
         bool oldShow = highlightedContentBlock.show;
         highlightedContentBlock.show = false;
@@ -1299,7 +1298,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
         for (
             auto itr = tab->contentBlocks.begin();
             itr != tab->contentBlocks.end();
-            ++itr, ++i
+            ++itr
         ) {
             top = (*itr).top - tab->scrollOffsetY;
 
@@ -1319,13 +1318,11 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
                 highlightedContentBlock.show = true;
                 highlightedContentBlock.left = contentLeft;
                 highlightedContentBlock.top = top;
-
-                tab->activeCBIndex = std::distance(tab->contentBlocks.begin(), itr);
-
-                highlightedContentBlock.bottom = top + (*itr).height - (glyphDescender < 0) ? glyphDescender : 0;
-
+                highlightedContentBlock.bottom = top + (*itr).height - ((glyphDescender < 0) ? glyphDescender : 0);
                 highlightedContentBlock.right = contentRight;
+                uint32_t i = std::distance(tab->contentBlocks.begin(), itr);
                 highlightedContentBlock.cbIndex = i;
+                tab->activeCBIndex = i;
                 break;
             }
 
