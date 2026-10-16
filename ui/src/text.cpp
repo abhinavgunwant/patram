@@ -32,10 +32,15 @@ Character* characters;
 Character icons[MAX_ICONS];
 unsigned int textVAO, textVBO;
 
-void initFontTexture(string path) {
+void initFontTexture(uint8_t* pngData) {
     #ifdef DEBUG_TEXT
         cout << "\nDEBUG: STARTUP CHECK: loading font texture";
     #endif
+
+    if (pngData == nullptr) {
+        cout << "\nERROR: no font texture provided!";
+        exit(1);
+    }
 
     glGenTextures(1, &fontTextureID);
     glBindTexture(GL_TEXTURE_2D, fontTextureID);
@@ -45,28 +50,9 @@ void initFontTexture(string path) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    int width, height, nrChannels;
-
-    stbi_set_flip_vertically_on_load(true);
-    uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
-
-    if (stbi_failure_reason()) {
-        errorv("Failed to load font texture: %s", stbi_failure_reason());
-    }
-
-    if (data) {
-        #ifdef DEBUG_TEXTURE
-            cout << "\nTexture " << path << " loaded.";
-        #endif
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    } else {
-        errorv("Failed to load texture (%s).", path);
-    }
-
-    stbi_image_free(data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, ATLAS_DIMENSION, ATLAS_DIMENSION, 0, GL_RED, GL_UNSIGNED_BYTE, pngData);
+    glGenerateMipmap(GL_TEXTURE_2D);
 }
 
 void initIconTexture() {

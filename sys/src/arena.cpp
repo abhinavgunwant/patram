@@ -1,3 +1,4 @@
+#include <mutex>
 #include "include/arena.hpp"
 
 #if defined(__X86_64__) || defined(_M_X64)
@@ -9,6 +10,8 @@
 #ifdef _WIN32
     #include <heapapi.h>
 #endif
+
+std::mutex arenaMutex;
 
 ArenaBlock* initArenaBlock(ArenaBlock* rootBlock, uint32_t capacity, uint8_t index, bool firstInit) {
     size_t reserve = firstInit ? sizeof(ArenaBlock) * 4 : 0;
@@ -97,6 +100,7 @@ void destroyArena(Arena& arena) {
 }
 
 void* arenaAllocate(Arena& arena, uint32_t byteLen) {
+    std::lock_guard<std::mutex> lock(arenaMutex);
     return blockAllocate(arena.rootBlock, arena.rootBlock, byteLen, 0);
 }
 

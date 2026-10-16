@@ -119,7 +119,6 @@ vector<VaultIndexEntry> getVaultContent(string vaultName);
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);
 void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len);
-void createFontAtlasFile(uint8_t index, Character* characters);
 void createVaultInfoFile(string vaultName, string password);
 void createVaultIndexFile(string vaultName, string password);
 

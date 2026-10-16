@@ -10,22 +10,10 @@ using namespace std;
 #include "utils.hpp"
 #include "files.hpp"
 #include "logger.hpp"
+#include "arena.hpp"
 
-bool initFonts(string fontPath, bool cache) {
+void initFonts(Arena& arena) {
     characters = new Character[MAX_CHARACTERS];
-
-    if (cache) {
-        #ifdef DEBUG_TEXT
-            cout << "\nSTARTUP CHECK: Initializing fonts from cache.";
-        #endif
-
-        // Not being used as of now...
-        float _ascender = 0;
-
-        if (processFontInfoFile(characters, _ascender, glyphDescender)) {
-            return true;
-        }
-    }
 
     #ifdef DEBUG_TEXT
         cout << "\nSTARTUP CHECK: Initializing font cache.";
@@ -35,21 +23,18 @@ bool initFonts(string fontPath, bool cache) {
 
     if (FT_Init_FreeType(&ft)) {
         error("FREETYPE: Could not init FreeType Library");
-        return false;
+        return;
     }
 
     // load font as face
     FT_Face face;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
+    if (FT_New_Face(ft, POPPINS_REGULAR, 0, &face)) {
         error("FREETYPE: Failed to load font");
-        return false;
+        return;
     }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, DEFAULT_FONT_SIZE);
-
-    // disable byte-alignment restriction
-    // glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     #ifdef DEBUG_TEXT
         cout << "\nDEBUG: Total characters: " << face->num_glyphs;
@@ -68,7 +53,7 @@ bool initFonts(string fontPath, bool cache) {
     while (id != 0) {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) {
             error("FREETYPE: Failed to load glyph");
-            return false;
+            return;
         }
         uint8_t width = face->glyph->bitmap.width;
         uint8_t height = face->glyph->bitmap.rows;
@@ -87,11 +72,9 @@ bool initFonts(string fontPath, bool cache) {
 
         Char cccc = { static_cast<uint16_t>(charcode), width, height, nullptr };
 
-        cccc.bitmap = new uint8_t[width * height];
+        cccc.bitmap = (uint8_t*) arenaAllocate(arena, width * height); // new uint8_t[width * height];
 
-        for (int i=0; i<width * height; ++i) {
-            cccc.bitmap[i] = face->glyph->bitmap.buffer[i];
-        }
+        memcpy(cccc.bitmap, face->glyph->bitmap.buffer, width * height);
 
         chvec.push_back(cccc);
 
@@ -100,86 +83,74 @@ bool initFonts(string fontPath, bool cache) {
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
-
-    return true;
 }
 
-void runStartupChecks() {
-    if (
-        DIR_EXISTS(getCacheDirectoryPath())
-        && FILE_EXISTS(getCacheIndexPath())
-        && FILE_EXISTS(getFontInfoPath(0))
-        && FILE_EXISTS(getFontAtlasPath(0))
-    ) {
-        auto t0 = std::chrono::high_resolution_clock::now();
-
-        bool success = initFonts(POPPINS_REGULAR, true);
-
-        auto t1 = std::chrono::high_resolution_clock::now();
-
-        if (success) {
-            auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
-            #ifdef DEBUG_TEXT
-                cout << "\nSTARTUP CHECK: Font initialization from cache took " << duration0.count() << " microseconds.";
-            #endif
-            return;
-        }
-    } else {
-        #ifdef DEBUG_TEXT
-            cout << "\nSTARTUP CHECK: Creating cache";
-        #endif
-
-        if (!DIR_EXISTS(getCacheDirectoryPath())) {
-            createCacheDirectory();
+uint8_t* createFontAtlas(Arena& arena) {
+    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+        if (a.height == b.height) {
+            return a.width < b.width;
         }
 
-        // TODO: As of now, just a single standard poppins font is being used, use
-        // more and make the user configured default in future!
-        vector<string> fontFilePaths;
-        fontFilePaths.reserve(1);
-        fontFilePaths.push_back(POPPINS_REGULAR);
+        return a.height < b.height;
+    });
 
-        #ifdef DEBUG_TEXT
-            auto t0 = std::chrono::high_resolution_clock::now();
-        #endif
+    uint8_t* pngData = (uint8_t*) arenaAllocate(arena, ATLAS_DIMENSION * ATLAS_DIMENSION);
 
-        initFonts(POPPINS_REGULAR, false);
+    memset(pngData, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
 
-        #ifdef DEBUG_TEXT
-        auto t1 = std::chrono::high_resolution_clock::now();
-        #endif
+    uint16_t max_y = 0;
+    uint16_t x = FONT_ATLAS_MARGIN;
+    uint16_t y = FONT_ATLAS_MARGIN;
 
-        createCacheIndex(fontFilePaths);
+    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
+        if (itr->height == 0 || itr->width == 0) {
+            continue;
+        }
 
-        #ifdef DEBUG_TEXT
-        auto t2 = std::chrono::high_resolution_clock::now();
-        #endif
+        if (itr->height > max_y) {
+            max_y = (*itr).height;
+        }
 
-        createFontAtlasFile(0, characters);
+        if (x + itr->width > ATLAS_DIMENSION) {
+            y += max_y + FONT_ATLAS_MARGIN;
+            x = FONT_ATLAS_MARGIN;
+        }
 
-        #ifdef DEBUG_TEXT
-            auto t3 = std::chrono::high_resolution_clock::now();
-        #endif
+        characters[itr->charcode].textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
+        characters[itr->charcode].textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
+        characters[itr->charcode].textureX2 = static_cast<float>(x + itr->width)/static_cast<float>(ATLAS_DIMENSION);
+        characters[itr->charcode].textureY2 = static_cast<float>(y + itr->height)/static_cast<float>(ATLAS_DIMENSION);
 
-        createFontInfoFile(0, 0.0f, glyphDescender, characters, MAX_CHARACTERS);
+        for (int i=y; i<y + itr->height && i<ATLAS_DIMENSION; ++i) {
+            memcpy(
+                &pngData[i * ATLAS_DIMENSION + x],
+                &((*itr).bitmap[(i-y) * itr->width]),
+                itr->width
+            );
+        }
 
-        #ifdef DEBUG_TEXT
-            auto t4 = std::chrono::high_resolution_clock::now();
-        #endif
-
-        #ifdef DEBUG_TEXT
-            auto duration0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
-            auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-            auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
-            auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3);
-
-            cout << "\nSTARTUP CHECK: Font initialization took " << duration0.count() << " microseconds.";
-            cout << "\nSTARTUP CHECK: Cache index creation took " << duration1.count() << " microseconds.";
-            cout << "\nSTARTUP CHECK: Font Atlas creation took " << duration2.count() << " microseconds.";
-            cout << "\nSTARTUP CHECK: Font info file creation took " << duration3.count() << " microseconds.";
-        #endif
-
-        chvec.resize(0);
+        x += itr->width + FONT_ATLAS_MARGIN;
     }
+
+    return pngData;
+}
+
+uint8_t* runStartupChecks(Arena& arena) {
+    initArena(arena, ATLAS_DIMENSION * ATLAS_DIMENSION * 2);
+
+    auto t0 = std::chrono::high_resolution_clock::now();
+
+    initFonts(arena);
+    uint8_t* ptr = createFontAtlas(arena);
+
+    #ifdef DEBUG_TEXT
+    cout << "\nDEBUG: Took "
+        << std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - t0
+        )
+        << " to initialize fonts.";
+    #endif
+
+    return ptr;
 }
 

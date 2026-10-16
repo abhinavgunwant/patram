@@ -10,6 +10,7 @@
 #include "include/files.hpp"
 #include "include/http.hpp"
 #include "../lib/stb_image_write.h"
+#include "arena.hpp"
 
 #ifdef _WIN32
     #define GLFW_EXPOSE_NATIVE_WIN32
@@ -557,68 +558,6 @@ void createFontInfoFile(uint8_t index, float ascender, float descender, Characte
 
     #ifdef DEBUG_FILES
         cout << "\nSTARTUP CHECK: Font information file written in " << fontInfoPath.string();
-    #endif
-}
-
-void createFontAtlasFile(uint8_t index, Character* characters) {
-    #ifdef DEBUG_FILES
-        cout << "\nSTARTUP CHECK: Writing font atlas";
-    #endif
-
-    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
-        if (a.height == b.height) {
-            return a.width < b.width;
-        }
-
-        return a.height < b.height;
-    });
-
-    uint8_t* png_data = new uint8_t[ATLAS_DIMENSION * ATLAS_DIMENSION];
-
-    memset(png_data, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
-
-    uint16_t max_y = 0;
-    uint16_t x = FONT_ATLAS_MARGIN;
-    uint16_t y = FONT_ATLAS_MARGIN;
-
-    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
-        if ((*itr).height == 0 || (*itr).width == 0) {
-            continue;
-        }
-
-        if ((*itr).height > max_y) {
-            max_y = (*itr).height;
-        }
-
-        if (x + (*itr).width > ATLAS_DIMENSION) {
-            y += max_y + FONT_ATLAS_MARGIN;
-            x = FONT_ATLAS_MARGIN;
-        }
-
-        characters[(*itr).charcode].textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
-        characters[(*itr).charcode].textureY1 = 1.0f - static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
-        characters[(*itr).charcode].textureX2 = static_cast<float>(x + (*itr).width)/static_cast<float>(ATLAS_DIMENSION);
-        characters[(*itr).charcode].textureY2 = 1.0f - static_cast<float>(y + (*itr).height)/static_cast<float>(ATLAS_DIMENSION);
-
-        for (int i=y; i<y + (*itr).height && i<ATLAS_DIMENSION; ++i) {
-            for (int j=x; j<x + (*itr).width && j<ATLAS_DIMENSION; ++j) {
-                png_data[i * ATLAS_DIMENSION + j] = (*itr).bitmap[(i - y) * (*itr).width + (j - x)];
-            }
-        }
-
-        x += (*itr).width + FONT_ATLAS_MARGIN;
-
-        delete [] (*itr).bitmap;
-    }
-
-    filesystem::path fontAtlasPath = getFontAtlasPath(index);
-
-    stbi_write_png(fontAtlasPath.string().c_str(), ATLAS_DIMENSION, ATLAS_DIMENSION, 1, png_data, ATLAS_DIMENSION);
-
-    delete [] png_data;
-
-    #ifdef DEBUG_FILES
-        cout << "\nSTARTUP CHECK: Character atlas written in " << fontAtlasPath;
     #endif
 }
 

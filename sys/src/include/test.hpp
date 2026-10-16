@@ -52,5 +52,7 @@
     cout << "\nAssertion at line " << __LINE__ << " failed. Expected NULL " << ", Got: `" << x << "`";\
     }
 
+#define REPORT_TEST_TIME() cout << "\nTook: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);\
+
 #endif // PATRAM_SYS_TEST
 

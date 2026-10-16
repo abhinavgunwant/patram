@@ -368,7 +368,7 @@ void renameActiveExplorerNode();
 void deleteActiveExplorerNode();
 void createNoteInActiveExplorerNode();
 void createFolderInActiveExplorerNode();
-void setupUI(bool darkTheme);
+void setupUI(bool darkTheme, Arena& startupArena, uint8_t* pngData);
 void enterRenderLoop();
 extern vector<ContentTab> tabs;
 extern uint8_t activeTabIndex;

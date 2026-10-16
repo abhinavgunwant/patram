@@ -2394,7 +2394,7 @@ void setupUBO() {
     glBindBufferBase(GL_UNIFORM_BUFFER, COMMON_UNIFORMS_UBO_INDEX, commonUBO);
 }
 
-void setupUI(bool isDarkTheme) {
+void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     if (darkTheme) {
         info("Setting dark theme");
     } else {
@@ -2627,7 +2627,7 @@ void setupUI(bool isDarkTheme) {
     addChild(&ROOT_CONTAINER, &MAIN_CONTAINER);
     addChild(&ROOT_CONTAINER, &FLOATING_CONTAINER);
 
-    initFontTexture(getFontAtlasPath(0).string());
+    initFontTexture(pngData);
     initIconTexture();
 
     GLFWimage moveCursorImage;
@@ -4808,9 +4808,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                 cout << "; x: " << xpos << " y: " << ypos << " x + w: "
                     << xpos_plus_w << " y + h: " << ypos_plus_h
                     << " bearingLeft: " << bearingLeft
-                    << " bearingTop: " << bearingTop
-                    << " widthRatio: " << widthRatio
-                    << " heightRatio: " << heightRatio;
+                    << " bearingTop: " << bearingTop;
             }
             #endif
 
