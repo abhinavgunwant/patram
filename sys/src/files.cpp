@@ -28,8 +28,6 @@
 
 using namespace std;
 
-vector<Char> chvec;
-
 string getHomeDirectory() {
     char* profile;
     size_t len;
@@ -516,51 +514,6 @@ void createCacheIndex(vector<string> fontFilePaths) {
     #endif
 }
 
-void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len) {
-    #ifdef DEBUG_FILES
-        cout << "\nSTARTUP CHECK: Writing font information";
-    #endif
-
-    filesystem::path fontInfoPath = getFontInfoPath(index);
-
-    ofstream f;
-    f.open(fontInfoPath.string().c_str(), ios::out | ios::binary);
-
-    uint8_t m1 = MAGIC_1;
-    uint8_t m2 = MAGIC_2;
-    uint8_t m3 = MAGIC_3;
-    uint8_t m4 = MAGIC_4_FI;
-    uint16_t ver = FONT_INFORMATION_FILE_VERSION;
-
-    // magic bytes
-    f.write((const char*)&m1, sizeof(uint8_t));
-    f.write((const char*)&m2, sizeof(uint8_t));
-    f.write((const char*)&m3, sizeof(uint8_t));
-    f.write((const char*)&m4, sizeof(uint8_t));
-
-    // write version
-    f.write((const char*)&ver, sizeof(uint16_t));
-
-    // write glyphAscender
-    f.write((const char*)&ascender, sizeof(ascender));
-
-    // write glyphDescender
-    f.write((const char*)&descender, sizeof(descender));
-
-    // write length
-    f.write((const char*)&len, sizeof(len));
-
-    for (uint16_t i=0; i<len; ++i) {
-        f.write((const char*)&characters[i], sizeof(Character));
-    }
-
-    f.close();
-
-    #ifdef DEBUG_FILES
-        cout << "\nSTARTUP CHECK: Font information file written in " << fontInfoPath.string();
-    #endif
-}
-
 void createVaultInfoFile(string vaultName, string password) {
     string separator = string(1, filesystem::path::preferred_separator);
     string vaultDir = getVaultsDirectory() + separator + vaultName;
@@ -674,56 +627,6 @@ void createFolder(filesystem::path p) {
     } catch (const filesystem::filesystem_error e) {
         cout << "\nERROR: " << e.what();
     }
-}
-
-bool processFontInfoFile(Character* characters, float& ascender, float& descender) {
-    uint8_t magic[4];
-    uint16_t ver;
-    uint16_t len;
-    filesystem::path fontInfoPath = getFontInfoPath(0);
-
-    ifstream f;
-
-    f.open(fontInfoPath.string(), ios::in | ios::binary);
-
-    // read magic words
-    f.read((char *)&magic[0], sizeof(uint8_t));
-    f.read((char *)&magic[1], sizeof(uint8_t));
-    f.read((char *)&magic[2], sizeof(uint8_t));
-    f.read((char *)&magic[3], sizeof(uint8_t));
-
-    if (magic[0] != MAGIC_1 || magic[1] != MAGIC_2 || magic[2] != MAGIC_3 || magic[3] != MAGIC_4_FI) {
-        cerr << "\nError: Invalid font info file.";
-        return false;
-    }
-
-    // read version
-    f.read((char *)&ver, sizeof(ver));
-
-    if (ver != CURRENT_FONT_INFO_VERSION) {
-        cerr << "\nError: Unsupported font info versoin.";
-        return false;
-    }
-
-    // read ascender
-    f.read((char *)&ascender, sizeof(ascender));
-
-    // read descender
-    f.read((char *)&descender, sizeof(descender));
-
-    // read length
-    f.read((char *)&len, sizeof(len));
-
-    for (uint16_t i=0; i<len; ++i) {
-        Character c;
-
-        f.read((char *)&c, sizeof(Character));
-        characters[i] = c;
-    }
-
-    f.close();
-
-    return true;
 }
 
 FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode) {

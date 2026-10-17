@@ -13,13 +13,19 @@
 
 #include "ui.hpp"
 #include "files.hpp"
+#include "arena.hpp"
 
 #define ICONS_ATLAS_FILE            "assets/images/icons.png"
 
 #define MAX_CHARACTERS              65535
 #define MAX_ICONS                   11
 #define DEFAULT_FONT_SIZE           48
-#define ATLAS_DIMENSION             1024
+#define ATLAS_DIMENSION             1400
+
+#define CHARACTER_REGULAR           0
+#define CHARACTER_BOLD              1
+#define CHARACTER_ITALIC            2
+
 // #define DEBUG_TEXT
 
 #ifdef DEBUG_TEXT
@@ -61,32 +67,43 @@ extern bool debugTextFirstRenderPrint;
 
 using namespace std;
 
-struct GlyphDimensions {
-    /** x dimension of the left of glyph */
-    float leftX; // xpos
+struct Char {
+    uint8_t variant;
+    uint16_t charcode;
+    uint8_t width;
+    uint8_t height;
+    uint8_t* bitmap;
+};
 
-    /** x dimension of the right of glyph */
-    float rightX; // xpos_plus_w
+struct GlyphVariant {
+    uint8_t width;
+    uint8_t height;
+    int8_t bearingLeft;
+    uint8_t bearingTop;
+    uint16_t advance;   // Horizontal offset to advance to next glyph
 
-    /** x dimension of the bottom of glyph */
-    float bottomY; // ypos
+    float textureX1;
+    float textureY1;
+    float textureX2;
+    float textureY2;
+};
 
-    /** x dimension of the top of glyph */
-    float topY; // ypos_plus_h
+const GlyphVariant CHAR_EMPTY = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    float scale; // Font Height Ratio
-
-    uint16_t advance; // Same as in Character
+struct Character {
+    GlyphVariant glyphs[3][256];
 };
 
 extern float glyphDescender;
 extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
 extern vector<Char> chvec;
-extern Character* characters;
-extern Character icons[MAX_ICONS];
+extern Character* characters[256];
+extern const GlyphVariant icons[MAX_ICONS];
 extern unsigned int textVAO, textVBO;
 
+uint8_t* createFontAtlas(Arena& arena);
+void initFonts(Arena& arena);
 void initTextRendering(uint16_t width, uint16_t height);
 
 struct RopeRenderResult {
@@ -115,8 +132,9 @@ struct TextRenderResult {
 };
 
 inline bool getCharParams(
-    Character& c,
-    glm::vec2 pos,
+    GlyphVariant c,
+    float x,
+    float y,
     float& xpos,
     float& ypos,
     float& yNet,
@@ -167,19 +185,19 @@ RopeRenderResult renderTextCached(
 );
 
 RopeRenderResult getTextDimensions(
-    string text, glm::vec2 pos, uint8_t fontSize,
+    string text, float x, float y, uint8_t variant, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine = true
 );
 
 TextRenderResult getInputTextDimensions(
-    string text, TextInputData* tid, glm::vec2 pos, uint8_t fontSize,
-    float parentLeft, float parentWidth, bool breakLine = true
+    string text, TextInputData* tid, float x, float y, uint8_t variant,
+    uint8_t fontSize, float parentLeft, float parentWidth, bool breakLine = true
 );
 
 float appendCharVertices(
     float x,
     float y,
-    Character c,
+    GlyphVariant c,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
 );
@@ -188,6 +206,7 @@ RopeRenderResult appendTextVertices(
     float x,
     float y,
     string text,
+    uint8_t variant,
     uint32_t colorIndex,
     uint8_t fontSize,
     vector<TextVertex>& vertices
@@ -197,6 +216,7 @@ RopeRenderResult appendRopeVertices(
     float x,
     float y,
     Rope *rope,
+    uint8_t variant,
     uint32_t startIndex,
     uint8_t fontSize,
     uint32_t colorIndex,
@@ -224,8 +244,6 @@ glm::vec4 renderText(
     UIElement* parent = nullptr
 );
 
-GlyphDimensions getGlyphDimensions(char c, float x, float y, glm::vec2& res, uint8_t fontSize);
-uint32_t renderGlyph(char c, float x, float y, uint8_t fontSize);
 void initFontTexture(uint8_t* pngData);
 void initIconTexture();
 

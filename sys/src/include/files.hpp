@@ -9,8 +9,6 @@
 #include <filesystem>
 #include "GLFW/glfw3.h"
 
-#include "character.hpp"
-
 using namespace std;
 
 // #define DEBUG_FILES
@@ -118,7 +116,6 @@ vector<VaultIndexEntry> getVaultContent(string vaultName);
 
 void createCacheDirectory();
 void createCacheIndex(vector<string> fontFilePaths);
-void createFontInfoFile(uint8_t index, float ascender, float descender, Character* characters, uint16_t len);
 void createVaultInfoFile(string vaultName, string password);
 void createVaultIndexFile(string vaultName, string password);
 
@@ -126,8 +123,6 @@ void renameFile(filesystem::path oldPath, filesystem::path newPath);
 void deleteNode(filesystem::path p);
 void createNote(filesystem::path p);
 void createFolder(filesystem::path p);
-
-bool processFontInfoFile(Character* characters, float& ascender, float& descender);
 
 FileDialogResult openFileDialog(GLFWwindow* window, string title, FileDialogMode mode);
 

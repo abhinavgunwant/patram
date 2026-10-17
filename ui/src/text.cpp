@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -28,19 +29,331 @@ bool debugTextFirstRenderPrint = true;
 float glyphDescender = 0;
 uint32_t fontTextureID = 0;
 uint32_t iconTextureID;
-Character* characters;
-Character icons[MAX_ICONS];
+Character* characters[256];
 unsigned int textVAO, textVBO;
+
+vector<Char> chvec;
+
+const GlyphVariant icons[MAX_ICONS] = {
+    // ICON_CHEVRON_DOWN
+    {
+        32, 15, 0, 0, 27,
+        0.0058,  0.34,
+        0.0867, 0.66
+    },
+
+    // ICON_CHEVRON_RIGHT
+    {
+        15, 32, 0, 0, 32,
+        0.0925, 0.22,
+        0.1387, 0.78
+    },
+
+    // ICON_CHEVRON_LEFT
+    {
+        15, 32, 0, 0, 32,
+        0.1445, 0.22,
+        0.1908, 0.78
+    },
+
+    // ICON_FILE
+    {
+        35, 42, 0, 0, 35,
+        0.1965, 0.06,
+        0.3006, 0.94
+    },
+
+    // ICON_SETTINGS
+    {
+        46, 46, 0, 0, 46,
+        0.3064, 0.02,
+        0.4451, 0.98
+    },
+
+    // ICON_SIDEBAR
+    {
+        38, 38, 0, 0, 38,
+        0.4509, 0.1,
+        0.5665, 0.9
+    },
+
+    // ICON_CLOSE
+    {
+        27, 27, 0, 0, 27,
+        0.5780, 0.22,
+        0.659,  0.78
+    },
+
+    // ICON_MOVE
+    {
+        42, 42, 0, 0, 27,
+        0.6647, 0.06,
+        0.7919, 0.94
+    },
+
+    // ICON_MORE_VERTICAL
+    {
+        7, 34, 0, 0, 27,
+        0.7977, 0.14,
+        0.8208, 0.86
+    },
+
+    // ICON_BULLET_CIRCLE
+    {
+        15, 15, 0, 0, 15,
+        0.8266, 0.34,
+        0.8728, 0.66
+    },
+
+    // ICON_IMAGE
+    {
+        38, 38, 0, 0, 38,
+        0.8786, 0.1,
+        0.9942, 0.9
+    },
+};
+
+atomic<bool> blocked = false;
+
+uint8_t* createFontAtlas(Arena& arena) {
+    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+        if (a.height == b.height) {
+            return a.width < b.width;
+        }
+
+        return a.height < b.height;
+    });
+
+    uint8_t* pngData = (uint8_t*) arenaAllocate(arena, ATLAS_DIMENSION * ATLAS_DIMENSION);
+
+    memset(pngData, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
+
+    uint16_t max_y = 0;
+    uint16_t x = FONT_ATLAS_MARGIN;
+    uint16_t y = FONT_ATLAS_MARGIN;
+
+    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
+        if (itr->height == 0 || itr->width == 0) {
+            continue;
+        }
+
+        if (itr->height > max_y) {
+            max_y = (*itr).height;
+        }
+
+        if (x + itr->width > ATLAS_DIMENSION) {
+            y += max_y + FONT_ATLAS_MARGIN;
+            x = FONT_ATLAS_MARGIN;
+        }
+
+        if (characters[itr->charcode >> 8]) {
+            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
+            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
+            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureX2 = static_cast<float>(x + itr->width)/static_cast<float>(ATLAS_DIMENSION);
+            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureY2 = static_cast<float>(y + itr->height)/static_cast<float>(ATLAS_DIMENSION);
+
+            for (int i=y; i<y + itr->height && i<ATLAS_DIMENSION; ++i) {
+                memcpy(
+                    &pngData[i * ATLAS_DIMENSION + x],
+                    &((*itr).bitmap[(i-y) * itr->width]),
+                    itr->width
+                );
+            }
+
+            x += itr->width + FONT_ATLAS_MARGIN;
+        } else {
+            cout << "\nERROR: " << itr->charcode << ", block: " << (int)(itr->charcode >> 8);
+        }
+    }
+
+    chvec.resize(0);
+
+    return pngData;
+}
+
+void initGlyphVariant(
+    string path,
+    uint8_t variantIndex,
+    vector<Char>& chvec,
+    Arena& arena
+) {
+    FT_Library ft;
+
+    if (FT_Init_FreeType(&ft)) { error("Could not init FreeType Library"); exit(1); }
+
+    // load font as face
+    FT_Face face;
+    if (FT_New_Face(ft, path.c_str(), 0, &face)) { error("Failed to load font"); exit(1); }
+
+    FT_Select_Charmap(face, FT_ENCODING_UNICODE);
+    FT_Set_Pixel_Sizes(face, 0, 48);
+
+    cout << "\nDEBUG: Total characters in font " << path << ": " << face->num_glyphs;
+
+    if (chvec.capacity() == 0) {
+        cout << "\nDEBUG: reserving capacity for chvec.";
+        while (blocked) {}
+        blocked = true;
+
+        chvec.reserve(face->num_glyphs * 3);
+
+        blocked = false;
+    }
+
+    uint32_t charcode;
+    uint32_t id;
+
+    charcode = FT_Get_First_Char(face, &id);
+
+    if (!blocked && glyphDescender == 0.0f) {
+        while (blocked) {}
+        blocked = true;
+        glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / 48;
+        blocked = false;
+    }
+
+    while (id != 0) {
+        uint8_t mapIndex = charcode >> 8;
+        uint8_t charIndex = static_cast<uint8_t>(charcode);
+        // cout << "\n! " << (uint32_t)variantIndex << " " << charcode;
+
+        while (blocked) {}
+
+        if (characters[mapIndex] == nullptr) {
+            blocked = true;
+            characters[mapIndex] = new Character;
+
+            cout << "\nDEUBG: initializing block: " << (int) mapIndex;
+
+            memset(characters[mapIndex]->glyphs, 0, 256 * 3);
+            blocked = false;
+        }
+
+        if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) { errorv("Failed to load glyph"); }
+
+        uint8_t width = face->glyph->bitmap.width;
+        uint8_t height = face->glyph->bitmap.rows;
+
+        characters[mapIndex]->glyphs[variantIndex][charIndex] = {
+            static_cast<uint8_t>(width),
+            static_cast<uint8_t>(height),
+            static_cast<int8_t>(face->glyph->bitmap_left),
+            static_cast<uint8_t>(face->glyph->bitmap_top),
+            static_cast<uint16_t>(face->glyph->advance.x),
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+        };
+
+        Char c = {
+            static_cast<uint8_t>(variantIndex),
+            static_cast<uint16_t>(charcode), width, height,
+            (uint8_t*)arenaAllocate(arena, width * height)
+        };
+
+        memcpy(c.bitmap, face->glyph->bitmap.buffer, width * height);
+
+        chvec.push_back(c);
+
+        charcode = FT_Get_Next_Char(face, charcode, &id);
+    }
+
+    FT_Done_Face(face);
+    FT_Done_FreeType(ft);
+}
+
+void initFonts(Arena& arena) {
+    memset(characters, 0, 256);
+
+    thread regular(
+        initGlyphVariant,
+        "assets/fonts/poppins/Poppins-Regular.ttf",
+        0,
+        std::ref(chvec),
+        std::ref(arena)
+    );
+
+    thread bold(
+        initGlyphVariant,
+        "assets/fonts/poppins/Poppins-Bold.ttf",
+        1,
+        std::ref(chvec),
+        std::ref(arena)
+    );
+
+    thread italic(
+        initGlyphVariant,
+        "assets/fonts/poppins/Poppins-Italic.ttf",
+        2,
+        std::ref(chvec),
+        std::ref(arena)
+    );
+
+    regular.join();
+    bold.join();
+    italic.join();
+
+    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+        if (a.height == b.height) {
+            return a.width < b.width;
+        }
+
+        return a.height < b.height;
+    });
+
+    uint8_t* pngData = (uint8_t*)arenaAllocate(arena, ATLAS_DIMENSION * ATLAS_DIMENSION);
+
+    memset(pngData, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
+
+    uint16_t max_y = 0;
+    uint16_t x = FONT_ATLAS_MARGIN;
+    uint16_t y = FONT_ATLAS_MARGIN;
+
+    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
+        if (itr->height == 0 || itr->width == 0) {
+            continue;
+        }
+
+        if (itr->height > max_y) {
+            max_y = itr->height;
+        }
+
+        if (x + itr->width > ATLAS_DIMENSION) {
+            y += max_y + FONT_ATLAS_MARGIN;
+            x = FONT_ATLAS_MARGIN;
+        }
+
+        uint8_t blockIndex = itr->charcode >> 8;
+        uint8_t charIndex = static_cast<uint8_t>(itr->charcode);
+
+        if (characters[blockIndex] != nullptr) {
+            GlyphVariant* gv = &characters[blockIndex]->glyphs[itr->variant][charIndex];
+
+            gv->textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
+            gv->textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
+            gv->textureX2 = static_cast<float>(x + itr->width)/static_cast<float>(ATLAS_DIMENSION);
+            gv->textureY2 = static_cast<float>(y + itr->height)/static_cast<float>(ATLAS_DIMENSION);
+
+            for (int i=y; i<y + itr->height && i<ATLAS_DIMENSION; ++i) {
+                memcpy(
+                    &pngData[i * ATLAS_DIMENSION + x],
+                    &((*itr).bitmap[(i-y) * itr->width]),
+                    itr->width
+                );
+            }
+        }
+
+        x += itr->width + FONT_ATLAS_MARGIN;
+    }
+}
 
 void initFontTexture(uint8_t* pngData) {
     #ifdef DEBUG_TEXT
         cout << "\nDEBUG: STARTUP CHECK: loading font texture";
     #endif
 
-    if (pngData == nullptr) {
-        cout << "\nERROR: no font texture provided!";
-        exit(1);
-    }
+    if (pngData == nullptr) { error("\nERROR: no font texture provided!"); exit(1); }
 
     glGenTextures(1, &fontTextureID);
     glBindTexture(GL_TEXTURE_2D, fontTextureID);
@@ -56,72 +369,6 @@ void initFontTexture(uint8_t* pngData) {
 }
 
 void initIconTexture() {
-    icons[ICON_CHEVRON_DOWN] = {
-        32, 15, 0, 0, 27,
-        0.0058,  0.34,
-        0.0867, 0.66
-    };
-
-    icons[ICON_CHEVRON_RIGHT] = {
-        15, 32, 0, 0, 32,
-        0.0925, 0.22,
-        0.1387, 0.78
-    };
-
-    icons[ICON_CHEVRON_LEFT] = {
-        15, 32, 0, 0, 32,
-        0.1445, 0.22,
-        0.1908, 0.78
-    };
-
-    icons[ICON_FILE] = {
-        35, 42, 0, 0, 35,
-        0.1965, 0.06,
-        0.3006, 0.94
-    };
-
-    icons[ICON_SETTINGS] = {
-        46, 46, 0, 0, 46,
-        0.3064, 0.02,
-        0.4451, 0.98
-    };
-
-    icons[ICON_SIDEBAR] = {
-        38, 38, 0, 0, 38,
-        0.4509, 0.1,
-        0.5665, 0.9
-    };
-
-    icons[ICON_CLOSE] = {
-        27, 27, 0, 0, 27,
-        0.5780, 0.22,
-        0.659,  0.78
-    };
-
-    icons[ICON_MOVE] = {
-        42, 42, 0, 0, 27,
-        0.6647, 0.06,
-        0.7919, 0.94
-    };
-
-    icons[ICON_MORE_VERTICAL] = {
-        7, 34, 0, 0, 27,
-        0.7977, 0.14,
-        0.8208, 0.86
-    };
-
-    icons[ICON_BULLET_CIRCLE] = {
-        15, 15, 0, 0, 15,
-        0.8266, 0.34,
-        0.8728, 0.66
-    };
-
-    icons[ICON_IMAGE] = {
-        38, 38, 0, 0, 38,
-        0.8786, 0.1,
-        0.9942, 0.9
-    };
-
     glGenTextures(1, &iconTextureID);
     glBindTexture(GL_TEXTURE_2D, iconTextureID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
@@ -156,7 +403,7 @@ void initIconTexture() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        Character moveIcon = icons[ICON_MOVE];
+        GlyphVariant moveIcon = icons[ICON_MOVE];
         uint32_t moveCursorWidth = moveIcon.width/2;
         uint32_t moveCursorHeight = moveIcon.height/2;
         uint32_t moveCursorSize = moveCursorWidth * moveCursorHeight * 4;
@@ -217,8 +464,9 @@ void initTextRendering(uint16_t width, uint16_t height) {
 }
 
 inline bool getCharParams(
-    Character& c,
-    glm::vec2 pos,
+    GlyphVariant c,
+    float x,
+    float y,
     float& xpos,
     float& ypos,
     float& yNet,
@@ -274,7 +522,7 @@ inline bool getCharParams(
         }
 
         yNet += static_cast<float>(fontSize) * (1.0f - glyphDescender);
-        xpos = pos.x;
+        xpos = x;
         rows++;
 
         if (yNet > windowHeight) {
@@ -285,9 +533,9 @@ inline bool getCharParams(
     ypos = yNet + glyphHeight - bearingTop + fontSize;
 
     if (glyphDescender < 0) {
-        height = ypos - pos.y - (glyphDescender * fontSize);
+        height = ypos - y - (glyphDescender * fontSize);
     } else {
-        height = ypos - pos.y;
+        height = ypos - y;
     }
 
     xpos_plus_w = xpos + glyphWidth;
@@ -343,7 +591,9 @@ inline void drawTextBuffers(
 
 RopeRenderResult renderTextCached(
     string str,
-    glm::vec2 pos,
+    float x,
+    float y,
+    uint8_t variant,
     uint32_t& vao,
     uint32_t& vbo,
     uint32_t& bufferSize,
@@ -356,11 +606,11 @@ RopeRenderResult renderTextCached(
     bool redraw,
     bool lineBreak
 ) {
-    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
+    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
 
-    float xpos = pos.x;
+    float xpos = x;
     float ypos = 0.0f;
-    float yNet = pos.y;
+    float yNet = y;
     float texX1 = 0.0f;
     float texX2 = 0.0f;
     float texY1 = 0.0f;
@@ -384,8 +634,9 @@ RopeRenderResult renderTextCached(
     if (redraw) {
         for (char c: str) {
             if (!getCharParams(
-                characters[(int)c],
-                pos,
+                characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
+                x,
+                y,
                 xpos,
                 ypos,
                 yNet,
@@ -429,7 +680,7 @@ RopeRenderResult renderTextCached(
 
     numVertices = _numVertices;
 
-    result.width = xpos - pos.x;
+    result.width = xpos - x;
 
     if (result.rows) {
         ++result.rows;
@@ -439,14 +690,14 @@ RopeRenderResult renderTextCached(
 }
 
 RopeRenderResult getTextDimensions(
-    string str, glm::vec2 pos, uint8_t fontSize,
+    string str, float x, float y, uint8_t variant, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine
 ) {
-    RopeRenderResult result = RopeRenderResult { pos.x, pos.y, 0.0f, 0.0f, 0, true };
+    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
 
-    float xpos = pos.x;
+    float xpos = x;
     float ypos = 0.0f;
-    float yNet = pos.y;
+    float yNet = y;
     float texX1 = 0.0f;
     float texX2 = 0.0f;
     float texY1 = 0.0f;
@@ -459,8 +710,9 @@ RopeRenderResult getTextDimensions(
 
     for (char c: str) {
         if (!getCharParams(
-            characters[(int)c],
-            pos,
+            characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
+            x,
+            y,
             xpos,
             ypos,
             yNet,
@@ -488,7 +740,7 @@ RopeRenderResult getTextDimensions(
         xpos += advance;
     }
 
-    result.width = xpos - pos.x;
+    result.width = xpos - x;
 
     if (result.rows) {
         ++result.rows;
@@ -498,16 +750,16 @@ RopeRenderResult getTextDimensions(
 }
 
 TextRenderResult getInputTextDimensions(
-    string str, TextInputData* tid, glm::vec2 pos, uint8_t fontSize,
-    float parentLeft, float parentWidth, bool breakLine
+    string str, TextInputData* tid, float x, float y, uint8_t variant,
+    uint8_t fontSize, float parentLeft, float parentWidth, bool breakLine
 ) {
     TextRenderResult result = TextRenderResult {
-        pos.x, pos.y, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0, true
+        x, y, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0, true
     };
 
-    float xpos = pos.x;
+    float xpos = x;
     float ypos = 0.0f;
-    float yNet = pos.y;
+    float yNet = y;
     float texX1 = 0.0f;
     float texX2 = 0.0f;
     float texY1 = 0.0f;
@@ -521,8 +773,9 @@ TextRenderResult getInputTextDimensions(
 
     for (char c: str) {
         if (!getCharParams(
-            characters[(int)c],
-            pos,
+            characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
+            x,
+            y,
             xpos,
             ypos,
             yNet,
@@ -581,7 +834,7 @@ TextRenderResult getInputTextDimensions(
         result.selWidth = 0.0f;
     }
 
-    result.width = xpos - pos.x;
+    result.width = xpos - x;
 
     if (result.rows) {
         ++result.rows;
@@ -595,7 +848,7 @@ TextRenderResult getInputTextDimensions(
 float appendCharVertices(
     float x,
     float y,
-    Character c,
+    GlyphVariant c,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
 ) {
@@ -603,12 +856,12 @@ float appendCharVertices(
         glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0, totalHeight;
     float infinity = numeric_limits<float>::infinity();
     uint32_t rows;
-    glm::vec2 pos = glm::vec2(x, y);
     bool renderNextContentBlock;
 
     getCharParams(
         c,
-        pos,
+        x,
+        y,
         xpos,
         ypos,
         yNet,
@@ -646,6 +899,7 @@ RopeRenderResult appendTextVertices(
     float x,
     float y,
     string text,
+    uint8_t variant,
     uint32_t colorIndex,
     uint8_t fontSize,
     vector<TextVertex>& vertices
@@ -660,11 +914,10 @@ RopeRenderResult appendTextVertices(
 
     for (char c: text) {
         // appendCharVertices(x, y, characters[(int)c], vertices);
-        glm::vec2 pos = glm::vec2(x, y);
-
         getCharParams(
-            characters[(int)c],
-            pos,
+            characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
+            x,
+            y,
             xpos,
             ypos,
             yNet,
@@ -705,6 +958,7 @@ RopeRenderResult appendRopeVertices(
     float x,
     float y,
     Rope* rope,
+    uint8_t variant,
     uint32_t startIndex,
     uint8_t fontSize,
     uint32_t colorIndex,
@@ -728,11 +982,10 @@ RopeRenderResult appendRopeVertices(
                 continue;
             }
 
-            glm::vec2 pos = glm::vec2(x, y);
-
             getCharParams(
-                characters[(int)c],
-                pos,
+                characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
+                x,
+                y,
                 xpos,
                 ypos,
                 yNet,
@@ -940,99 +1193,5 @@ glm::vec4 renderText(
     glBindTexture(GL_TEXTURE_2D, 0);
 
     return dimensions;
-}
-
-GlyphDimensions getGlyphDimensions(char c, float x, float y, uint8_t fontSize) {
-    Character ch = characters[(int)c];
-
-    float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
-
-    float fontHeightRatio = static_cast<float>(fontSize) / DEFAULT_FONT_SIZE;
-
-    float glyphHeight = static_cast<float>(ch.height) * fontHeightRatio;
-    float glyphWidth = glyphHeight * aspectRatio;
-
-    float widthRatio = glyphWidth / ch.width;
-    float heightRatio = glyphHeight / ch.height;
-
-    float bearingTop = ch.bearingTop * heightRatio;
-    float bearingLeft = ch.bearingLeft * widthRatio;
-
-    if (bearingLeft != bearingLeft) {
-        bearingLeft = 0.0f;
-    }
-
-    if (bearingTop != bearingTop) {
-        bearingTop = 0.0f;
-    }
-
-    float xpos = x + bearingLeft;
-    float yNet = y;
-
-    if (
-        CONTENT_CONTAINER.width < CONTENT_BREAKPOINT
-        && xpos + glyphWidth > CONTENT_CONTAINER.width - CONTENT_HORIZONTAL_MARGIN
-        || xpos + glyphWidth > contentRight
-    ) {
-        yNet += fontSize + 4.0f;
-        xpos = x;
-    }
-
-    float ypos = yNet + glyphHeight - bearingTop + fontSize;
-
-    // float xpos_plus_w = xpos + glyphWidth;
-    // float ypos_plus_h = ypos - glyphHeight; // ypos + h
-
-    #ifdef DEBUG_TEXT
-    if (debugTextFirstRenderPrint) {
-     cout << "\nRendering glyph: " << c
-        << "\n--> Rendering character: '" << (char) c
-        << "'; x: " << xpos << " y: " << ypos << " x + w: "
-        << xpos + glyphWidth << " y + h: " << ypos - glyphHeight
-        << " bearingLeft: " << bearingLeft << "(" << ch.bearingLeft << ", " <<  widthRatio << ")"
-        << " bearingTop: " << bearingTop
-        << " widthRatio: " << widthRatio
-        << " heightRatio: " << heightRatio;
-    }
-    #endif
-
-
-    return GlyphDimensions {
-        .leftX = xpos,
-        .rightX = xpos + glyphWidth,
-        .bottomY = ypos,
-        .topY = ypos - glyphHeight,
-        .scale = fontHeightRatio,
-        .advance = ch.advance,
-    };
-}
-
-uint32_t renderGlyph(char c, float x, float y, uint8_t fontSize) {
-    GlyphDimensions gd = getGlyphDimensions(c, x, y, fontSize);
-
-    // update textVBO for each character
-    // float vertices[4][4] = {
-    //     { xpos,         ypos,           0.0f, 1.0f },
-    //     { xpos_plus_w,  ypos,           1.0f, 1.0f },
-    //     { xpos,         ypos_plus_h,    0.0f, 0.0f },
-    //     { xpos_plus_w,  ypos_plus_h,    1.0f, 0.0f },
-    // };
-    float vertices[4][4] = {
-        { gd.leftX,   gd.bottomY, 0.0f, 1.0f },
-        { gd.rightX,  gd.bottomY, 1.0f, 1.0f },
-        { gd.leftX,   gd.topY,    0.0f, 0.0f },
-        { gd.rightX,  gd.topY,    1.0f, 0.0f },
-    };
-
-    // render glyph texture over quad
-    // glBindTexture(GL_TEXTURE_2D, gd.textureID);
-    // update content of textVBO memory
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
-
-    // render quad
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-    return (static_cast<uint32_t>(gd.advance * gd.scale) >> 6); // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
 }
 

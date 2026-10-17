@@ -1975,7 +1975,7 @@ inline void appendVerticesForExplorerNode(
         itr != nodes.end();
         ++itr, y += EXPLORER_ELEMENT_HEIGHT
     ) {
-        appendTextVertices(x, y, itr->name, textColor, 16, vertices);
+        appendTextVertices(x, y, itr->name, 0, textColor, 16, vertices);
         itr->top = y;
 
         uiMouseEvents.bounds.push_back(Bounds {
@@ -2046,7 +2046,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         x += TAB_HORIZONTAL_PADDING;
 
         x += appendTextVertices(
-            x - tabsDisplay.xOffset, verticalPadding, tabtext, textIndex,
+            x - tabsDisplay.xOffset, verticalPadding, tabtext, 0, textIndex,
             16, textVertices
         ).width;
 
@@ -2423,7 +2423,6 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     uiMouseEvents.mouseDown = false;
 
     initShaders();
-    initTextRendering(windowWidth, windowHeight);
 
     glEnable(GL_BLEND);
     glEnable(GL_SAMPLE_SHADING);
@@ -2631,7 +2630,7 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     initIconTexture();
 
     GLFWimage moveCursorImage;
-    Character mvIcon = icons[ICON_MOVE];
+    const GlyphVariant mvIcon = icons[ICON_MOVE];
     moveCursorImage.width = mvIcon.width/2;
     moveCursorImage.height = mvIcon.height/2;
     moveCursorImage.pixels = moveCursorBitmap;
@@ -2692,7 +2691,7 @@ void enterRenderLoop() {
                 ++newFps;
             }
 
-            renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
+            // renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
         }
 
         #ifdef DEBUG_TEXT
@@ -4470,7 +4469,6 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
         Rope* r = rt.next();
 
         for (const char c : r->text) {
-            Character* ch = &characters[(int)c];
 
             float _tx1, _tx2, _ty1, _ty2, _h, _xw, _yh, advance;
             float glyphHeight, glyphWidth, bearingTop, bearingLeft;
@@ -4478,8 +4476,9 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             glm::vec2 pos = glm::vec2(x, y);
 
             getCharParams(
-                characters[(int)c],
-                pos,
+                characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+                x,
+                y,
                 xpos,
                 ypos,
                 yNet,
@@ -4574,8 +4573,9 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
             yposPrev = ypos;
 
             getCharParams(
-                characters[(int)c],
-                pos,
+                characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+                x,
+                y,
                 xpos,
                 ypos,
                 yNet,
@@ -4765,11 +4765,10 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
             float glyphHeight, glyphWidth, bearingTop, bearingLeft;
             bool _;
 
-            glm::vec2 pos = glm::vec2(x, y);
-
             getCharParams(
-                characters[(int)c],
-                pos,
+                characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+                x,
+                y,
                 xpos,
                 ypos,
                 yNet,
@@ -5136,7 +5135,7 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
     if (elem->textInputData->alignment != TextInputAlignment::Left) {
         RopeRenderResult rRes = getTextDimensions(
             elem->text,
-            glm::vec2(x, y),
+            x, y, 0,
             elem->fontSize,
             elem->parent->left,
             elem->parent->width
@@ -5174,15 +5173,14 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
     bool _;
 
     for (const char c: elem->text) {
-        glm::vec2 pos = glm::vec2(x, y);
-
         prevRow = row;
         prevCol = col;
         yposPrev = ypos;
 
         getCharParams(
-            characters[(int)c],
-            pos,
+            characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+            x,
+            y,
             xpos,
             ypos,
             yNet,
@@ -5707,7 +5705,7 @@ void showTooltip(
 
     RopeRenderResult r = getTextDimensions(
         text,
-        glm::vec2(contentLeft, 0),
+        contentLeft, 0, 0,
         16,
         contentLeft,
         contentRight - contentLeft
@@ -5752,6 +5750,7 @@ void showTooltip(
         tooltip.x + TOOLTIP_PADDING,
         tooltip.y + 2*TOOLTIP_PADDING,
         text,
+        0,
         darkTheme ? WHITE_INDEX : BLACK_INDEX,
         16,
         txt
@@ -7296,7 +7295,7 @@ void renderElement(
                 std::swap(gmei.bounds, temp);
 
                 addRectangle(0, 0, 0, 0, 0, 0, rva);
-                appendCharVertices(0, 0, characters[0], 0, iconVertices);
+                appendCharVertices(0, 0, CHAR_EMPTY, 0, iconVertices);
 
                 renderContentBlockHighlight(iconVertices, rva);
             }
@@ -7466,7 +7465,7 @@ void renderElement(
 
             if (grInfo.redrawUI) {
                 RopeRenderResult rRes = getTextDimensions(
-                    elem.text, glm::vec2(left, top), elem.fontSize,
+                    elem.text, left, top, 0, elem.fontSize,
                     elem.parent->left, elem.parent->width, false
                 );
 
@@ -7496,6 +7495,7 @@ void renderElement(
                     left,
                     top,
                     elem.text,
+                    0,
                     darkTheme ? WHITE_INDEX : BLACK_INDEX,
                     elem.fontSize,
                     elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
@@ -7569,10 +7569,8 @@ void renderElement(
                     elem.preferences->widthPreference == UISizePreference::Grow
                     || elem.preferences->heightPreference == UISizePreference::Grow
                 ) {
-                    glm::vec2 pos = glm::vec2(elem.left + padding, top + padding);
-
                     RopeRenderResult rRes = getTextDimensions(
-                        elem.text, pos, elem.fontSize,
+                        elem.text, elem.left + padding, top + padding, 0, elem.fontSize,
                         elem.parent->left, elem.parent->width, false
                     );
 
@@ -7653,6 +7651,7 @@ void renderElement(
                     left + padding,
                     top + padding,
                     elem.text,
+                    0,
                     darkTheme ? WHITE_INDEX : BLACK_INDEX,
                     elem.fontSize,
                     elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
@@ -7809,7 +7808,7 @@ void renderElement(
             }
 
             if (grInfo.redrawUI) {
-                Character c;
+                GlyphVariant c;
 
                 switch (elem.icon) {
                     case Icon::ChevronRight:    c = icons[ICON_CHEVRON_RIGHT]; break;
@@ -7929,7 +7928,9 @@ void renderElement(
                 TextRenderResult rRes = getInputTextDimensions(
                     text,
                     tid,
-                    pos,
+                    left + TEXT_INPUT_PADDING,
+                    top + TEXT_INPUT_PADDING,
+                    0,
                     elem.fontSize,
                     left + TEXT_INPUT_PADDING,
                     elem.width - 2 * TEXT_INPUT_PADDING,
@@ -7996,6 +7997,7 @@ void renderElement(
                         pos.x,
                         pos.y,
                         (rRes.columns < text.length()) ? text.substr(0, rRes.columns) : text,
+                        0,
                         darkTheme ? WHITE_INDEX : BLACK_INDEX,
                         elem.fontSize,
                         elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
@@ -8073,6 +8075,7 @@ void renderElement(
                     elem.left,
                     elem.top,
                     elem.text,
+                    0,
                     darkTheme ? WHITE_INDEX : BLACK_INDEX,
                     elem.fontSize,
                     elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
@@ -8134,7 +8137,7 @@ void renderElement(
                     }
                 }
 
-                x += renderGlyph(c, x, y, elem.fontSize);
+                // x += renderGlyph(c, x, y, elem.fontSize); // TODO: remove this!
                 ++col;
 
                 ++currentIndex;
@@ -8326,7 +8329,7 @@ inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool 
     if (calculateHeight) {
         RopeRenderResult rRes = getTextDimensions(
             cb->rope->getString(),
-            glm::vec2(contentLeft, cb->top),
+            contentLeft, cb->top, 0,
             getCBFontSize(cb->type),
             contentLeft,
             contentRight - contentLeft,
@@ -8408,14 +8411,14 @@ inline bool renderContentBlock(
             case ContentBlockType::Numbering:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
-                        extraTextVertices, characters[(int)' '], 0, 0, 0, 0,
+                        extraTextVertices, CHAR_EMPTY, 0, 0, 0, 0,
                         lightTextIndex
                     );
                 } else {
                     pos.x += 16.0f;
 
                     appendTextVertices(
-                        left, top, cb->rope->substring(0, md.startIndex),
+                        left, top, cb->rope->substring(0, md.startIndex), 0,
                         lightTextIndex, getCBFontSize(cb->type),
                         extraTextVertices
                     );
@@ -8494,7 +8497,7 @@ inline bool renderContentBlock(
                         if (!languageText.empty()) {
                             RopeRenderResult dimensions = getTextDimensions(
                                 languageText,
-                                glm::vec2(left, top),
+                                left, top, 0,
                                 16,
                                 contentLeft,
                                 contentRight - contentLeft,
@@ -8505,6 +8508,7 @@ inline bool renderContentBlock(
                                 contentRight - dimensions.width - 8.0f,
                                 top,
                                 languageText,
+                                0,
                                 lightTextIndex,
                                 getCBFontSize(cb->type),
                                 extraTextVertices
@@ -8571,6 +8575,7 @@ inline bool renderContentBlock(
                             pos.x,
                             pos.y,
                             cb->rope->substring(md.fragments[0].imgOrLink.text),
+                            0,
                             colorIndex,
                             getCBFontSize(cb->type),
                             textVertices
@@ -8592,6 +8597,7 @@ inline bool renderContentBlock(
                 pos.x,
                 pos.y,
                 cb->rope,
+                0,
                 isActive ? 0 : cb->startIndex,
                 getCBFontSize(cb->type),
                 textColorIndex,
@@ -8712,26 +8718,26 @@ void renderCBTextSelection(ContentTab* tab) {
                 Rope* rope = rt.next();
 
                 for (char c: rope->text) {
-                    Character* ch = &characters[(int)c];
+                    GlyphVariant ch = characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)];
 
-                    float aspectRatio = static_cast<float>(ch->width) / static_cast<float>(ch->height);
+                    float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
 
-                    float glyphHeight = static_cast<float>(ch->height) * fontHeightRatio;
+                    float glyphHeight = static_cast<float>(ch.height) * fontHeightRatio;
                     float glyphWidth = glyphHeight * aspectRatio;
 
                     if (glyphWidth != glyphWidth) {
-                        if (ch->width != 0) {
-                            glyphWidth = static_cast<float>(ch->width) / fontSize;
+                        if (ch.width != 0) {
+                            glyphWidth = static_cast<float>(ch.width) / fontSize;
                         } else {
                             glyphWidth = 0.0f;
                         }
                     }
 
-                    float widthRatio = glyphWidth / ch->width;
-                    float heightRatio = glyphHeight / ch->height;
+                    float widthRatio = glyphWidth / ch.width;
+                    float heightRatio = glyphHeight / ch.height;
 
-                    float bearingTop = ch->bearingTop * heightRatio;
-                    float bearingLeft = ch->bearingLeft * widthRatio;
+                    float bearingTop = ch.bearingTop * heightRatio;
+                    float bearingLeft = ch.bearingLeft * widthRatio;
 
                     if (bearingLeft != bearingLeft) {
                         bearingLeft = 0.0f;
@@ -8828,7 +8834,7 @@ void renderCBTextSelection(ContentTab* tab) {
                         startY_h = yNet;
                     }
 
-                    xpos += (static_cast<uint32_t>(ch->advance * fontHeightRatio) >> 6) - bearingLeft;
+                    xpos += (static_cast<uint32_t>(ch.advance * fontHeightRatio) >> 6) - bearingLeft;
                     ++cursorPosition;
                 }
 
