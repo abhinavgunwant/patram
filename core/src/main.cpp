@@ -11,6 +11,8 @@ int main(int argc, char ** argv) {
     processCmdLineArgs(argc, argv);
 
     Arena startupArena;
+    initArena(startupArena, 64 * MEGABYTE);
+
     uint8_t* pngData = runStartupChecks(startupArena);
 
     showWindow();

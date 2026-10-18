@@ -3,6 +3,9 @@
 
 #include <cstdint>
 
+#define KILOBYTE 1024
+#define MEGABYTE 1048576
+
 struct ArenaBlock {
     uint32_t length;
     uint32_t capacity;

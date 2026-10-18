@@ -13,8 +13,6 @@ using namespace std;
 #include "arena.hpp"
 
 uint8_t* runStartupChecks(Arena& arena) {
-    initArena(arena, ATLAS_DIMENSION * ATLAS_DIMENSION * 2);
-
     auto t0 = std::chrono::high_resolution_clock::now();
 
     initFonts(arena);
