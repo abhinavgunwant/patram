@@ -34,7 +34,7 @@ unsigned int textVAO, textVBO;
 
 vector<Char> chvec;
 
-const GlyphVariant icons[MAX_ICONS] = {
+const Glyph icons[MAX_ICONS] = {
     // ICON_CHEVRON_DOWN
     {
         32, 15, 0, 0, 27,
@@ -267,7 +267,7 @@ void initFonts(Arena& arena) {
     memset(characters, 0, 256);
 
     thread regular(
-        initGlyphVariant,
+        initGlyph,
         "assets/fonts/poppins/Poppins-Regular.ttf",
         0,
         std::ref(chvec),
@@ -275,7 +275,7 @@ void initFonts(Arena& arena) {
     );
 
     thread bold(
-        initGlyphVariant,
+        initGlyph,
         "assets/fonts/poppins/Poppins-Bold.ttf",
         1,
         std::ref(chvec),
@@ -283,7 +283,7 @@ void initFonts(Arena& arena) {
     );
 
     thread italic(
-        initGlyphVariant,
+        initGlyph,
         "assets/fonts/poppins/Poppins-Italic.ttf",
         2,
         std::ref(chvec),
@@ -403,7 +403,7 @@ void initIconTexture() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        GlyphVariant moveIcon = icons[ICON_MOVE];
+        Glyph moveIcon = icons[ICON_MOVE];
         uint32_t moveCursorWidth = moveIcon.width/2;
         uint32_t moveCursorHeight = moveIcon.height/2;
         uint32_t moveCursorSize = moveCursorWidth * moveCursorHeight * 4;
@@ -462,9 +462,8 @@ void initTextRendering(uint16_t width, uint16_t height) {
         color.b
     );
 }
-
 inline bool getCharParams(
-    GlyphVariant c,
+    Glyph c,
     float x,
     float y,
     float& xpos,
@@ -848,7 +847,7 @@ TextRenderResult getInputTextDimensions(
 float appendCharVertices(
     float x,
     float y,
-    GlyphVariant c,
+    Glyph c,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
 ) {

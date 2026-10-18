@@ -75,7 +75,7 @@ struct Char {
     uint8_t* bitmap;
 };
 
-struct GlyphVariant {
+struct Glyph {
     uint8_t width;
     uint8_t height;
     int8_t bearingLeft;
@@ -88,10 +88,10 @@ struct GlyphVariant {
     float textureY2;
 };
 
-const GlyphVariant CHAR_EMPTY = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+const Glyph CHAR_EMPTY = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 struct Character {
-    GlyphVariant glyphs[3][256];
+    Glyph glyphs[3][256];
 };
 
 extern float glyphDescender;
@@ -99,7 +99,7 @@ extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
 extern vector<Char> chvec;
 extern Character* characters[256];
-extern const GlyphVariant icons[MAX_ICONS];
+extern const Glyph icons[MAX_ICONS];
 extern unsigned int textVAO, textVBO;
 
 uint8_t* createFontAtlas(Arena& arena);
@@ -132,7 +132,7 @@ struct TextRenderResult {
 };
 
 inline bool getCharParams(
-    GlyphVariant c,
+    Glyph c,
     float x,
     float y,
     float& xpos,
@@ -197,7 +197,7 @@ TextRenderResult getInputTextDimensions(
 float appendCharVertices(
     float x,
     float y,
-    GlyphVariant c,
+    Glyph c,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
 );

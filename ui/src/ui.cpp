@@ -2630,7 +2630,7 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     initIconTexture();
 
     GLFWimage moveCursorImage;
-    const GlyphVariant mvIcon = icons[ICON_MOVE];
+    const Glyph mvIcon = icons[ICON_MOVE];
     moveCursorImage.width = mvIcon.width/2;
     moveCursorImage.height = mvIcon.height/2;
     moveCursorImage.pixels = moveCursorBitmap;
@@ -7808,7 +7808,7 @@ void renderElement(
             }
 
             if (grInfo.redrawUI) {
-                GlyphVariant c;
+                Glyph c;
 
                 switch (elem.icon) {
                     case Icon::ChevronRight:    c = icons[ICON_CHEVRON_RIGHT]; break;
@@ -8718,7 +8718,7 @@ void renderCBTextSelection(ContentTab* tab) {
                 Rope* rope = rt.next();
 
                 for (char c: rope->text) {
-                    GlyphVariant ch = characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)];
+                    Glyph ch = characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)];
 
                     float aspectRatio = static_cast<float>(ch.width) / static_cast<float>(ch.height);
 
