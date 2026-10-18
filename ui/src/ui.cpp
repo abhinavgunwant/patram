@@ -518,8 +518,8 @@ void onCreateANewVaultClicked() {
     UIElement* vaultSetup           = &elements[9];
     UIElement* vaultNameLabel       = &elements[10];
     UIElement* vaultNameInput       = &elements[11];
-    UIElement* vaultPasswordLabel   = &elements[12];
-    UIElement* vaultPasswordInput   = &elements[13];
+    // UIElement* vaultPasswordLabel   = &elements[12];
+    // UIElement* vaultPasswordInput   = &elements[13];
     UIElement* createVaultButton    = &elements[14];
     UIElement* backButton           = &elements[15];
 
@@ -528,9 +528,9 @@ void onCreateANewVaultClicked() {
     initElement(*title, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     initElement(*vaultSetup, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     initElement(*vaultNameLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
-    initElement(*vaultPasswordLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
+    // initElement(*vaultPasswordLabel, UIElementType::Label, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     initElement(*vaultNameInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f, &mainUIArena);
-    initElement(*vaultPasswordInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f, &mainUIArena);
+    // initElement(*vaultPasswordInput, UIElementType::TextInput, 0.0f, 0.0f, 240.0f, 30.0f, &mainUIArena);
     initElement(*createVaultButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
     initElement(*backButton, UIElementType::Button, 0.0f, 0.0f, 0.0f, 0.0f, &mainUIArena);
 
@@ -549,15 +549,15 @@ void onCreateANewVaultClicked() {
     title->text                 = "patram";
     vaultSetup->text            = "Vault Setup";
     vaultNameLabel->text        = "Vault Name:";
-    vaultPasswordLabel->text    = "Vault Password:";
+    // vaultPasswordLabel->text    = "Vault Password:";
     vaultNameInput->text        = "Untitled Vault";
-    vaultPasswordInput->text    = "password";
+    // vaultPasswordInput->text    = "password";
     createVaultButton->text     = "Create Vault";
     backButton->text            = "Back";
 
     vaultNameInput->textInputData->alignment = TextInputAlignment::Center;
-    vaultPasswordInput->textInputData->alignment = TextInputAlignment::Center;
-    vaultPasswordInput->textInputData->password = true;
+    // vaultPasswordInput->textInputData->alignment = TextInputAlignment::Center;
+    // vaultPasswordInput->textInputData->password = true;
 
     createVaultButton->preferences->heightPreference = UISizePreference::Grow;
     backButton->preferences->heightPreference = UISizePreference::Grow;
@@ -566,7 +566,7 @@ void onCreateANewVaultClicked() {
     vaultSetup->fontSize = 16;
 
     vaultNameInput->id      = VAULT_SETUP_VAULT_NAME_TEXT_INPUT_ID;
-    vaultPasswordInput->id  = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
+    // vaultPasswordInput->id  = VAULT_SETUP_VAULT_PASSWORD_TEXT_INPUT_ID;
     createVaultButton->id   = VAULT_SETUP_CREATE_VAULT_BUTTON_ID;
     backButton->id          = VAULT_BACK_BUTTON_ID;
 
@@ -574,8 +574,8 @@ void onCreateANewVaultClicked() {
     addChild(&WELCOME_MAIN_CONTAINER, vaultSetup, &mainUIArena);
     addChild(&WELCOME_MAIN_CONTAINER, vaultNameLabel, &mainUIArena);
     addChild(&WELCOME_MAIN_CONTAINER, vaultNameInput, &mainUIArena);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordLabel, &mainUIArena);
-    addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordInput, &mainUIArena);
+    // addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordLabel, &mainUIArena);
+    // addChild(&WELCOME_MAIN_CONTAINER, vaultPasswordInput, &mainUIArena);
     addChild(&WELCOME_MAIN_CONTAINER, createVaultButton, &mainUIArena);
     addChild(&WELCOME_MAIN_CONTAINER, backButton, &mainUIArena);
 }
