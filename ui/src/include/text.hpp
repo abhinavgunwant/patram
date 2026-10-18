@@ -67,14 +67,6 @@ extern bool debugTextFirstRenderPrint;
 
 using namespace std;
 
-struct Char {
-    uint8_t variant;
-    uint16_t charcode;
-    uint8_t width;
-    uint8_t height;
-    uint8_t* bitmap;
-};
-
 struct Glyph {
     uint8_t width;
     uint8_t height;
@@ -88,6 +80,13 @@ struct Glyph {
     float textureY2;
 };
 
+struct Char {
+    uint8_t width;
+    uint8_t height;
+    Glyph* glyph;
+    uint8_t* bitmap;
+};
+
 const Glyph CHAR_EMPTY = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 struct Character {
@@ -97,7 +96,6 @@ struct Character {
 extern float glyphDescender;
 extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
-extern vector<Char> chvec;
 extern Character* characters[256];
 extern const Glyph icons[MAX_ICONS];
 extern unsigned int textVAO, textVBO;

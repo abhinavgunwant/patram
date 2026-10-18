@@ -32,7 +32,10 @@ uint32_t iconTextureID;
 Character* characters[256];
 unsigned int textVAO, textVBO;
 
-vector<Char> chvec;
+mutex textInitMutex;
+Char* charList = nullptr;
+
+atomic<uint32_t> charListIndex(0);
 
 const Glyph icons[MAX_ICONS] = {
     // ICON_CHEVRON_DOWN
@@ -113,10 +116,8 @@ const Glyph icons[MAX_ICONS] = {
     },
 };
 
-atomic<bool> blocked = false;
-
 uint8_t* createFontAtlas(Arena& arena) {
-    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
+    sort(&charList[0], &charList[charListIndex], [](Char& a, Char& b) {
         if (a.height == b.height) {
             return a.width < b.width;
         }
@@ -132,56 +133,69 @@ uint8_t* createFontAtlas(Arena& arena) {
     uint16_t x = FONT_ATLAS_MARGIN;
     uint16_t y = FONT_ATLAS_MARGIN;
 
-    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
-        if (itr->height == 0 || itr->width == 0) {
-            continue;
+    for (uint32_t i=0; i<charListIndex; ++i) {
+        Char c = charList[i];
+
+        if (c.glyph == nullptr || c.height == 0 || c.width == 0) { continue; }
+
+        if (c.height > max_y) {
+            max_y = c.height;
         }
 
-        if (itr->height > max_y) {
-            max_y = (*itr).height;
-        }
-
-        if (x + itr->width > ATLAS_DIMENSION) {
+        if (x + c.width > ATLAS_DIMENSION) {
             y += max_y + FONT_ATLAS_MARGIN;
             x = FONT_ATLAS_MARGIN;
         }
 
-        if (characters[itr->charcode >> 8]) {
-            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
-            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
-            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureX2 = static_cast<float>(x + itr->width)/static_cast<float>(ATLAS_DIMENSION);
-            characters[itr->charcode >> 8]->glyphs[0][static_cast<uint8_t>(itr->charcode)].textureY2 = static_cast<float>(y + itr->height)/static_cast<float>(ATLAS_DIMENSION);
+        c.glyph->textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
+        c.glyph->textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
+        c.glyph->textureX2 = static_cast<float>(x + c.width)/static_cast<float>(ATLAS_DIMENSION);
+        c.glyph->textureY2 = static_cast<float>(y + c.height)/static_cast<float>(ATLAS_DIMENSION);
 
-            for (int i=y; i<y + itr->height && i<ATLAS_DIMENSION; ++i) {
-                memcpy(
-                    &pngData[i * ATLAS_DIMENSION + x],
-                    &((*itr).bitmap[(i-y) * itr->width]),
-                    itr->width
-                );
-            }
-
-            x += itr->width + FONT_ATLAS_MARGIN;
-        } else {
-            cout << "\nERROR: " << itr->charcode << ", block: " << (int)(itr->charcode >> 8);
+        for (int i=y; i<y + c.height && i<ATLAS_DIMENSION; ++i) {
+            memcpy(
+                &pngData[i * ATLAS_DIMENSION + x],
+                &(c.bitmap[(i-y) * c.width]),
+                c.width
+            );
         }
-    }
 
-    chvec.resize(0);
+        x += c.width + FONT_ATLAS_MARGIN;
+    }
 
     return pngData;
 }
 
-void initGlyphVariant(
+void initCharList(Arena& arena, size_t len) {
+    lock_guard<mutex> lock(textInitMutex);
+
+    if (charList == nullptr) {
+        cout << "\nDEBUG: reserving capacity for charList.";
+        charList = (Char*) arenaAllocate(arena, sizeof(Char) * len * 3);
+    }
+}
+
+void initCharBlock(uint8_t blockIndex) {
+    lock_guard<mutex> lock(textInitMutex);
+
+    if (characters[blockIndex] == nullptr) {
+        characters[blockIndex] = new Character;
+
+        cout << "\nDEUBG: initializing block: " << (int) blockIndex;
+
+        memset(characters[blockIndex]->glyphs, 0, 256 * 3);
+    }
+}
+
+void initGlyph(
     string path,
     uint8_t variantIndex,
-    vector<Char>& chvec,
     Arena& arena
 ) {
     FT_Library ft;
 
     if (FT_Init_FreeType(&ft)) { error("Could not init FreeType Library"); exit(1); }
 
-    // load font as face
     FT_Face face;
     if (FT_New_Face(ft, path.c_str(), 0, &face)) { error("Failed to load font"); exit(1); }
 
@@ -190,14 +204,8 @@ void initGlyphVariant(
 
     cout << "\nDEBUG: Total characters in font " << path << ": " << face->num_glyphs;
 
-    if (chvec.capacity() == 0) {
-        cout << "\nDEBUG: reserving capacity for chvec.";
-        while (blocked) {}
-        blocked = true;
-
-        chvec.reserve(face->num_glyphs * 3);
-
-        blocked = false;
+    if (charList == nullptr) {
+        initCharList(arena, face->num_glyphs);
     }
 
     uint32_t charcode;
@@ -205,28 +213,16 @@ void initGlyphVariant(
 
     charcode = FT_Get_First_Char(face, &id);
 
-    if (!blocked && glyphDescender == 0.0f) {
-        while (blocked) {}
-        blocked = true;
+    if (glyphDescender == 0.0f && variantIndex == 0) {
         glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / 48;
-        blocked = false;
     }
 
     while (id != 0) {
         uint8_t mapIndex = charcode >> 8;
         uint8_t charIndex = static_cast<uint8_t>(charcode);
-        // cout << "\n! " << (uint32_t)variantIndex << " " << charcode;
-
-        while (blocked) {}
 
         if (characters[mapIndex] == nullptr) {
-            blocked = true;
-            characters[mapIndex] = new Character;
-
-            cout << "\nDEUBG: initializing block: " << (int) mapIndex;
-
-            memset(characters[mapIndex]->glyphs, 0, 256 * 3);
-            blocked = false;
+            initCharBlock(mapIndex);
         }
 
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) { errorv("Failed to load glyph"); }
@@ -246,15 +242,17 @@ void initGlyphVariant(
             0.0f,
         };
 
-        Char c = {
-            static_cast<uint8_t>(variantIndex),
-            static_cast<uint16_t>(charcode), width, height,
-            (uint8_t*)arenaAllocate(arena, width * height)
-        };
+        if (width != 0 && height != 0) {
+            uint32_t index = charListIndex.fetch_add(1, std::memory_order_relaxed);
 
-        memcpy(c.bitmap, face->glyph->bitmap.buffer, width * height);
+            charList[index] = {
+                width, height,
+                &characters[mapIndex]->glyphs[variantIndex][charIndex],
+                (uint8_t*) arenaAllocate(arena, width * height)
+            };
 
-        chvec.push_back(c);
+            memcpy(charList[index].bitmap, face->glyph->bitmap.buffer, width * height);
+        }
 
         charcode = FT_Get_Next_Char(face, charcode, &id);
     }
@@ -269,83 +267,27 @@ void initFonts(Arena& arena) {
     thread regular(
         initGlyph,
         "assets/fonts/poppins/Poppins-Regular.ttf",
-        0,
-        std::ref(chvec),
+        CHARACTER_REGULAR,
         std::ref(arena)
     );
 
     thread bold(
         initGlyph,
         "assets/fonts/poppins/Poppins-Bold.ttf",
-        1,
-        std::ref(chvec),
+        CHARACTER_BOLD,
         std::ref(arena)
     );
 
     thread italic(
         initGlyph,
         "assets/fonts/poppins/Poppins-Italic.ttf",
-        2,
-        std::ref(chvec),
+        CHARACTER_ITALIC,
         std::ref(arena)
     );
 
     regular.join();
     bold.join();
     italic.join();
-
-    sort(chvec.begin(), chvec.end(), [](Char& a, Char& b) {
-        if (a.height == b.height) {
-            return a.width < b.width;
-        }
-
-        return a.height < b.height;
-    });
-
-    uint8_t* pngData = (uint8_t*)arenaAllocate(arena, ATLAS_DIMENSION * ATLAS_DIMENSION);
-
-    memset(pngData, 0, ATLAS_DIMENSION * ATLAS_DIMENSION);
-
-    uint16_t max_y = 0;
-    uint16_t x = FONT_ATLAS_MARGIN;
-    uint16_t y = FONT_ATLAS_MARGIN;
-
-    for (vector<Char>::iterator itr = chvec.begin(); itr != chvec.end(); ++itr) {
-        if (itr->height == 0 || itr->width == 0) {
-            continue;
-        }
-
-        if (itr->height > max_y) {
-            max_y = itr->height;
-        }
-
-        if (x + itr->width > ATLAS_DIMENSION) {
-            y += max_y + FONT_ATLAS_MARGIN;
-            x = FONT_ATLAS_MARGIN;
-        }
-
-        uint8_t blockIndex = itr->charcode >> 8;
-        uint8_t charIndex = static_cast<uint8_t>(itr->charcode);
-
-        if (characters[blockIndex] != nullptr) {
-            GlyphVariant* gv = &characters[blockIndex]->glyphs[itr->variant][charIndex];
-
-            gv->textureX1 = static_cast<float>(x)/static_cast<float>(ATLAS_DIMENSION);
-            gv->textureY1 = static_cast<float>(y)/static_cast<float>(ATLAS_DIMENSION);
-            gv->textureX2 = static_cast<float>(x + itr->width)/static_cast<float>(ATLAS_DIMENSION);
-            gv->textureY2 = static_cast<float>(y + itr->height)/static_cast<float>(ATLAS_DIMENSION);
-
-            for (int i=y; i<y + itr->height && i<ATLAS_DIMENSION; ++i) {
-                memcpy(
-                    &pngData[i * ATLAS_DIMENSION + x],
-                    &((*itr).bitmap[(i-y) * itr->width]),
-                    itr->width
-                );
-            }
-        }
-
-        x += itr->width + FONT_ATLAS_MARGIN;
-    }
 }
 
 void initFontTexture(uint8_t* pngData) {

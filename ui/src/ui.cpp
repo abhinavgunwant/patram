@@ -1894,8 +1894,10 @@ void setupWelcomeScreen() {
     }
 
     title->text = "patram";
+    title->textStyle = CHARACTER_BOLD;
     title->fontSize = 48;
     version->text = "v0.1.0";
+    version->textStyle = CHARACTER_ITALIC;
     line1->marginTop = 8;
 
     if (vaultSelected) {
@@ -5938,6 +5940,7 @@ void initElement(
 
     elem = {
         type,
+        CHARACTER_REGULAR,
 
         0,
         0,
@@ -7495,7 +7498,7 @@ void renderElement(
                     left,
                     top,
                     elem.text,
-                    0,
+                    elem.textStyle,
                     darkTheme ? WHITE_INDEX : BLACK_INDEX,
                     elem.fontSize,
                     elem.layer == 0 ? uiTextLayer0 : uiTextLayer1
@@ -7512,7 +7515,6 @@ void renderElement(
             break;
         }
 
-        // TODO: handle hover
         case UIElementType::Button: {
             if (!elem.show) { return; }
 
@@ -7651,7 +7653,7 @@ void renderElement(
                     left + padding,
                     top + padding,
                     elem.text,
-                    0,
+                    elem.textStyle,
                     darkTheme ? WHITE_INDEX : BLACK_INDEX,
                     elem.fontSize,
                     elem.layer == 0 ? uiTextLayer0 : uiTextLayer1

@@ -21,8 +21,6 @@ using namespace std;
 #define MAGIC_4_VINFO               0x02 // last word for vault information
 #define MAGIC_4_VI                  0x03 // last word for vault index
 
-#define ATLAS_DIMENSION             1024
-
 #define CACHE_INDEX_FILE_VERSION        0
 #define FONT_INFORMATION_FILE_VERSION   0
 #define VAULT_INFORMATION_FILE_VERSION  0
@@ -31,7 +29,7 @@ using namespace std;
 #define FONT_ATLAS_FILE_NAME_PREFIX     "fa"
 #define FONT_ATLAS_FILE_NAME_EXT        ".png"
 #define FONT_INFO_FILE_NAME_PREFIX      "fi"
-#define FONT_ATLAS_MARGIN               2
+#define FONT_ATLAS_MARGIN               4
 
 #define CURRENT_FONT_INFO_VERSION       0
 

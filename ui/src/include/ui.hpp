@@ -562,6 +562,7 @@ struct ContentBlock;
 struct UIElement {
     UIElementType type;
 
+    uint8_t textStyle;
     uint16_t id;
     uint8_t marginTop;
     uint8_t layer;
