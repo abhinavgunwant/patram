@@ -310,6 +310,8 @@ struct Bounds {
     float x2;
     float y2;
 
+    uint8_t layer;
+
     BoundSourceType type;
 
     bool enableHover;

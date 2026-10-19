@@ -852,22 +852,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                                     onVaultBackClicked();
                                     actionFound = true;
                                     break;
-                                case EXPLORER_MENU_RENAME_ID:
-                                    showRenameDialog();
-                                    actionFound = true;
-                                    break;
-                                case EXPLORER_MENU_DELETE_ID:
-                                    showDeleteDialog();
-                                    actionFound = true;
-                                    break;
-                                case EXPLORER_MENU_NEW_NOTE_ID:
-                                    showNewNoteDialog();
-                                    actionFound = true;
-                                    break;
-                                case EXPLORER_MENU_NEW_FOLDER_ID:
-                                    showNewFolderDialog();
-                                    actionFound = true;
-                                    break;
                             }
                         } else {
                             switch(b.source.elem->id) {
@@ -893,6 +877,22 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                                 case ERROR_DIALOG_OK_BUTTON_ID:
                                     unsetExplorerTreeFlag(explorer.nodes, EXPLORER_FLAG_ACTIVE);
                                     destroyFloatingUI();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_RENAME_ID:
+                                    showRenameDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_DELETE_ID:
+                                    showDeleteDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_NEW_NOTE_ID:
+                                    showNewNoteDialog();
+                                    actionFound = true;
+                                    break;
+                                case EXPLORER_MENU_NEW_FOLDER_ID:
+                                    showNewFolderDialog();
                                     actionFound = true;
                                     break;
                             }
@@ -1981,7 +1981,7 @@ inline void appendVerticesForExplorerNode(
         itr->top = y;
 
         uiMouseEvents.bounds.push_back(Bounds {
-            0, y - 4.0f, EXPLORER.width, y - 4.0f + EXPLORER_ELEMENT_HEIGHT,
+            0, y - 4.0f, EXPLORER.width, y - 4.0f + EXPLORER_ELEMENT_HEIGHT, 0,
             BoundSourceType::ExplorerElement, true, true, { .explorerY = y }
         });
 
@@ -2061,7 +2061,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         );
 
         uiMouseEvents.bounds.push_back(Bounds {
-            closeX - 5, verticalPadding + 2, x + 5, verticalPadding + 10 + x - closeX,
+            closeX - 5, verticalPadding + 2, x + 5, verticalPadding + 10 + x - closeX, 0,
             BoundSourceType::TabClose, false, true, { .tabIndex = i }
         });
 
@@ -2070,7 +2070,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
         tab.width = static_cast<uint16_t>(x - prevX);
 
         uiMouseEvents.bounds.push_back(Bounds {
-            prevX, 0, x, TAB_BAR_HEIGHT,
+            prevX, 0, x, TAB_BAR_HEIGHT, 0,
             BoundSourceType::Tab, false, true, { .tabIndex = i }
         });
 
@@ -5597,6 +5597,7 @@ void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, gl
 bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei) {
     uint32_t boundsIndex = 0;
     bool hover = false;
+    uint32_t hoverIndex = 0;
 
     for (
         vector<Bounds>::iterator b = mei.bounds.begin();
@@ -5609,13 +5610,13 @@ bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei) {
             && y > b->y1 && y < b->y2
         ) {
             hover = true;
-            break;
+            hoverIndex = boundsIndex;
         }
     }
 
-    if (hover != mei.hover || mei.hoverIndex != boundsIndex) {
+    if (hover != mei.hover || mei.hoverIndex != hoverIndex) {
         mei.hover = hover;
-        mei.hoverIndex = boundsIndex;
+        mei.hoverIndex = hoverIndex;
 
         if (hover) {
             mei.hoverBounds = mei.bounds[mei.hoverIndex];
@@ -5633,6 +5634,7 @@ bool updateMouseDownEvents(float x, float y, MouseEventInfo& mei) {
     uint32_t boundsIndex = 0;
     bool updated = false;
     bool mouseDown = false;
+    uint32_t mouseDownIndex = 0;
 
     for (
         vector<Bounds>::iterator b = mei.bounds.begin();
@@ -5645,13 +5647,17 @@ bool updateMouseDownEvents(float x, float y, MouseEventInfo& mei) {
             && mouseY > b->y1 && mouseY < b->y2
         ) {
             mouseDown = true;
-            break;
+            mouseDownIndex = boundsIndex;
+
+            if (grInfo.activeLayer == 0 || grInfo.activeLayer == b->layer) {
+                break;
+            }
         }
     }
 
-    if (mouseDown != mei.mouseDown || boundsIndex != mei.mouseDownIndex) {
+    if (mouseDown != mei.mouseDown || mouseDownIndex != mei.mouseDownIndex) {
         mei.mouseDown = mouseDown;
-        mei.mouseDownIndex = boundsIndex;
+        mei.mouseDownIndex = mouseDownIndex;
 
         if (mouseDown) {
             mei.clickBounds = mei.bounds[mei.mouseDownIndex];
@@ -7669,7 +7675,7 @@ void renderElement(
                 }
 
                 uiMouseEvents.bounds.push_back(Bounds {
-                    left, top, left + elem.width, top + elem.height,
+                    left, top, left + elem.width, top + elem.height, elem.layer,
                     BoundSourceType::Button, true, elem.id != 0,
                     { .elem = &elem }
                 });
@@ -8619,7 +8625,7 @@ inline bool renderContentBlock(
                         );
 
                         gmei.bounds.push_back(Bounds {
-                            pos.x, pos.y, pos.x + r.width, pos.y + r.height,
+                            pos.x, pos.y, pos.x + r.width, pos.y + r.height, 0,
                             BoundSourceType::Link, true, true,
                             { .cb = { .tabIndex = activeTabIndex, .index = index } },
                         });
