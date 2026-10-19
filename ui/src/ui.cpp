@@ -5606,11 +5606,13 @@ bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei) {
     ) {
         if (
             b->enableHover
+            && (grInfo.activeLayer == 0 || grInfo.activeLayer == b->layer)
             && x > b->x1 && x < b->x2
             && y > b->y1 && y < b->y2
         ) {
             hover = true;
             hoverIndex = boundsIndex;
+            break;
         }
     }
 
