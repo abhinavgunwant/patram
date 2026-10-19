@@ -2667,6 +2667,10 @@ void enterRenderLoop() {
     initBoundsRendering();
     #endif
 
+    #ifdef _WIN32
+    bool firstRender = true;
+    #endif
+
     info("Starting UI rendering.");
 
     while (!glfwWindowShouldClose(window)) {
@@ -2738,7 +2742,13 @@ void enterRenderLoop() {
         #ifdef DEBUG_TEXT
         debugTextFirstRenderPrint = false;
         #endif
-        // glfwSwapInterval(1);
+
+        #ifdef _WIN32
+        if (firstRender) {
+            EmptyWorkingSet(GetCurrentProcess());
+            firstRender = false;
+        }
+        #endif
     }
 
     removeOldCBImagesWorker.request_stop();
