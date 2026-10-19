@@ -2685,15 +2685,40 @@ void enterRenderLoop() {
         if (showFps) {
             float time = TIME();
 
+            if (grInfo.fps.vao == 0) {
+                TextVertex rv[60] = {};
+                SETUP_BUFFERS_TEXT(grInfo.fps.vao, grInfo.fps.vbo, rv);
+                grInfo.fps.numVertices = 60;
+                grInfo.fps.bufferSize = sizeof(TextVertex) * 60;
+            }
+
+            vector<TextVertex> rvec;
+            bool redraw = false;
+
             if (time - fpsPrevTime > 1.0f) {
                 fpsPrevTime = time;
                 fps = newFps;
                 newFps = 0;
+                string fpsString = "FPS: " + to_string(fps);
+                rvec.reserve(60);
+                appendTextVertices(
+                    0, 0, fpsString, CHARACTER_REGULAR,
+                    CM_DELETE_BUTTON_BG_DARK_INDEX, 16, rvec
+                );
+                redraw = true;
             } else {
                 ++newFps;
             }
 
-            // renderText("FPS: " + to_string(fps), glm::vec2(0.0f, 0.0f));
+            drawTextBuffers(
+                grInfo.fps.vao,
+                grInfo.fps.vbo,
+                grInfo.fps.bufferSize,
+                grInfo.fps.numVertices,
+                rvec,
+                1.0f,
+                redraw
+            );
         }
 
         #ifdef DEBUG_TEXT

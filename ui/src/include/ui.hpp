@@ -678,6 +678,7 @@ struct GlobalRenderInfo {
     RenderInfo icon;
     RenderInfo rect;
     RenderInfo image;
+    RenderInfo fps;
 
     uint32_t imageTexture;
     uint32_t imagePBO[2];

@@ -98,7 +98,6 @@ extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
 extern Character* characters[256];
 extern const Glyph icons[MAX_ICONS];
-extern unsigned int textVAO, textVBO;
 
 uint8_t* createFontAtlas(Arena& arena);
 void initFonts(Arena& arena);
@@ -219,27 +218,6 @@ RopeRenderResult appendRopeVertices(
     uint8_t fontSize,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
-);
-
-/**
- * Renders text
- *
- * Returns glm::vec4(top, left, bottom, right)
- */
-glm::vec4 renderText(
-    string text,
-    glm::vec2 pos,
-    uint8_t fontSize = 16,
-    uint32_t colorIndex = WHITE_INDEX,
-    UIElement* parent = nullptr
-);
-
-glm::vec4 renderText(
-    wstring text,
-    glm::vec2 pos,
-    uint8_t fontSize = 16,
-    uint32_t colorIndex = WHITE_INDEX,
-    UIElement* parent = nullptr
 );
 
 void initFontTexture(uint8_t* pngData);
