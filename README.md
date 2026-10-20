@@ -6,6 +6,8 @@ This project is a Work-in-progress!
 
 ## Building
 
+I'm making efforts to make the build better. Changes coming soon...
+
 ### Prerequisites
 
 Please make sure you have the following:
