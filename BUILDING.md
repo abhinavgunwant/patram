@@ -19,14 +19,14 @@ The build uses cmake's `find_package()` to find these libraries.
 ### Steps
 
 1. Clone this repository
-```bash
-git clone https://gihub.com/abhinavgunwant/patram.git
-```
+    ```bash
+    git clone https://gihub.com/abhinavgunwant/patram.git
+    ```
 
 2. `cd` into the cloned directory
-```bash
-cd patram
-```
+    ```bash
+    cd patram
+    ```
 
 3. Run following commands:
     ```bash
@@ -35,10 +35,10 @@ cd patram
     cmake --build .
     ```
 
-**Note:** You might want to pass your own `CMAKE_MODULE_PATH` with
-`Find####.cmake` files if you have setup your libraries in custom locations as:
-`cmake -DCMAKE_MODULE_PATH=<your-module-path> .` instead of the first command
-listed above.
+    **Note:** You might want to pass your own `CMAKE_MODULE_PATH` with
+    `Find####.cmake` files if you have setup your libraries in custom locations
+    as: `cmake -DCMAKE_MODULE_PATH=<your-module-path> .` instead of the first
+    command listed above.
 
 The executable file: `<patram-dir>/core/Debug/patram.exe`.
 
