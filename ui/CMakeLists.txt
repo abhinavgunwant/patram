@@ -5,6 +5,12 @@ project(ui)
 add_executable(rope src/test_rope.cpp src/rope.cpp)
 add_executable(md src/test_md.cpp src/md.cpp src/rope.cpp)
 
+find_package(glfw 3 REQUIRED)
+find_package(freetype REQUIRED)
+
+include_directories(${GLFW_INCLUDE_DIR})
+include_directories(${FREETYPE_INCLUDE_DIR})
+
 add_library(ui
     lib/stb_image.cpp
     lib/stb_image_write.cpp
@@ -22,11 +28,15 @@ target_include_directories(ui
     PUBLIC
     src/include
     ${INCLUDE_DIR}
+    ${GLFW_INCLUDE_DIR}
+    ${FREETYPE_INCLUDE_DIR}
 )
 
 target_link_libraries(ui
     sys
     ${LIB_DIR}
+    ${GLFW_LIBRARY}
+    ${FREETYPE_LIBRARY}
     psapi
 )
 
