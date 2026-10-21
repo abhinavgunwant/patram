@@ -12,5 +12,5 @@ Download the executable from [releases](https://github.com/abhinavgunwant/patram
 
 ## Building from source
 
-See the [Build Steps](BUILDLING.md)
+See the [Build Steps](BUILDING.md)
 
