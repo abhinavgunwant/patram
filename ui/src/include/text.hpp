@@ -154,7 +154,7 @@ inline bool getCharParams(
     bool breakLine = true
 );
 
-inline void drawTextBuffers(
+void drawTextBuffers(
     uint32_t& vao,
     uint32_t& vbo,
     uint32_t& bufferSize,
@@ -163,22 +163,6 @@ inline void drawTextBuffers(
     float time = 1.0f,
     bool redraw = false,
     uint32_t texture = fontTextureID
-);
-
-RopeRenderResult renderTextCached(
-    string str,
-    glm::vec2 pos,
-    uint32_t& vao,
-    uint32_t& vbo,
-    uint32_t& bufferSize,
-    uint32_t& numVertices,
-    float parentLeft,
-    float parentWidth,
-    float time = 1.0f,
-    uint8_t fontSize = 16,
-    uint32_t colorIndex = WHITE_INDEX,
-    bool redraw = true,
-    bool lineBreak = true
 );
 
 RopeRenderResult getTextDimensions(

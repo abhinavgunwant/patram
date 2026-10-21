@@ -492,7 +492,7 @@ inline bool getCharParams(
     return true;
 }
 
-inline void drawTextBuffers(
+void drawTextBuffers(
     uint32_t& vao,
     uint32_t& vbo,
     uint32_t& bufferSize,
@@ -528,106 +528,6 @@ inline void drawTextBuffers(
     glUniform1f(uniforms[U_TEXT_TIME], time);
 
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
-}
-
-RopeRenderResult renderTextCached(
-    string str,
-    float x,
-    float y,
-    uint8_t variant,
-    uint32_t& vao,
-    uint32_t& vbo,
-    uint32_t& bufferSize,
-    uint32_t& numVertices,
-    float parentLeft,
-    float parentWidth,
-    float time,
-    uint8_t fontSize,
-    uint32_t colorIndex,
-    bool redraw,
-    bool lineBreak
-) {
-    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
-
-    float xpos = x;
-    float ypos = 0.0f;
-    float yNet = y;
-    float texX1 = 0.0f;
-    float texX2 = 0.0f;
-    float texY1 = 0.0f;
-    float texY2 = 0.0f;
-    float xpos_plus_w = 0.0f;
-    float ypos_plus_h = 0.0f;
-    float advance = 0.0f;
-
-    vector<TextVertex> vertices;
-
-    if (redraw) {
-        vertices.reserve(240);
-    } else {
-        vertices.reserve(0);
-    }
-
-    uint32_t _numVertices = redraw ? 0 : str.length() * 6;
-
-    float glyphHeight, glyphWidth, bearingTop, bearingLeft;
-
-    if (redraw) {
-        for (char c: str) {
-            if (!getCharParams(
-                characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
-                x,
-                y,
-                xpos,
-                ypos,
-                yNet,
-                xpos_plus_w,
-                ypos_plus_h,
-                result.height,
-                texX1,
-                texX2,
-                texY1,
-                texY2,
-                glyphHeight,
-                glyphWidth,
-                bearingTop,
-                bearingLeft,
-                advance,
-                parentLeft + parentWidth,
-                result.rows,
-                fontSize,
-                result.renderNextContentBlock,
-                lineBreak
-            )) {
-                break;
-            }
-
-            if (redraw && c != ' ') {
-                vertices.insert(vertices.end(), {
-                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
-                    TextVertex { xpos,        ypos,        texX1, texY2, colorIndex },
-                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
-                    TextVertex { xpos,        ypos_plus_h, texX1, texY1, colorIndex },
-                    TextVertex { xpos_plus_w, ypos,        texX2, texY2, colorIndex },
-                    TextVertex { xpos_plus_w, ypos_plus_h, texX2, texY1, colorIndex },
-                });
-            }
-
-            xpos += advance;
-        }
-    }
-
-    drawTextBuffers(vao, vbo, bufferSize, _numVertices, vertices, time, redraw);
-
-    numVertices = _numVertices;
-
-    result.width = xpos - x;
-
-    if (result.rows) {
-        ++result.rows;
-    }
-
-    return result;
 }
 
 RopeRenderResult getTextDimensions(
