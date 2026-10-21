@@ -9,9 +9,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "command.hpp"
 #include "rope.hpp"
@@ -49,78 +46,78 @@
 #define CURRENT_TAB                 (&tabs[activeTabIndex])
 
 // Generic colors
-#define WHITE               glm::vec4(1.0, 1.0, 1.0, 1.0)
-#define RED                 glm::vec4(1.0, 0.0, 0.0, 1.0)
-#define BLACK               glm::vec4(0.0, 0.0, 0.0, 1.0)
-#define TRANSPARENT_COLOR   glm::vec4(0.0, 0.0, 0.0, 0.0)
-#define OVERLAY_COLOR       glm::vec4(0.0, 0.0, 0.0, 0.8)
+#define WHITE               Color { 1.0, 1.0, 1.0, 1.0 }
+#define RED                 Color { 1.0, 0.0, 0.0, 1.0 }
+#define BLACK               Color { 0.0, 0.0, 0.0, 1.0 }
+#define TRANSPARENT_COLOR   Color { 0.0, 0.0, 0.0, 0.0 }
+#define OVERLAY_COLOR       Color { 0.0, 0.0, 0.0, 0.8 }
 
 // Theme colors
 //// Light theme colors
-#define ROOT_BG                     glm::vec4(1.0, 1.0, 1.0, 1.0)
-#define TOOL_BAR_BG                 glm::vec4(0.93, 0.84, 0.85, 1.0)
+#define ROOT_BG                     Color { 1.0, 1.0, 1.0, 1.0 }
+#define TOOL_BAR_BG                 Color { 0.93, 0.84, 0.85, 1.0 }
 
-#define TEXT_INPUT_BG               glm::vec4(1.0, 1.0, 1.0, 1.0)
-#define TEXT_INPUT_HOVER_BG         glm::vec4(0.8, 0.7, 0.71, 1.0)
+#define TEXT_INPUT_BG               Color { 1.0, 1.0, 1.0, 1.0 }
+#define TEXT_INPUT_HOVER_BG         Color { 0.8, 0.7, 0.71, 1.0 }
 
-#define ICON_BUTTON_BG              glm::vec4(0.93, 0.84, 0.85, 1.0)
-#define ICON_BUTTON_HOVER_BG        glm::vec4(0.8, 0.7, 0.71, 1.0)
-#define ICON_BUTTON_COLOR           glm::vec4(0.5, 0.45, 0.4, 1.0)
+#define ICON_BUTTON_BG              Color { 0.93, 0.84, 0.85, 1.0 }
+#define ICON_BUTTON_HOVER_BG        Color { 0.8, 0.7, 0.71, 1.0 }
+#define ICON_BUTTON_COLOR           Color { 0.5, 0.45, 0.4, 1.0 }
 
-#define BUTTON_BG                   glm::vec4(0.93, 0.7, 0.7, 1.0)
-#define CM_DELETE_BUTTON_BG         glm::vec4(0.66, 0.0, 0.0, 1.0)
-#define BUTTON_HOVER_BG             glm::vec4(0.8, 0.7, 0.71, 1.0)
-#define BUTTON_COLOR                glm::vec4(0.5, 0.45, 0.4, 1.0)
-#define EXPLORER_BG                 glm::vec4(0.82, 0.82, 0.82, 1.0)
-#define EXPLORER_HOVER_BG           glm::vec4(0.89, 0.827, 0.827, 1.0)
-#define EXPLORER_LINE_COLOR         glm::vec4(1.0, 0.7, 0.7, 1.0)
+#define BUTTON_BG                   Color { 0.93, 0.7, 0.7, 1.0 }
+#define CM_DELETE_BUTTON_BG         Color { 0.66, 0.0, 0.0, 1.0 }
+#define BUTTON_HOVER_BG             Color { 0.8, 0.7, 0.71, 1.0 }
+#define BUTTON_COLOR                Color { 0.5, 0.45, 0.4, 1.0 }
+#define EXPLORER_BG                 Color { 0.82, 0.82, 0.82, 1.0 }
+#define EXPLORER_HOVER_BG           Color { 0.89, 0.827, 0.827, 1.0 }
+#define EXPLORER_LINE_COLOR         Color { 1.0, 0.7, 0.7, 1.0 }
 
-#define SCROLL_BAR_TRACK_COLOR      glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
-#define SCROLL_BAR_THUMB_COLOR      glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
+#define SCROLL_BAR_TRACK_COLOR      Color { 0.9f, 0.9f, 0.9f, 1.0f }
+#define SCROLL_BAR_THUMB_COLOR      Color { 0.6f, 0.6f, 0.6f, 1.0f }
 
-#define CURSOR_COLOR                glm::vec4(0.0, 0.38, 0.65, 1.0)
-#define SELECT_COLOR                glm::vec4(0.0, 0.38, 0.65, 0.25)
+#define CURSOR_COLOR                Color { 0.0, 0.38, 0.65, 1.0 }
+#define SELECT_COLOR                Color { 0.0, 0.38, 0.65, 0.25 }
 
-#define CONTENT_HIGHLIGHT_BG        glm::vec4(0.85f, 0.85f, 0.85f, 1.0)
-#define CONTENT_HIGHLIGHT_DRAG      glm::vec4(0.75f, 0.75f, 0.75f, 1.0)
+#define CONTENT_HIGHLIGHT_BG        Color { 0.85f, 0.85f, 0.85f, 1.0 }
+#define CONTENT_HIGHLIGHT_DRAG      Color { 0.75f, 0.75f, 0.75f, 1.0 }
 
-#define LIGHT_TEXT_COLOR            glm::vec4(0.5f, 0.5f, 0.5f, 1.0)
-#define CODE_COLOR                  glm::vec4(0.9f, 0.9f, 0.9f, 1.0)
-#define LINK_COLOR                  glm::vec4(0.06f, 0.0f, 0.88f, 1.0f)
-#define SCROLL_AREA_BG              glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)
+#define LIGHT_TEXT_COLOR            Color { 0.5f, 0.5f, 0.5f, 1.0 }
+#define CODE_COLOR                  Color { 0.9f, 0.9f, 0.9f, 1.0 }
+#define LINK_COLOR                  Color { 0.06f, 0.0f, 0.88f, 1.0f }
+#define SCROLL_AREA_BG              Color { 0.9f, 0.9f, 0.9f, 1.0f }
 
 //// Dark theme colors
-#define ROOT_BG_DARK                glm::vec4(0.16, 0.15, 0.15, 1.0) // #292626
-#define TOOL_BAR_BG_DARK            glm::vec4(0.24, 0.22, 0.22, 1.0) // #3D3838
+#define ROOT_BG_DARK                Color { 0.16, 0.15, 0.15, 1.0 } // #292626
+#define TOOL_BAR_BG_DARK            Color { 0.24, 0.22, 0.22, 1.0 } // #3D3838
 
-#define TEXT_INPUT_BG_DARK          glm::vec4(0.24, 0.20, 0.20, 1.0) // #3C3434
-#define TEXT_INPUT_HOVER_BG_DARK    glm::vec4(0.31, 0.27, 0.28, 1.0)
+#define TEXT_INPUT_BG_DARK          Color { 0.24, 0.20, 0.20, 1.0 } // #3C3434
+#define TEXT_INPUT_HOVER_BG_DARK    Color { 0.31, 0.27, 0.28, 1.0 }
 
-#define ICON_BUTTON_BG_DARK         glm::vec4(0.19, 0.17, 0.17, 1.0)
-#define ICON_BUTTON_HOVER_BG_DARK   glm::vec4(0.31, 0.27, 0.28, 1.0)
-#define ICON_BUTTON_COLOR_DARK      glm::vec4(0.8, 0.75, 0.79, 1.0)
+#define ICON_BUTTON_BG_DARK         Color { 0.19, 0.17, 0.17, 1.0 }
+#define ICON_BUTTON_HOVER_BG_DARK   Color { 0.31, 0.27, 0.28, 1.0 }
+#define ICON_BUTTON_COLOR_DARK      Color { 0.8, 0.75, 0.79, 1.0 }
 
-#define BUTTON_BG_DARK              glm::vec4(0.19, 0.17, 0.17, 1.0)
-#define CM_DELETE_BUTTON_BG_DARK    glm::vec4(0.66, 0.0, 0.0, 1.0)
-#define BUTTON_HOVER_BG_DARK        glm::vec4(0.31, 0.27, 0.28, 1.0)
-#define BUTTON_COLOR_DARK           glm::vec4(0.8, 0.75, 0.79, 1.0)
-#define EXPLORER_BG_DARK            glm::vec4(0.12, 0.1, 0.1, 1.0)
-#define EXPLORER_HOVER_BG_DARK      glm::vec4(0.19, 0.18, 0.18, 1.0)
-#define EXPLORER_LINE_COLOR_DARK    glm::vec4(1.0, 0.7, 0.7, 1.0)
+#define BUTTON_BG_DARK              Color { 0.19, 0.17, 0.17, 1.0 }
+#define CM_DELETE_BUTTON_BG_DARK    Color { 0.66, 0.0, 0.0, 1.0 }
+#define BUTTON_HOVER_BG_DARK        Color { 0.31, 0.27, 0.28, 1.0 }
+#define BUTTON_COLOR_DARK           Color { 0.8, 0.75, 0.79, 1.0 }
+#define EXPLORER_BG_DARK            Color { 0.12, 0.1, 0.1, 1.0 }
+#define EXPLORER_HOVER_BG_DARK      Color { 0.19, 0.18, 0.18, 1.0 }
+#define EXPLORER_LINE_COLOR_DARK    Color { 1.0, 0.7, 0.7, 1.0 }
 
-#define SCROLL_BAR_TRACK_COLOR_DARK glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
-#define SCROLL_BAR_THUMB_COLOR_DARK glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
+#define SCROLL_BAR_TRACK_COLOR_DARK Color { 0.1f, 0.1f, 0.1f, 1.0f }
+#define SCROLL_BAR_THUMB_COLOR_DARK Color { 0.6f, 0.6f, 0.6f, 1.0f }
 
-#define CURSOR_COLOR_DARK           glm::vec4(0.0, 0.93, 1.0, 1.0)
-#define SELECT_COLOR_DARK           glm::vec4(0.0, 0.38, 0.65, 0.5)
+#define CURSOR_COLOR_DARK           Color { 0.0, 0.93, 1.0, 1.0 }
+#define SELECT_COLOR_DARK           Color { 0.0, 0.38, 0.65, 0.5 }
 
-#define CONTENT_HIGHLIGHT_BG_DARK   glm::vec4(0.22f, 0.2f, 0.2f, 1.0)
-#define CONTENT_HIGHLIGHT_DRAG_DARK glm::vec4(0.32f, 0.3f, 0.3f, 1.0)
+#define CONTENT_HIGHLIGHT_BG_DARK   Color { 0.22f, 0.2f, 0.2f, 1.0 }
+#define CONTENT_HIGHLIGHT_DRAG_DARK Color { 0.32f, 0.3f, 0.3f, 1.0 }
 
-#define LIGHT_TEXT_COLOR_DARK       glm::vec4(0.6f, 0.6f, 0.6f, 1.0)
-#define CODE_COLOR_DARK             glm::vec4(0.1f, 0.1f, 0.1f, 1.0)
-#define LINK_COLOR_DARK             glm::vec4(0.18f, 0.44f, 0.98f, 1.0f)
-#define SCROLL_AREA_BG_DARK         glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)
+#define LIGHT_TEXT_COLOR_DARK       Color { 0.6f, 0.6f, 0.6f, 1.0 }
+#define CODE_COLOR_DARK             Color { 0.1f, 0.1f, 0.1f, 1.0 }
+#define LINK_COLOR_DARK             Color { 0.18f, 0.44f, 0.98f, 1.0f }
+#define SCROLL_AREA_BG_DARK         Color { 0.1f, 0.1f, 0.1f, 1.0f }
 
 #define TRANSPARENT_INDEX                   0
 #define WHITE_INDEX                         1
@@ -259,6 +256,18 @@
 
 using namespace std;
 
+struct Vec2 {
+    float x;
+    float y;
+};
+
+struct Color {
+    float r;
+    float g;
+    float b;
+    float a;
+};
+
 struct ContentTab;
 struct UIElement;
 
@@ -321,7 +330,7 @@ struct Bounds {
 };
 
 struct CommonUniforms {
-    glm::vec2 resolution;
+    Vec2 resolution;
     uint32_t dark;
 };
 
@@ -376,7 +385,7 @@ extern vector<ContentTab> tabs;
 extern uint8_t activeTabIndex;
 // extern UIElement* contentContainer;
 extern UIElement* activeElement;
-extern glm::vec2 resolution;
+extern Vec2 resolution;
 extern uint16_t windowHeight;
 extern uint16_t windowWidth;
 
@@ -907,14 +916,14 @@ void defaultKeyCallback(UIElement*, int, int, int);
 
 void cbKeyCallback(int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
-void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
-void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res, int glfwButton);
-void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
-void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
+void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res, int glfwButton);
+void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
+void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
 void textInputUnselect(TextInputData * tid, string token = "");
 
-void scrollAreaMouseDownCallback(UIElement*, float, float, glm::vec2);
-void scrollAreaMouseDragCallback(UIElement*, float, float, glm::vec2);
+void scrollAreaMouseDownCallback(UIElement*, float, float, Vec2);
+void scrollAreaMouseDragCallback(UIElement*, float, float, Vec2);
 bool updateMouseHoverEvents(float x, float y, MouseEventInfo& mei);
 bool updateMouseDownEvents(float x, float y, MouseEventInfo& mei);
 
@@ -927,8 +936,8 @@ void renderTooltip();
 
 /** Creates a command to replace the selected text in a text input. */
 Command* replaceSelectedText(UIElement* elem, Command* oldCommand);
-SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
-void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, glm::vec2& res);
+SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, Vec2 res);
+void selectTextWithMouse(UIElement* elem, float mouseX, float mouseY, float mouseDownX, float mouseDownY, bool mouseUp, Vec2& res);
 void initElement(
     UIElement& elem, UIElementType type,
     float top, float left, float width, float height, Arena* arena = nullptr
@@ -959,8 +968,8 @@ void renderTextCursor(Cursor& c);
 void renderTextSelection(Cursor& c);
 void renderElement(
     UIElement& elem,
-    glm::vec2 &resolution,
-    glm::vec2 &cursor,
+    Vec2 &resolution,
+    Vec2 &cursor,
     uint32_t childIndex,
     float& yPrev,
     vector<RectVertex>& uiRectLayer0,
@@ -969,13 +978,13 @@ void renderElement(
     vector<TextVertex>& uiTextLayer1,
     vector<TextVertex>& uiIconLayer
 );
-glm::vec2 getActiveContentDimensions();
+Vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
 bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
-    glm::vec2 &resolution,
-    glm::vec2 &cursor,
+    Vec2 &resolution,
+    Vec2 &cursor,
     uint32_t index,
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& textVertices,
@@ -984,8 +993,8 @@ bool renderContentBlock(
 );
 inline void renderContentBlockHighlight(vector<TextVertex>& iconVerts, vector<RectVertex>& rv);
 void renderCBTextSelection(ContentTab* tab);
-void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
-void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res);
+void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
+void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
 void renderCBMoveMarker();
 uint16_t addCBImage(string location, uint16_t id = 0);
 void loadCBImages();
@@ -1039,14 +1048,14 @@ void getScrollbarDimensions(
 );
 
 uint8_t getCBFontSize(ContentBlockType cbType);
-glm::vec2 getCBVerticalMargins(ContentBlockType cbType);
+Vec2 getCBVerticalMargins(ContentBlockType cbType);
 
 void getCBScrollbarDimensions(
     ContentTab* tab, float& top, float& right, float& bottom, float& left,
     float& thumbStart, float& thumbEnd
 );
 
-SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  glm::vec2 resolution);
+SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY,  Vec2 resolution);
 SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up);
 
 vector<ContentBlock>::iterator getFirstVisibleCB(ContentTab* tab);

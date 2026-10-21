@@ -11,8 +11,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "logger.hpp"
 #include "include/shader.hpp"
@@ -394,16 +392,8 @@ void initTextRendering(uint16_t width, uint16_t height) {
     glBindVertexArray(0);
 
     glUseProgram(shaders[SHADER_TEXT]);
-
-    glm::vec3 color = darkTheme ? WHITE : BLACK;
-
-    glUniform3f(
-        uniforms[U_TEXT_COLOR],
-        color.r,
-        color.g,
-        color.b
-    );
 }
+
 inline bool getCharParams(
     Glyph c,
     float x,

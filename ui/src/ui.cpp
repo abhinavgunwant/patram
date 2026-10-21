@@ -24,7 +24,6 @@
 #include <GLFW/glfw3.h>
 
 #include "include/ui.hpp"
-#include "glm/gtc/type_ptr.hpp"
 #include "include/command.hpp"
 #include "include/shader.hpp"
 #include "include/text.hpp"
@@ -142,7 +141,7 @@ uint8_t activeTabIndex;
 UIElement* activeElement = nullptr;
 uint16_t windowHeight;
 uint16_t windowWidth;
-glm::vec2 resolution;
+Vec2 resolution;
 GLFWwindow* window;
 GLFWmonitor* primaryMonitor;
 bool minimized = false;
@@ -1207,14 +1206,14 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
     highlightedContentBlock.show = false;
     highlightedContentBlock.updated = true;
 
-    resolution = glm::vec2(width, height);
+    resolution = Vec2(width, height);
     CommonUniforms c = { resolution, darkTheme };
 
     glBindBuffer(GL_UNIFORM_BUFFER, commonUBO);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CommonUniforms), &c);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-    glm::vec2 cursor = glm::vec2(mouseX, mouseY);
+    Vec2 cursor = Vec2(mouseX, mouseY);
 
     if (CONTENT_CONTAINER.show && !tabs.empty()) {
         grInfo.redraw = true;
@@ -2344,7 +2343,7 @@ void createFolderInActiveExplorerNode() {
 }
 
 void setupUBO() {
-    glm::vec4 colors[] = {
+    Color colors[] = {
         TRANSPARENT_COLOR,
         WHITE,
         BLACK,
@@ -2405,7 +2404,7 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
 
     windowHeight = WINDOW_HEIGHT;
     windowWidth = WINDOW_WIDTH;
-    resolution = glm::vec2(windowWidth, windowHeight);
+    resolution = Vec2(windowWidth, windowHeight);
 
     textCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
     pointerCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
@@ -2651,7 +2650,7 @@ void enterRenderLoop() {
     uint16_t fps = 0;
     uint16_t newFps = 0;
 
-    glm::vec4 color = darkTheme ? ROOT_BG_DARK : ROOT_BG;
+    Color color = darkTheme ? ROOT_BG_DARK : ROOT_BG;
 
     glClearColor(color.r, color.g, color.b, 1.0);
 
@@ -3396,7 +3395,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_PAGE_UP: {
-                    glm::vec2 dim = getActiveContentDimensions();
+                    Vec2 dim = getActiveContentDimensions();
 
                     if (tab->scrollOffsetY - dim.y > 0) {
                         tab->scrollOffsetY -= dim.y;
@@ -3426,7 +3425,7 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_PAGE_DOWN: {
-                    glm::vec2 dim = getActiveContentDimensions();
+                    Vec2 dim = getActiveContentDimensions();
 
                     if (tab->scrollOffsetY + dim.y < tab->maxHeight - dim.y) {
                         tab->scrollOffsetY += dim.y;
@@ -4437,7 +4436,7 @@ inline uint8_t getCBFontSize(ContentBlockType cbType) {
     return 16;
 }
 
-inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
+inline Vec2 getCBVerticalMargins(ContentBlockType cbType) {
     switch (cbType) {
         case ContentBlockType::Link:
         case ContentBlockType::Paragraph: return { 4.0f, 4.0f };
@@ -4456,7 +4455,7 @@ inline glm::vec2 getCBVerticalMargins(ContentBlockType cbType) {
     }
 }
 
-SelectionData getCBTextCursor(glm::vec2 &resolution) {
+SelectionData getCBTextCursor(Vec2 &resolution) {
     ContentTab* tab = &tabs[activeTabIndex];
     uint32_t tempTabIndex = tab->cursorCBIndex;
 
@@ -4510,7 +4509,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
             float _tx1, _tx2, _ty1, _ty2, _h, _xw, _yh, advance;
             float glyphHeight, glyphWidth, bearingTop, bearingLeft;
             bool _;
-            glm::vec2 pos = glm::vec2(x, y);
+            Vec2 pos = Vec2(x, y);
 
             getCharParams(
                 characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
@@ -4567,7 +4566,7 @@ SelectionData getCBTextCursor(glm::vec2 &resolution) {
     };
 }
 
-SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::vec2 resolution) {
+SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 resolution) {
     ContentTab* tab = &tabs[activeTabIndex];
     ContentBlock* cb = &tab->contentBlocks[tab->activeCBIndex];
 
@@ -4603,7 +4602,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, glm::v
         for (uint32_t i=0; i<len; ++i) {
             const char c = r->text[i];
 
-            glm::vec2 pos = glm::vec2(x, y);
+            Vec2 pos = Vec2(x, y);
 
             prevRow = row;
             prevCol = col;
@@ -5165,7 +5164,7 @@ void updateWindowTitle() {
     glfwSetWindowTitle(window, "patram");
 }
 
-SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     float x = elem->left + BUTTON_PADDING;
     float y = elem->top + BUTTON_PADDING;
 
@@ -5256,7 +5255,7 @@ void textInputMouseDownCallback(
     UIElement* elem,
     float mouseX,
     float mouseY,
-    glm::vec2 res
+    Vec2 res
 ) {
     if (elem->textInputData == nullptr) { return; }
 
@@ -5288,7 +5287,7 @@ void tabBarMouseDownCallback(
     UIElement* elem,
     float mouseX,
     float mouseY,
-    glm::vec2 res,
+    Vec2 res,
     int glfwButton
 ) {
     float totalWidth = elem->left + tabsDisplay.totalX + 2 * TAB_BAR_HEIGHT;
@@ -5359,7 +5358,7 @@ void tabBarMouseDownCallback(
     updateWindowTitle();
 }
 
-void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     if (elem->textInputData == nullptr) { return; }
 
     #ifdef DEBUG_TEXT_SELECTION
@@ -5476,7 +5475,7 @@ void textInputMouseUpCallback(
     UIElement* elem,
     float mouseX,
     float mouseY,
-    glm::vec2 res
+    Vec2 res
 ) {
     if (elem->textInputData == nullptr) { return; }
 
@@ -5513,7 +5512,7 @@ void textInputUnselect(TextInputData * tid, string token) {
     REDRAW_UI();
 }
 
-void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     if (elem->type == UIElementType::ScrollArea || elem->type == UIElementType::ContentContainer) {
         float top, left, bottom, right, thumbStart, thumbEnd;
 
@@ -5586,7 +5585,7 @@ void scrollAreaMouseDownCallback(UIElement* elem, float mouseX, float mouseY, gl
     }
 }
 
-void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void scrollAreaMouseDragCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     if (glfwGetTime() - elem->scrollData->lastScrolled < SCROLL_DEBOUNCE_DELAY) {
         return;
     }
@@ -6807,8 +6806,8 @@ inline void renderScrollbars(UIElement* elem) {
         );
     }
 
-    glm::vec4 trackColor = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
-    glm::vec4 thumbColor = darkTheme ? SCROLL_BAR_THUMB_COLOR_DARK : SCROLL_BAR_THUMB_COLOR;
+    Color trackColor = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
+    Color thumbColor = darkTheme ? SCROLL_BAR_THUMB_COLOR_DARK : SCROLL_BAR_THUMB_COLOR;
 
     if (SCROLL_DATA->showVerticalScrollbar) {
         DRAW_RECT(SCROLL_DATA->verticalScrollBarVAO, trackColor);
@@ -6865,7 +6864,7 @@ inline void renderCBScrollbar() {
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     }
 
-    glm::vec4 color = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
+    Color color = darkTheme ? SCROLL_BAR_TRACK_COLOR_DARK : SCROLL_BAR_TRACK_COLOR;
     DRAW_RECT(tab->scrollbarVAO, color);
 
     glBindVertexArray(tab->scrollThumbVAO);
@@ -6938,7 +6937,7 @@ void updateCBCursor(ContentTab* tab, SelectionData sd) {
 }
 
 void render() {
-    glm::vec2 cursor(mouseX, mouseY);
+    Vec2 cursor(mouseX, mouseY);
     float _ = 0.0f;
 
     vector<TextVertex> uiTextLayer0;
@@ -7153,8 +7152,8 @@ void renderTextSelection(Cursor& c) {
 
 void renderElement(
     UIElement& elem,
-    glm::vec2 &resolution,
-    glm::vec2 &cursor,
+    Vec2 &resolution,
+    Vec2 &cursor,
     uint32_t childIndex,
     float& yPrev,
     vector<RectVertex>& uiRectLayer0,
@@ -7198,7 +7197,7 @@ void renderElement(
                 || elem.id == DIALOG_OVERLAY_ID
                 || elem.id == DIALOG_CONTAINER_ID
             ) {
-                glm::vec4 bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
+                Color bg = darkTheme ? TOOL_BAR_BG_DARK : TOOL_BAR_BG;
 
                 if (elem.id == EXPLORER_CONTEXT_MENU_ID || elem.id == DIALOG_CONTAINER_ID) {
                     if (grInfo.redrawUI) {
@@ -7459,9 +7458,9 @@ void renderElement(
 
                 glUseProgram(shaders[SHADER_TEXT_CURSOR]);
 
-                glm::vec4 color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
+                Color color = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
-                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.x, color.y, color.z, color.w);
+                glUniform4f(uniforms[U_TEXT_CURSOR_COLOR], color.r, color.g, color.b, color.a);
                 glUniform1f(uniforms[U_TEXT_CURSOR_TIME], TIME() - tab->lastCursorTime);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -7954,7 +7953,7 @@ void renderElement(
 
                 TextInputData* tid = elem.textInputData;
 
-                glm::vec2 pos = glm::vec2(left + TEXT_INPUT_PADDING, top + TEXT_INPUT_PADDING);
+                Vec2 pos = Vec2(left + TEXT_INPUT_PADDING, top + TEXT_INPUT_PADDING);
 
                 string text;
                 text.reserve(elem.text.length());
@@ -8252,7 +8251,7 @@ void renderElement(
                 && elem.totalChildren
             ) {
                 float _y;
-                glm::vec2 cursor = glm::vec2(mouseX, mouseY);
+                Vec2 cursor = Vec2(mouseX, mouseY);
 
                 if (grInfo.redrawUI) {
                     elem.children[0]->left = windowWidth - 2*TAB_BAR_HEIGHT;
@@ -8350,8 +8349,8 @@ void renderElement(
     }
 }
 
-inline glm::vec2 getActiveContentDimensions() {
-    return glm::vec2 {
+inline Vec2 getActiveContentDimensions() {
+    return Vec2 {
         windowWidth - SCROLL_BAR_THICKNESS - CONTENT_BLOCK_DRAGTAB_WIDTH,
         windowHeight - TAB_BAR_HEIGHT
     }; // width, height
@@ -8359,15 +8358,15 @@ inline glm::vec2 getActiveContentDimensions() {
 
 inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight) {
     if (first) {
-        cb->top = CONTENT_CONTAINER.top + getCBVerticalMargins(cb->type)[0];
+        cb->top = CONTENT_CONTAINER.top + getCBVerticalMargins(cb->type).x;
         cb->left = CONTENT_CONTAINER.left;
     } else {
         auto prev = cb - 1;
 
-        glm::vec2 prevMargins = getCBVerticalMargins((*prev).type);
-        glm::vec2 currMargins = getCBVerticalMargins((*cb).type);
+        Vec2 prevMargins = getCBVerticalMargins((*prev).type);
+        Vec2 currMargins = getCBVerticalMargins((*cb).type);
 
-        cb->top = prev->top + prev->height + prevMargins[1] + currMargins[0];
+        cb->top = prev->top + prev->height + prevMargins.x + currMargins.x;
         cb->left = prev->left;
     }
 
@@ -8388,8 +8387,8 @@ inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool 
 inline bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
-    glm::vec2 &resolution,
-    glm::vec2 &cursor,
+    Vec2 &resolution,
+    Vec2 &cursor,
     uint32_t index,
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& extraTextVertices,
@@ -8421,7 +8420,7 @@ inline bool renderContentBlock(
     bool isActive = tab->cursorCBIndex == index;
     bool isCodeStart = false;
 
-    glm::vec2 pos = glm::vec2(left, top);
+    Vec2 pos = Vec2(left, top);
     uint32_t textColorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
     if (grInfo.redraw) {
@@ -8951,14 +8950,14 @@ void renderCBTextSelection(ContentTab* tab) {
 
     glUniform1f(uniforms[U_TEXT_HL_SCROLL_OFFSET_Y], tab->scrollOffsetY);
 
-    glm::vec4 textSelColor = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
+    Color textSelColor = darkTheme ? CURSOR_COLOR_DARK : CURSOR_COLOR;
 
     glUniform4f(uniforms[U_TEXT_HL_COLOR], textSelColor.r, textSelColor.g, textSelColor.b, 0.25f);
 
     glDrawArrays(GL_TRIANGLES, 0, tab->selVertexCount/2);
 }
 
-void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     #ifdef DEBUG_CONTENT_BLOCKS
         cout << "\nDEBUG: Mouse down on content block!";
     #endif
@@ -9007,7 +9006,7 @@ void contentBlockMouseDownCallback(UIElement* elem, float mouseX, float mouseY, 
     updateCBCursor(CURRENT_TAB, sd);
 }
 
-void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, glm::vec2 res) {
+void contentBlockMouseUpCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
     ContentTab* tab = &tabs[activeTabIndex];
 
     SelectionData sd = getCBTextCursorFromScreenCoords(mouseX, mouseY, res);
@@ -9093,7 +9092,7 @@ void renderCBMoveMarker() {
             cbMove.updated = false;
         }
 
-        glm::vec4 color = RED;
+        Color color = RED;
         DRAW_RECT(cbMove.vao, color);
     }
 
@@ -11741,7 +11740,7 @@ void renderBounds(Bounds b) {
     glBindBuffer(GL_ARRAY_BUFFER, boundsVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     glUseProgram(shaders[SHADER_DEFAULT]);
-    glm::vec4 color = RED;
+    Color color = RED;
     glUniform4f(uniforms[U_DEFAULT_COLOR], color.r, color.g, color.b, 1.0f);
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 }
