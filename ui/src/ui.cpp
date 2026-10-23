@@ -8505,6 +8505,7 @@ inline bool renderContentBlock(
                             tab->cursorCBIndex < bounds.start
                             || tab->cursorCBIndex > bounds.end
                         )
+                        && bounds.end != 0
                     ) {
                         cout << "\nFound bounds: { start: " << bounds.start
                             << ", end: " << bounds.end << " }";
@@ -8515,18 +8516,10 @@ inline bool renderContentBlock(
                             languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
                         }
 
-                        uint32_t length;
-
-                        if (bounds.end == 0) {
-                            length = tab->contentBlocks.size() - tab->cursorCBIndex;
-                        } else {
-                            length = bounds.end - bounds.start + 1;
-                        }
-
-                        float height = static_cast<float>(length)
-                            * LINE_HEIGHT(getCBFontSize(
-                                ContentBlockType::Code
-                            ));
+                        float height = static_cast<float>(bounds.end - bounds.start + 1)
+                            * LINE_HEIGHT(
+                                getCBFontSize(ContentBlockType::Code)
+                            );
 
                         addRectangle(
                             left,
@@ -8558,6 +8551,8 @@ inline bool renderContentBlock(
                                 extraTextVertices
                             );
                         }
+                    } else {
+                        renderRope = true;
                     }
                 // }
                 break;

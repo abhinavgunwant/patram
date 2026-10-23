@@ -207,30 +207,50 @@ void MarkdownParser::parseStrikethrough() {
 }
 
 void MarkdownParser::parseCode() {
-    uint32_t indexBefore = rci.index();
+    uint32_t beginIndex = rci.index();
 
-    if (!match('`')) { return; }
+    uint32_t index = beginIndex;
 
-    uint32_t index = rci.index();
+    while (match(' ') || match('\t')) {
+        ++index;
+    }
+
+    if (!(match('`') && match('`') && match('`'))) {
+        rci.setIndex(beginIndex);
+        parseNormalText();
+        return;
+    }
+
     uint32_t length = 0;
+    uint32_t tickCount = 0;
+    bool foundTick = false;
+
+    cbType = ContentBlockType::Code;
+    startIndex = index + 3;
 
     while (!isAtEnd()) {
         if (match('`')) {
-            fragments.push_back({
-                MarkdownFragmentType::Code,
-                { index, length },
-            });
-            return;
+            ++tickCount;
+
+            if (foundTick && tickCount == 3) {
+                break;
+            }
+
+            foundTick = true;
+        } else if (!foundTick) {
+            ++length;
+        } else if (foundTick) {
+            foundTick = false;
+            length += tickCount;
+            tickCount = 0;
         }
 
         advance();
-
-        ++length;
     }
 
     fragments.push_back({
         MarkdownFragmentType::Code,
-        { index, length },
+        { index + 3, length },
     });
 }
 
