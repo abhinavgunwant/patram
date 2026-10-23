@@ -57,7 +57,7 @@
 #define ROOT_BG                     Color { 1.0, 1.0, 1.0, 1.0 }
 #define TOOL_BAR_BG                 Color { 0.93, 0.84, 0.85, 1.0 }
 
-#define TEXT_INPUT_BG               Color { 1.0, 1.0, 1.0, 1.0 }
+#define TEXT_INPUT_BG               Color { 1.0, 0.8, 0.8, 1.0 }
 #define TEXT_INPUT_HOVER_BG         Color { 0.8, 0.7, 0.71, 1.0 }
 
 #define ICON_BUTTON_BG              Color { 0.93, 0.84, 0.85, 1.0 }
