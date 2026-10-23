@@ -680,7 +680,6 @@ struct GlobalRenderInfo {
     uint8_t activeLayer;
 
     RenderInfo text;
-    RenderInfo extraText;
     RenderInfo uiTextLayer0;
     RenderInfo uiTextLayer1;
     RenderInfo uiRectLayer0;
@@ -988,7 +987,6 @@ bool renderContentBlock(
     uint32_t index,
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& textVertices,
-    vector<TextVertex>& cbTextVertices,
     vector<RectVertex>& rva
 );
 inline void renderContentBlockHighlight(vector<TextVertex>& iconVerts, vector<RectVertex>& rv);

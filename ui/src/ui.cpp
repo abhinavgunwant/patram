@@ -2490,10 +2490,6 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     grInfo.uiIconLayer.numVertices = 60;
     grInfo.uiIconLayer.bufferSize = sizeof(textVertices_10);
 
-    SETUP_BUFFERS_TEXT(grInfo.extraText.vao, grInfo.extraText.vbo, textVertices_100);
-    grInfo.extraText.numVertices = 600;
-    grInfo.extraText.bufferSize = sizeof(textVertices_100);
-
     glGenVertexArrays(1, &grInfo.image.vao);
     glBindVertexArray(grInfo.image.vao);
     glGenBuffers(1, &grInfo.image.vbo);
@@ -7326,13 +7322,11 @@ void renderElement(
             }
 
             vector<TextVertex> iconVertices;
-            vector<TextVertex> extraTextVertices;
             vector<TextVertex> textVertices;
             vector<RectVertex> rva;
 
             if (grInfo.redraw) {
                 iconVertices.reserve(grInfo.icon.bufferSize > 9600 ? grInfo.icon.bufferSize : 9600);
-                extraTextVertices.reserve(grInfo.extraText.bufferSize > 9600 ? grInfo.extraText.bufferSize : 9600);
                 textVertices.reserve(grInfo.text.numVertices);
                 rva.reserve(grInfo.rect.numVertices);
                 cbImageLoader.renderQueue.clear();
@@ -7356,7 +7350,7 @@ void renderElement(
             ) {
                 if (renderContentBlock(
                     tab, itr, resolution, cursor, i,
-                    iconVertices, extraTextVertices, textVertices, rva
+                    iconVertices, textVertices, rva
                 )) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
@@ -7381,16 +7375,6 @@ void renderElement(
                 1.0f,
                 grInfo.redraw,
                 iconTextureID
-            );
-
-            drawTextBuffers(
-                grInfo.extraText.vao,
-                grInfo.extraText.vbo,
-                grInfo.extraText.bufferSize,
-                grInfo.extraText.numVertices,
-                extraTextVertices,
-                1.0f,
-                grInfo.redraw
             );
 
             drawTextBuffers(
@@ -8391,7 +8375,6 @@ inline bool renderContentBlock(
     Vec2 &cursor,
     uint32_t index,
     vector<TextVertex>& iconVertices,
-    vector<TextVertex>& extraTextVertices,
     vector<TextVertex>& textVertices,
     vector<RectVertex>& rva
 ) {
@@ -8455,7 +8438,7 @@ inline bool renderContentBlock(
             case ContentBlockType::Numbering:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
-                        extraTextVertices, CHAR_EMPTY, 0, 0, 0, 0,
+                        textVertices, CHAR_EMPTY, 0, 0, 0, 0,
                         lightTextIndex
                     );
                 } else {
@@ -8464,7 +8447,7 @@ inline bool renderContentBlock(
                     appendTextVertices(
                         left, top, cb->rope->substring(0, md.startIndex), 0,
                         lightTextIndex, getCBFontSize(cb->type),
-                        extraTextVertices
+                        textVertices
                     );
                 }
                 // TODO: Check for the maximum width of the number characters.
@@ -8548,7 +8531,7 @@ inline bool renderContentBlock(
                                 0,
                                 lightTextIndex,
                                 getCBFontSize(cb->type),
-                                extraTextVertices
+                                textVertices
                             );
                         }
                     } else {
