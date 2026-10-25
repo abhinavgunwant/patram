@@ -26,4 +26,5 @@ patram.rad
 *.CoreCompileInputs.cache
 *.BindTracking-neutral.txt
 wix/obj/*
+*.nsi
 
