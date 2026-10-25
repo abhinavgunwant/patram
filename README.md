@@ -1,6 +1,6 @@
 # patram
 
-Simple secure note-taking app.
+Simple note-taking app.
 
 This project is a Work-in-progress!
 
