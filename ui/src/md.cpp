@@ -118,8 +118,6 @@ void MarkdownParser::parseBullets() {
     } else {
         rci.setIndex(index);
     }
-
-    parseNormalText();
 }
 
 void MarkdownParser::parseBold() {
@@ -131,15 +129,16 @@ void MarkdownParser::parseBold() {
         startIndex = 0;
     }
 
+    /*
     bool foundAsterisk = false;
     bool foundSpace = false;
     bool prevChar = false;
     bool prevCharAsterisk = false;
     uint32_t asteriskCount = 0;
+    */
 
     if (!(match('*') && match('*'))) {
         rci.setIndex(initialIndex);
-        parseNormalText();
         return;
     }
 
@@ -152,8 +151,23 @@ void MarkdownParser::parseBold() {
     uint32_t length = 0;
 
     while (!isAtEnd()) {
-        if (match('*') && peek() == '*') {
-            break;
+        if (peek() == '*') {
+            if (peekNext() == '*') {
+                advance();
+                break;
+            }
+
+            fragments.push_back({
+                MarkdownFragmentType::Bold, { index, length }
+            });
+
+            parseItalics();
+
+            advance();
+
+            index = rci.index();
+            length = 0;
+            continue;
         }
 
         advance();
@@ -229,11 +243,56 @@ void MarkdownParser::parseBold() {
     }
     */
 
-    fragments.push_back({ MarkdownFragmentType::Bold, { index, length } });
+    if (length) {
+        fragments.push_back({ MarkdownFragmentType::Bold, { index, length } });
+    }
 }
 
 void MarkdownParser::parseItalics() {
+    uint32_t initialIndex = rci.index();
+    uint32_t index = initialIndex;
+    std::stack<uint32_t> asteriskStack;
+
+    if (initialIndex == 0) {
+        startIndex = 0;
+    }
+
+    if (!match('*')) {
+        rci.setIndex(initialIndex);
+        return;
+    }
+
+    ++index;
+
+    uint32_t length = 0;
+
     while (!isAtEnd()) {
+        if (peek() == '*') {
+            if (peekNext() != '*') {
+                break;
+            }
+
+            fragments.push_back({
+                MarkdownFragmentType::Italic, { index, length }
+            });
+
+            parseBold();
+
+            advance();
+
+            index = rci.index();
+            length = 0;
+            continue;
+        }
+
+        advance();
+        ++length;
+    }
+
+    if (length) {
+        fragments.push_back({
+            MarkdownFragmentType::Italic, { index, length }
+        });
     }
 }
 
@@ -500,10 +559,10 @@ Markdown MarkdownParser::parse() {
 
                 if (peekNext() == '*') {
                     parseBold();
-                } else if (_start && peekNext() != '*') {
+                } else if (_start && (peekNext() == ' ' || peekNext() == '\t')) {
                     parseBullets();
                 } else {
-                    parseNormalText();
+                    parseItalics();
                 }
                 _start = false;
                 break;
