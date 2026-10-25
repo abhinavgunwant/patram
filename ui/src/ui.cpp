@@ -33,7 +33,6 @@
 #include "logger.hpp"
 #include "../lib/stb_image.h"
 #include "../lib/stb_image_resize2.h"
-#include "md.hpp"
 
 #define TIME() static_cast<float>(glfwGetTime())
 #define LAST_IN_LIST(item) while (item->next != nullptr) { item = item->next; }
@@ -792,7 +791,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                     Markdown md = mp.parse();
 
                     if (
-                        md.cbType == ContentBlockType::Link && !md.fragments.empty()
+                        (ContentBlockType)md.cbType == ContentBlockType::Link && !md.fragments.empty()
                         && md.fragments[0].fragType == MarkdownFragmentType::Link
                     ) {
                         string url = cb.rope->substring(md.fragments[0].imgOrLink.url);
@@ -1268,7 +1267,7 @@ void cursorPosCallback(GLFWwindow * window, double xpos, double ypos) {
             Markdown md = mp.parse();
 
             if (
-                md.cbType == ContentBlockType::Link && !md.fragments.empty()
+                (ContentBlockType)md.cbType == ContentBlockType::Link && !md.fragments.empty()
                 && md.fragments[0].fragType == MarkdownFragmentType::Link
             ) {
                 string url = cb.rope->substring(md.fragments[0].imgOrLink.url);
@@ -4526,6 +4525,7 @@ SelectionData getCBTextCursor(Vec2 &resolution) {
                 bearingTop,
                 bearingLeft,
                 advance,
+                contentLeft,
                 contentRight,
                 row,
                 fontSize,
@@ -4623,6 +4623,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
                 bearingTop,
                 bearingLeft,
                 advance,
+                contentLeft,
                 contentRight,
                 row,
                 fontSize,
@@ -4816,6 +4817,7 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
                 bearingTop,
                 bearingLeft,
                 advance,
+                contentLeft,
                 contentRight,
                 row,
                 fontSize,
@@ -5228,6 +5230,7 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
             bearingTop,
             bearingLeft,
             advance,
+            contentLeft,
             contentRight,
             row,
             elem->fontSize,
@@ -8368,6 +8371,101 @@ inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool 
     }
 }
 
+inline ContentFragmentRenderResult renderContentFragment(
+    float& x,
+    float& y,
+    MarkdownFragment fragment,
+    ContentBlock cb,
+    vector<TextVertex>& iconVertices,
+    vector<TextVertex>& textVertices,
+    vector<RectVertex>& rva
+) {
+    RopeRenderResult rrr;
+
+    float lineHeight = static_cast<float>(getCBFontSize(cb.type)) * (1.0f - glyphDescender);
+
+    switch (fragment.fragType) {
+        case MarkdownFragmentType::Normal:
+            // cout << "\nRendering normal text: '" << cb.rope->substring(fragment.text) << "'";
+
+            rrr = appendRopeVertices(
+                x, y,
+                cb.rope,
+                CHARACTER_REGULAR,
+                fragment.text.startIndex, fragment.text.length,
+                getCBFontSize(cb.type),
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                textVertices
+            );
+
+            x = rrr.endX;
+
+            if (rrr.rows > 1) {
+                y = rrr.endY;
+            }
+
+            return { rrr.x, rrr.y, rrr.width, rrr.height, rrr.rows };
+
+        case MarkdownFragmentType::Bold:
+            // cout << "\nRendering bold text: '" << cb.rope->substring(fragment.text);
+
+            rrr = appendRopeVertices(
+                x, y,
+                cb.rope,
+                CHARACTER_BOLD,
+                fragment.text.startIndex, fragment.text.length,
+                getCBFontSize(cb.type),
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                textVertices
+            );
+
+            // cout << "', endX: " << rrr.endX;
+            x = rrr.endX;
+
+            if (rrr.rows > 1) {
+                y = rrr.endY;
+            }
+
+            return { rrr.x, rrr.y, rrr.width, rrr.height, rrr.rows };
+
+        case MarkdownFragmentType::Italic:
+            rrr = appendRopeVertices(
+                x, y,
+                cb.rope,
+                CHARACTER_ITALIC,
+                fragment.text.startIndex, fragment.text.length,
+                getCBFontSize(cb.type),
+                darkTheme ? WHITE_INDEX : BLACK_INDEX,
+                textVertices
+            );
+
+            x = rrr.endX;
+
+            if (rrr.rows > 1) {
+                y = rrr.endY;
+            }
+
+            return { rrr.x, rrr.y, rrr.width, rrr.height, rrr.rows };
+
+        case MarkdownFragmentType::Underline:
+            break;
+
+        case MarkdownFragmentType::Strikethrough:
+            break;
+
+        case MarkdownFragmentType::Link:
+            break;
+
+        case MarkdownFragmentType::Code:
+            break;
+
+        case MarkdownFragmentType::Image:
+            break;
+    }
+
+    return { 0 };
+}
+
 inline bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
@@ -8403,7 +8501,8 @@ inline bool renderContentBlock(
     bool isActive = tab->cursorCBIndex == index;
     bool isCodeStart = false;
 
-    Vec2 pos = Vec2(left, top);
+    float x = contentLeft;
+    float y = top;
     uint32_t textColorIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
 
     if (grInfo.redraw) {
@@ -8411,7 +8510,7 @@ inline bool renderContentBlock(
         Markdown md = parser.parse();
 
         if (index && cb->type != ContentBlockType::Code) {
-            cb->type = md.cbType;
+            cb->type = (ContentBlockType)md.cbType;
             cb->startIndex = md.startIndex;
         }
 
@@ -8419,6 +8518,7 @@ inline bool renderContentBlock(
         uint32_t lightTextIndex = darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX;
 
         switch (cb->type) {
+            case ContentBlockType::Paragraph: renderRope = isActive; break;
             case ContentBlockType::Bullet:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
@@ -8426,7 +8526,7 @@ inline bool renderContentBlock(
                         lightTextIndex
                     );
                 } else {
-                    pos.x += 16.0f;
+                    x += 16.0f;
 
                     PUSH_ICON_VERTICES(
                         iconVertices, icons[ICON_BULLET_CIRCLE], left + 4.0f, top + 8.0f,
@@ -8442,7 +8542,7 @@ inline bool renderContentBlock(
                         lightTextIndex
                     );
                 } else {
-                    pos.x += 16.0f;
+                    x += 16.0f;
 
                     appendTextVertices(
                         left, top, cb->rope->substring(0, md.startIndex), 0,
@@ -8477,7 +8577,7 @@ inline bool renderContentBlock(
                         }
                     }
 
-                    pos.x += 8.0f;
+                    x += 8.0f;
                 }
 
                 // if (isActive) {
@@ -8495,7 +8595,7 @@ inline bool renderContentBlock(
 
                         string languageText;
 
-                        if (md.cbType == ContentBlockType::Code) {
+                        if ((ContentBlockType)md.cbType == ContentBlockType::Code) {
                             languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
                         }
 
@@ -8594,8 +8694,8 @@ inline bool renderContentBlock(
                         uint32_t colorIndex = darkTheme ? LINK_COLOR_DARK_INDEX : LINK_COLOR_INDEX;
 
                         RopeRenderResult r = appendTextVertices(
-                            pos.x,
-                            pos.y,
+                            x,
+                            y,
                             cb->rope->substring(md.fragments[0].imgOrLink.text),
                             0,
                             colorIndex,
@@ -8604,7 +8704,7 @@ inline bool renderContentBlock(
                         );
 
                         gmei.bounds.push_back(Bounds {
-                            pos.x, pos.y, pos.x + r.width, pos.y + r.height, 0,
+                            x, y, x + r.width, y + r.height, 0,
                             BoundSourceType::Link, true, true,
                             { .cb = { .tabIndex = activeTabIndex, .index = index } },
                         });
@@ -8616,11 +8716,11 @@ inline bool renderContentBlock(
 
         if (renderRope) {
             RopeRenderResult res = appendRopeVertices(
-                pos.x,
-                pos.y,
+                x, y,
                 cb->rope,
                 0,
                 isActive ? 0 : cb->startIndex,
+                isActive ? cb->rope->length() : cb->rope->length() - cb->startIndex,
                 getCBFontSize(cb->type),
                 textColorIndex,
                 textVertices
@@ -8632,6 +8732,31 @@ inline bool renderContentBlock(
                 res.height;
 
             cb->rows = res.rows;
+        } else {
+            float height = 0;
+            uint32_t rows = 0;
+            float lineHeight = static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender);
+
+            for (MarkdownFragment frag: md.fragments) {
+                ContentFragmentRenderResult res = renderContentFragment(
+                    x, y, frag, *cb, iconVertices, textVertices, rva
+                );
+
+                if (height == 0) {
+                    height = res.height;
+                } else if (res.rows > 1) {
+                    height += res.height - lineHeight;
+                }
+
+                if (rows == 0) {
+                    rows = res.rows;
+                } else if (res.rows > 1) {
+                    rows += res.rows - 1;
+                }
+            }
+
+            cb->height = height;
+            cb->rows = rows;
         }
     // } else {
         // if (cb->type == ContentBlockType::Code && !isActive) {
@@ -10072,7 +10197,7 @@ bool processCBTypeCommand(
             Markdown md = parser.parse();
 
             if (
-                cb->type != ContentBlockType::Code && md.cbType == ContentBlockType::Code
+                cb->type != ContentBlockType::Code && (ContentBlockType) md.cbType == ContentBlockType::Code
                 || cb->type == ContentBlockType::Code && cmd->str == "`"
                     && containsCodeBlockBound(cb->rope)
             ) {

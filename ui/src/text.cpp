@@ -212,7 +212,7 @@ void initGlyph(
     charcode = FT_Get_First_Char(face, &id);
 
     if (glyphDescender == 0.0f && variantIndex == 0) {
-        glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / 48;
+        glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / DEFAULT_FONT_SIZE;
     }
 
     while (id != 0) {
@@ -233,7 +233,7 @@ void initGlyph(
             static_cast<uint8_t>(height),
             static_cast<int8_t>(face->glyph->bitmap_left),
             static_cast<uint8_t>(face->glyph->bitmap_top),
-            static_cast<uint16_t>(face->glyph->advance.x),
+            static_cast<float>(face->glyph->advance.x * 0.015625), // divide by 64
             0.0f,
             0.0f,
             0.0f,
@@ -413,6 +413,7 @@ inline bool getCharParams(
     float& bearingTop,
     float& bearingLeft,
     float& advance,
+    float leftBound,
     float rightBound,
     uint32_t& rows,
     uint8_t fontSize,
@@ -453,7 +454,7 @@ inline bool getCharParams(
         }
 
         yNet += static_cast<float>(fontSize) * (1.0f - glyphDescender);
-        xpos = x;
+        xpos = leftBound;
         rows++;
 
         if (yNet > windowHeight) {
@@ -463,16 +464,12 @@ inline bool getCharParams(
 
     ypos = yNet + glyphHeight - bearingTop + fontSize;
 
-    if (glyphDescender < 0) {
-        height = ypos - y - (glyphDescender * fontSize);
-    } else {
-        height = ypos - y;
-    }
+    height = ypos - y - (glyphDescender * fontSize);
 
     xpos_plus_w = xpos + glyphWidth;
     ypos_plus_h = ypos - glyphHeight;
 
-    advance = (static_cast<uint32_t>(c.advance * fontHeightRatio) >> 6) - bearingLeft;
+    advance = c.advance * fontHeightRatio - bearingLeft;
 
     texX1 = c.textureX1;
     texX2 = c.textureX2;
@@ -524,7 +521,7 @@ RopeRenderResult getTextDimensions(
     string str, float x, float y, uint8_t variant, uint8_t fontSize,
     float parentLeft, float parentWidth, bool breakLine
 ) {
-    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
+    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0.0f, 0.0f, 0, true };
 
     float xpos = x;
     float ypos = 0.0f;
@@ -559,6 +556,7 @@ RopeRenderResult getTextDimensions(
             bearingTop,
             bearingLeft,
             advance,
+            parentLeft,
             parentLeft + parentWidth,
             result.rows,
             fontSize,
@@ -622,6 +620,7 @@ TextRenderResult getInputTextDimensions(
             bearingTop,
             bearingLeft,
             advance,
+            parentLeft,
             parentLeft + parentWidth,
             result.rows,
             fontSize,
@@ -708,6 +707,7 @@ float appendCharVertices(
         bearingTop,
         bearingLeft,
         advance,
+        0,
         infinity,
         rows,
         16,
@@ -764,6 +764,7 @@ RopeRenderResult appendTextVertices(
             bearingTop,
             bearingLeft,
             advance,
+            0,
             infinity,
             rows,
             fontSize,
@@ -782,7 +783,7 @@ RopeRenderResult appendTextVertices(
         xpos += advance;
     }
 
-    return { x, y, totalHeight, xpos - x, rows, renderNextContentBlock };
+    return { x, y, totalHeight, xpos - x, xpos, ypos, rows, renderNextContentBlock };
 }
 
 RopeRenderResult appendRopeVertices(
@@ -791,18 +792,20 @@ RopeRenderResult appendRopeVertices(
     Rope* rope,
     uint8_t variant,
     uint32_t startIndex,
+    uint32_t length,
     uint8_t fontSize,
     uint32_t colorIndex,
     vector<TextVertex>& vertices
 ) {
-    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0, true };
+    RopeRenderResult result = RopeRenderResult { x, y, 0.0f, 0.0f, 0.0f, 0.0f, 0, true };
 
-    float xpos = x, ypos = x, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
+    float xpos = x, ypos = y, yNet = y, xpos_plus_w, ypos_plus_h, texX1, texX2, texY1, texY2,
         glyphHeight, glyphWidth, bearingTop, bearingLeft, advance = 0;
 
     RopeTraverser rt(rope);
 
     uint32_t i = 0;
+    uint32_t appendedLength = 0;
 
     while (rt.hasNext()) {
         Rope* node = rt.next();
@@ -832,11 +835,14 @@ RopeRenderResult appendRopeVertices(
                 bearingTop,
                 bearingLeft,
                 advance,
+                contentLeft,
                 contentRight,
                 result.rows,
                 fontSize,
                 result.renderNextContentBlock
             );
+
+            ++appendedLength;
 
             if (c != ' ') {
                 vertices.insert(vertices.end(), {
@@ -850,11 +856,23 @@ RopeRenderResult appendRopeVertices(
             }
 
             xpos += advance;
+
+            if (appendedLength == length) {
+                break;
+            }
         }
     }
 
-    result.width = x;
     ++result.rows;
+
+    if (result.rows == 1) {
+        result.width = xpos - x;
+    } else if (result.rows > 1) {
+        result.width = contentRight - contentLeft;
+    }
+
+    result.endX = xpos;
+    result.endY = yNet;
 
     return result;
 }

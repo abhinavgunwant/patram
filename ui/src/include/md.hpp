@@ -2,7 +2,7 @@
 #define PATRAM_UI_MD
 
 #include <vector>
-#include "ui.hpp"
+#include "rope.hpp"
 
 enum class MarkdownFragmentType: uint8_t {
     Normal,
@@ -35,7 +35,7 @@ struct MarkdownFragment {
 };
 
 struct Markdown {
-    ContentBlockType cbType;
+    uint8_t cbType;
     uint32_t startIndex;
     uint16_t columns;
     uint32_t rows;
@@ -50,7 +50,7 @@ class MarkdownParser {
     char current;
     bool start;
     bool error;
-    ContentBlockType cbType;
+    uint8_t cbType;
     uint32_t startIndex;
 
     char peek();
@@ -58,6 +58,7 @@ class MarkdownParser {
     bool match(char c);
     bool isAtEnd();
     void advance();
+    void pushNormalFragment(uint32_t index, uint32_t length);
 
     void parseHeading();
     void parseTableRow();

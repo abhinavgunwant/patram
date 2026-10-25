@@ -71,8 +71,7 @@ struct Glyph {
     uint8_t height;
     int8_t bearingLeft;
     uint8_t bearingTop;
-    uint16_t advance;   // Horizontal offset to advance to next glyph
-
+    float advance;
     float textureX1;
     float textureY1;
     float textureX2;
@@ -107,6 +106,8 @@ struct RopeRenderResult {
     float y;
     float height;
     float width;
+    float endX;
+    float endY;
     uint32_t rows;
     bool renderNextContentBlock;
 };
@@ -146,6 +147,7 @@ inline bool getCharParams(
     float& bearingTop,
     float& bearingLeft,
     float& advance,
+    float leftBound,
     float rightBound,
     uint32_t& rows,
     uint8_t fontSize,
@@ -198,6 +200,7 @@ RopeRenderResult appendRopeVertices(
     Rope *rope,
     uint8_t variant,
     uint32_t startIndex,
+    uint32_t length,
     uint8_t fontSize,
     uint32_t colorIndex,
     vector<TextVertex>& vertices

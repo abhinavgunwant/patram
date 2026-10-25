@@ -4,6 +4,7 @@
 #include "test.hpp"
 #include "include/md.hpp"
 #include "include/rope.hpp"
+#include "include/ui.hpp"
 
 using namespace std;
 
@@ -34,12 +35,12 @@ TEST_START(cbType, "Content Block Type Test")
     Markdown md5 = parser5.parse();
     Markdown md6 = parser6.parse();
 
-    ContentBlockType cbType1 = md1.cbType;
-    ContentBlockType cbType2 = md2.cbType;
-    ContentBlockType cbType3 = md3.cbType;
-    ContentBlockType cbType4 = md4.cbType;
-    ContentBlockType cbType5 = md5.cbType;
-    ContentBlockType cbType6 = md6.cbType;
+    ContentBlockType cbType1 = (ContentBlockType)md1.cbType;
+    ContentBlockType cbType2 = (ContentBlockType)md2.cbType;
+    ContentBlockType cbType3 = (ContentBlockType)md3.cbType;
+    ContentBlockType cbType4 = (ContentBlockType)md4.cbType;
+    ContentBlockType cbType5 = (ContentBlockType)md5.cbType;
+    ContentBlockType cbType6 = (ContentBlockType)md6.cbType;
     // ContentBlockType cbTypeCode = getCBType(testCodeBlock);
     // ContentBlockType cbTypeBullet = getCBType(testBullet);
     // ContentBlockType cbTypeNumbering = getCBType(testNumbering);

@@ -1,6 +1,7 @@
 #include "include/md.hpp"
 #include <cctype>
 #include <stack>
+#include "include/ui.hpp"
 
 bool containsCodeBlockBound(Rope* rope) {
     uint32_t consecutiveTickCount = 0;
@@ -71,6 +72,10 @@ void MarkdownParser::advance() {
     error = true;
 }
 
+inline void MarkdownParser::pushNormalFragment(uint32_t index, uint32_t length) {
+    fragments.push_back({ MarkdownFragmentType::Normal, { index, length } });
+}
+
 void MarkdownParser::parseHeading() {
     uint32_t hashes = 0;
 
@@ -84,12 +89,12 @@ void MarkdownParser::parseHeading() {
 
     if (match(' ')) {
         switch (hashes) {
-            case 1: cbType = ContentBlockType::Heading1; break;
-            case 2: cbType = ContentBlockType::Heading2; break;
-            case 3: cbType = ContentBlockType::Heading3; break;
-            case 4: cbType = ContentBlockType::Heading4; break;
-            case 5: cbType = ContentBlockType::Heading5; break;
-            case 6: cbType = ContentBlockType::Heading6; break;
+            case 1: cbType = static_cast<uint8_t>(ContentBlockType::Heading1); break;
+            case 2: cbType = static_cast<uint8_t>(ContentBlockType::Heading2); break;
+            case 3: cbType = static_cast<uint8_t>(ContentBlockType::Heading3); break;
+            case 4: cbType = static_cast<uint8_t>(ContentBlockType::Heading4); break;
+            case 5: cbType = static_cast<uint8_t>(ContentBlockType::Heading5); break;
+            case 6: cbType = static_cast<uint8_t>(ContentBlockType::Heading6); break;
         }
 
         if (hashes > 0 && hashes < 7) {
@@ -109,7 +114,7 @@ void MarkdownParser::parseBullets() {
 
     if ((match('-') || match('*')) && match(' ')) {
         startIndex = rci.index();
-        cbType = ContentBlockType::Bullet;
+        cbType = static_cast<uint8_t>(ContentBlockType::Bullet);
     } else {
         rci.setIndex(index);
     }
@@ -122,12 +127,40 @@ void MarkdownParser::parseBold() {
     uint32_t index = initialIndex;
     std::stack<uint32_t> asteriskStack;
 
+    if (initialIndex == 0) {
+        startIndex = 0;
+    }
+
     bool foundAsterisk = false;
     bool foundSpace = false;
     bool prevChar = false;
     bool prevCharAsterisk = false;
     uint32_t asteriskCount = 0;
 
+    if (!(match('*') && match('*'))) {
+        rci.setIndex(initialIndex);
+        parseNormalText();
+        return;
+    }
+
+    index += 2;
+
+    if (startIndex == 0) {
+        startIndex = 2;
+    }
+
+    uint32_t length = 0;
+
+    while (!isAtEnd()) {
+        if (match('*') && peek() == '*') {
+            break;
+        }
+
+        advance();
+        ++length;
+    }
+
+    /*
     while (!isAtEnd()) {
         if (match('*')) {
             if (!foundAsterisk) {
@@ -194,6 +227,9 @@ void MarkdownParser::parseBold() {
     for (uint32_t i=0; i<asteriskCount; ++i) {
         asteriskStack.push(i + index);
     }
+    */
+
+    fragments.push_back({ MarkdownFragmentType::Bold, { index, length } });
 }
 
 void MarkdownParser::parseItalics() {
@@ -225,7 +261,7 @@ void MarkdownParser::parseCode() {
     uint32_t tickCount = 0;
     bool foundTick = false;
 
-    cbType = ContentBlockType::Code;
+    cbType = static_cast<uint8_t>(ContentBlockType::Code);
     startIndex = index + 3;
 
     while (!isAtEnd()) {
@@ -304,7 +340,7 @@ void MarkdownParser::parseImage() {
         return;
     }
 
-    cbType = ContentBlockType::Image;
+    cbType = static_cast<uint8_t>(ContentBlockType::Image);
 
     fragments.push_back({
         .fragType = MarkdownFragmentType::Image,
@@ -368,7 +404,7 @@ void MarkdownParser::parseLink() {
         return;
     }
 
-    cbType = ContentBlockType::Link;
+    cbType = static_cast<uint8_t>(ContentBlockType::Link);
 
     fragments.push_back({
         .fragType = MarkdownFragmentType::Link,
@@ -387,27 +423,33 @@ void MarkdownParser::parseLink() {
 
 void MarkdownParser::parseNormalText() {
     uint32_t length = 0;
+    uint32_t index = 0;
 
-    if (rci.index() == 0) { startIndex = 0; }
+    if (rci.index() == 0) { startIndex = 0; } else {
+        index = rci.index();
+    }
 
     while (!isAtEnd()) {
         advance();
         ++length;
     }
 
-    fragments.push_back({ MarkdownFragmentType::Normal, { startIndex, length } });
+    fragments.push_back({ MarkdownFragmentType::Normal, { index, length } });
 }
 
 Markdown MarkdownParser::parse() {
-    cbType = ContentBlockType::Paragraph;
+    cbType = static_cast<uint8_t>(ContentBlockType::Paragraph);
     bool _start = true;
+    bool parsingNormalText = false;
 
     uint32_t hashes = 0;
     uint32_t dashes = 0;
     uint32_t indent = 0;
     uint32_t spaces = 0;
-
     uint32_t count = 0;
+
+    uint32_t normalTextIndex = 0;
+    uint32_t normalTextLength = 0;
 
     while (!isAtEnd()) {
         if (_start && isspace(peek())) {
@@ -422,8 +464,12 @@ Markdown MarkdownParser::parse() {
         }
 
         switch (peek()) {
-            cout << "\nscanning: " << peek();
             case '#':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
                 if (_start) {
                     parseHeading();
                 } else {
@@ -433,6 +479,11 @@ Markdown MarkdownParser::parse() {
                 break;
 
             case '-':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
                 if (_start && isspace(peekNext())) {
                     parseBullets();
                 } else {
@@ -442,29 +493,77 @@ Markdown MarkdownParser::parse() {
                 break;
 
             case '*':
-                if (_start && peekNext() != '*') {
-                    _start = false;
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
+                if (peekNext() == '*') {
+                    parseBold();
+                } else if (_start && peekNext() != '*') {
                     parseBullets();
                 } else {
                     parseNormalText();
                 }
+                _start = false;
                 break;
 
-            case '~': parseStrikethrough(); break;
-            case '`': parseCode(); break;
+            case '~':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
+                parseStrikethrough();
+                break;
+
+            case '`':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
+                parseCode();
+                break;
+
             case '!':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
                 if (peekNext() == '[') {
                     parseImage();
                 } else {
                     parseNormalText();
                 }
                 break;
+
             case '[':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
                 parseLink();
-            case '|': parseTableRow(); break;
+            case '|':
+                if (parsingNormalText) {
+                    pushNormalFragment(normalTextIndex, normalTextLength);
+                    parsingNormalText = false;
+                }
+
+                parseTableRow();
+                break;
             default:
+                if (!parsingNormalText) {
+                    parsingNormalText = true;
+                    normalTextIndex = rci.index();
+                    normalTextLength = 1;
+                } else {
+                    ++normalTextLength;
+                }
+
                 _start = false;
-                parseNormalText();
         }
 
         count++;
@@ -474,6 +573,10 @@ Markdown MarkdownParser::parse() {
         }
 
         advance();
+    }
+
+    if (parsingNormalText) {
+        pushNormalFragment(normalTextIndex, normalTextLength);
     }
 
     return { cbType, startIndex, 0, 0, fragments };

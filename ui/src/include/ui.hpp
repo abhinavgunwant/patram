@@ -13,6 +13,7 @@
 #include "command.hpp"
 #include "rope.hpp"
 #include "arena.hpp"
+#include "md.hpp"
 
 #define OPENGL_MAJOR 4
 #define OPENGL_MINOR 6
@@ -613,6 +614,14 @@ struct UIElement {
     */
 };
 
+struct ContentFragmentRenderResult {
+    float x;
+    float y;
+    float width;
+    float height;
+    uint32_t rows;
+};
+
 struct ContentBlock {
     ContentBlockType type;
 
@@ -979,6 +988,15 @@ void renderElement(
 );
 Vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
+ContentFragmentRenderResult renderContentFragment(
+    float& x,
+    float& y,
+    MarkdownFragment fragment,
+    ContentBlock cb,
+    vector<TextVertex>& iconVertices,
+    vector<TextVertex>& textVertices,
+    vector<RectVertex>& rva
+);
 bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
