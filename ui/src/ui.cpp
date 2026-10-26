@@ -8446,7 +8446,7 @@ inline ContentFragmentRenderResult renderContentFragment(
             break;
 
         case MarkdownFragmentType::Code:
-            break;
+            return { x, y, 0.0f, LINE_HEIGHT(getCBFontSize(cb.type)), 1 };
 
         case MarkdownFragmentType::Image:
             break;
