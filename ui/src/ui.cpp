@@ -943,17 +943,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 }
 
                 if (actionFound) {
-                    if (b.type == BoundSourceType::Button && b.source.elem != nullptr) {
-                        UIElement* prevActiveElement = activeElement;
-
-                        if (activeElement != nullptr) {
-                            activeElement->active = false;
-                        }
-
-                        activeElement = b.source.elem;
-                        b.source.elem->active = true;
-                    }
-
                     REDRAW_UI();
                     ignoreMouse1Up = true;
                     return;
