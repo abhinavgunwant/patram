@@ -8555,6 +8555,7 @@ inline bool renderContentBlock(
                         }
 
                         if (itr->end == index) {
+                            cb->height = LINE_HEIGHT(getCBFontSize(cb->type));
                             return visible;
                         }
 
