@@ -19,11 +19,15 @@
 #define MAX_CHARACTERS              65535
 #define MAX_ICONS                   11
 #define DEFAULT_FONT_SIZE           48
-#define ATLAS_DIMENSION             1400
+#define ATLAS_DIMENSION             2048
 
+#define CHARACTER_VARIANTS          4
+#define CHARACTER_VARIANT_GLYPHS    256
+#define CHARACTER_BLOCKS            256
 #define CHARACTER_REGULAR           0
 #define CHARACTER_BOLD              1
 #define CHARACTER_ITALIC            2
+#define CHARACTER_MONO              3
 
 // #define DEBUG_TEXT
 
@@ -88,13 +92,13 @@ struct Char {
 const Glyph CHAR_EMPTY = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 struct Character {
-    Glyph glyphs[3][256];
+    Glyph glyphs[CHARACTER_VARIANTS][CHARACTER_VARIANT_GLYPHS];
 };
 
 extern float glyphDescender;
 extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
-extern Character* characters[256];
+extern Character* characters[CHARACTER_BLOCKS];
 extern const Glyph icons[MAX_ICONS];
 
 uint8_t* createFontAtlas(Arena& arena);

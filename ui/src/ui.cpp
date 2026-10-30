@@ -4461,6 +4461,21 @@ SelectionData getCBTextCursor(Vec2 &resolution) {
         y = prev->top + getCBVerticalMargins(prev->type).y;
     }
 
+    if (cb->type == ContentBlockType::Code) {
+        bool isActive = false;
+
+        for (ContentBlockBounds bound: tab->codeBlockBounds) {
+            if (bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex) {
+                isActive = true;
+                break;
+            }
+        }
+
+        if (!isActive) {
+            x += 8.0f;
+        }
+    }
+
     float xpos = x;
     float ypos;
     float yNet = y;
@@ -4485,18 +4500,19 @@ SelectionData getCBTextCursor(Vec2 &resolution) {
         };
     }
 
+    uint8_t variant = (cb->type == ContentBlockType::Code) ? 3 : 0;
+
     while (rt.hasNext()) {
         Rope* r = rt.next();
 
         for (const char c : r->text) {
-
             float _tx1, _tx2, _ty1, _ty2, _h, _xw, _yh, advance;
             float glyphHeight, glyphWidth, bearingTop, bearingLeft;
             bool _;
             Vec2 pos = Vec2(x, y);
 
             getCharParams(
-                characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+                characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
                 x,
                 y,
                 xpos,
@@ -4580,6 +4596,23 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
     float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
     bool _;
 
+    if (cb->type == ContentBlockType::Code) {
+        bool isActive = false;
+
+        for (ContentBlockBounds bound: tab->codeBlockBounds) {
+            if (bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex) {
+                isActive = true;
+                break;
+            }
+        }
+
+        if (!isActive) {
+            x += 8.0f;
+        }
+    }
+
+    uint8_t variant = (cb->type == ContentBlockType::Code) ? 3 : 0;
+
     while (rt.hasNext()) {
         Rope* r = rt.next();
         uint32_t len = r->text.length();
@@ -4594,7 +4627,7 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
             yposPrev = ypos;
 
             getCharParams(
-                characters[c >> 8]->glyphs[0][static_cast<uint8_t>(c)],
+                characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
                 x,
                 y,
                 xpos,
@@ -4761,6 +4794,10 @@ SelectionData getCBTextCursorVertical(ContentTab* tab, bool page, bool up) {
 
     float x = contentLeft;
     float y = (*cb).top;// - tab->scrollOffsetY;
+
+    if (cb->type == ContentBlockType::Code) {
+        x += 8.0f;
+    }
 
     float xpos = x;
     float ypos;
@@ -8371,7 +8408,25 @@ inline ContentFragmentRenderResult renderContentFragment(
 ) {
     RopeRenderResult rrr;
 
-    float lineHeight = static_cast<float>(getCBFontSize(cb.type)) * (1.0f - glyphDescender);
+    if (cb.type == ContentBlockType::Code) {
+        rrr = appendRopeVertices(
+            x, y,
+            cb.rope,
+            CHARACTER_MONO,
+            fragment.text.startIndex, fragment.text.length,
+            getCBFontSize(cb.type),
+            darkTheme ? WHITE_INDEX : BLACK_INDEX,
+            textVertices
+        );
+
+        x = rrr.endX;
+
+        if (rrr.rows > 1) {
+            y = rrr.endY;
+        }
+
+        return { rrr.x, rrr.y, rrr.width, rrr.height, rrr.rows };
+    }
 
     switch (fragment.fragType) {
         case MarkdownFragmentType::Normal:
@@ -8504,7 +8559,50 @@ inline bool renderContentBlock(
         }
 
         bool renderRope = true;
+        bool renderCodeFragment = false;
+        bool codeBlockActive = false;
         uint32_t lightTextIndex = darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX;
+
+        for (ContentBlockBounds bound: tab->codeBlockBounds) {
+            if (bound.start < index && bound.end > index) {
+                renderCodeFragment = true;
+                codeBlockActive = bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex;
+                break;
+            }
+        }
+
+        if (renderCodeFragment) {
+            float height = 0;
+            uint32_t rows = 0;
+            cb->type = ContentBlockType::Code;
+
+            if (!codeBlockActive) {
+                x += 8.0f;
+            }
+
+            for (MarkdownFragment frag: md.fragments) {
+                ContentFragmentRenderResult res = renderContentFragment(
+                    x, y, frag, *cb, iconVertices, textVertices, rva
+                );
+
+                if (height == 0) {
+                    height = res.height;
+                } else if (res.rows > 1) {
+                    height += res.height - LINE_HEIGHT(getCBFontSize(cb->type));
+                }
+
+                if (rows == 0) {
+                    rows = res.rows;
+                } else if (res.rows > 1) {
+                    rows += res.rows - 1;
+                }
+            }
+
+            cb->height = height;
+            cb->rows = rows;
+
+            return visible;
+        }
 
         switch (cb->type) {
             case ContentBlockType::Paragraph: renderRope = isActive; break;
@@ -8548,86 +8646,84 @@ inline bool renderContentBlock(
 
                 // If the cursor is in the code bounds, show the start and end of the block
                 if (!isActive) {
-                    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
-                        if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
+                    for (ContentBlockBounds codeBounds: tab->codeBlockBounds) {
+                        if (codeBounds.start <= tab->cursorCBIndex && codeBounds.end >= tab->cursorCBIndex) {
                             isActive = true;
                             break;
                         }
 
-                        if (itr->end == index) {
+                        if (codeBounds.end == index) {
                             cb->height = LINE_HEIGHT(getCBFontSize(cb->type));
                             return visible;
                         }
 
-                        if (itr->start == index) {
+                        if (codeBounds.start == index) {
                             isCodeStart = true;
                             renderRope = false;
-                            bounds = *itr;
+                            bounds = codeBounds;
                             break;
                         }
                     }
 
-                    x += 8.0f;
+                    if (!isActive) {
+                        x += 8.0f;
+                    }
                 }
 
-                // if (isActive) {
-                    // addRectangle(0, 0, 0, 0, 0, darkTheme ? CODE_DARK_INDEX : CODE_INDEX, 0, rva);
-                // } else {
-                    if (
-                        isCodeStart && (
-                            tab->cursorCBIndex < bounds.start
-                            || tab->cursorCBIndex > bounds.end
-                        )
-                        && bounds.end != 0
-                    ) {
-                        cout << "\nFound bounds: { start: " << bounds.start
-                            << ", end: " << bounds.end << " }";
+                if (
+                    isCodeStart && (
+                        tab->cursorCBIndex < bounds.start
+                        || tab->cursorCBIndex > bounds.end
+                    )
+                    && bounds.end != 0
+                ) {
+                    cout << "\nDEBUG: Found code bounds: { start: " << bounds.start
+                        << ", end: " << bounds.end << " }";
 
-                        string languageText;
+                    string languageText;
 
-                        if ((ContentBlockType)md.cbType == ContentBlockType::Code) {
-                            languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
-                        }
+                    if ((ContentBlockType)md.cbType == ContentBlockType::Code) {
+                        languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
+                    }
 
-                        float height = static_cast<float>(bounds.end - bounds.start + 1)
-                            * LINE_HEIGHT(
-                                getCBFontSize(ContentBlockType::Code)
-                            );
-
-                        addRectangle(
-                            left,
-                            top,
-                            contentRight - contentLeft,
-                            height,
-                            darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
-                            0,
-                            rva
+                    float height = static_cast<float>(bounds.end - bounds.start + 1)
+                        * LINE_HEIGHT(
+                            getCBFontSize(ContentBlockType::Code)
                         );
 
-                        if (!languageText.empty()) {
-                            RopeRenderResult dimensions = getTextDimensions(
-                                languageText,
-                                left, top, 0,
-                                16,
-                                contentLeft,
-                                contentRight - contentLeft,
-                                false
-                            );
+                    addRectangle(
+                        left,
+                        top,
+                        contentRight - contentLeft,
+                        height,
+                        darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+                        0,
+                        rva
+                    );
 
-                            appendTextVertices(
-                                contentRight - dimensions.width - 8.0f,
-                                top,
-                                languageText,
-                                0,
-                                lightTextIndex,
-                                getCBFontSize(cb->type),
-                                textVertices
-                            );
-                        }
-                    } else {
-                        renderRope = true;
+                    if (!languageText.empty()) {
+                        RopeRenderResult dimensions = getTextDimensions(
+                            languageText,
+                            left, top, 0,
+                            16,
+                            contentLeft,
+                            contentRight - contentLeft,
+                            false
+                        );
+
+                        appendTextVertices(
+                            contentRight - dimensions.width - 8.0f,
+                            top,
+                            languageText,
+                            0,
+                            lightTextIndex,
+                            getCBFontSize(cb->type),
+                            textVertices
+                        );
                     }
-                // }
+                } else {
+                    renderRope = true;
+                }
                 break;
 
             case ContentBlockType::Image: {
@@ -8708,7 +8804,7 @@ inline bool renderContentBlock(
             RopeRenderResult res = appendRopeVertices(
                 x, y,
                 cb->rope,
-                0,
+                cb->type == ContentBlockType::Code ? 3 : 0,
                 isActive ? 0 : cb->startIndex,
                 isActive ? cb->rope->length() : cb->rope->length() - cb->startIndex,
                 getCBFontSize(cb->type),
@@ -8722,10 +8818,9 @@ inline bool renderContentBlock(
                 res.height;
 
             cb->rows = res.rows;
-        } else {
+        } else if (!isCodeStart) {
             float height = 0;
             uint32_t rows = 0;
-            float lineHeight = static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender);
 
             for (MarkdownFragment frag: md.fragments) {
                 ContentFragmentRenderResult res = renderContentFragment(
@@ -8735,7 +8830,7 @@ inline bool renderContentBlock(
                 if (height == 0) {
                     height = res.height;
                 } else if (res.rows > 1) {
-                    height += res.height - lineHeight;
+                    height += res.height - LINE_HEIGHT(getCBFontSize(cb->type));
                 }
 
                 if (rows == 0) {
@@ -8748,20 +8843,6 @@ inline bool renderContentBlock(
             cb->height = height;
             cb->rows = rows;
         }
-    // } else {
-        // if (cb->type == ContentBlockType::Code && !isActive) {
-        //     for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
-        //         if (itr->start <= tab->cursorCBIndex && itr->end >= tab->cursorCBIndex) {
-        //             break;
-        //         }
-
-        //         if (itr->end == index) {
-        //             return visible;
-        //         }
-        //     }
-
-        //     pos.x += 8.0f;
-        // }
     } else {
         if (cb->type == ContentBlockType::Link) {
             addRectangle(0, 0, 0, 0, 0, 0, rva);

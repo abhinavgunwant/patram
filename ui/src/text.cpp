@@ -18,6 +18,11 @@
 #include "../lib/stb_image_write.h"
 #include "../lib/stb_image.h"
 
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#endif
+
 using namespace std;
 
 #ifdef DEBUG_TEXT
@@ -169,7 +174,7 @@ void initCharList(Arena& arena, size_t len) {
 
     if (charList == nullptr) {
         cout << "\nDEBUG: reserving capacity for charList.";
-        charList = (Char*) arenaAllocate(arena, sizeof(Char) * len * 3);
+        charList = (Char*) arenaAllocate(arena, sizeof(Char) * len * CHARACTER_VARIANTS);
     }
 }
 
@@ -181,7 +186,11 @@ void initCharBlock(uint8_t blockIndex) {
 
         cout << "\nDEUBG: initializing block: " << (int) blockIndex;
 
-        memset(characters[blockIndex]->glyphs, 0, 256 * 3);
+        memset(
+            characters[blockIndex]->glyphs,
+            0,
+            CHARACTER_VARIANTS * CHARACTER_VARIANT_GLYPHS * sizeof(Glyph)
+        );
     }
 }
 
@@ -223,6 +232,21 @@ void initGlyph(
             initCharBlock(mapIndex);
         }
 
+        if (charcode == 32) {
+            float advance = 13.0f;
+
+            switch (variantIndex) {
+                case CHARACTER_REGULAR: advance = 13.0f; break;
+                case CHARACTER_BOLD: advance = 10.0f; break;
+                case CHARACTER_ITALIC: advance = 12.0f; break;
+                case CHARACTER_MONO: advance = 29.0f; break;
+            }
+
+            characters[mapIndex]->glyphs[variantIndex][charIndex].advance = advance;
+            charcode = FT_Get_Next_Char(face, charcode, &id);
+            continue;
+        }
+
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) { errorv("Failed to load glyph"); }
 
         uint8_t width = face->glyph->bitmap.width;
@@ -260,7 +284,7 @@ void initGlyph(
 }
 
 void initFonts(Arena& arena) {
-    memset(characters, 0, 256);
+    memset(characters, 0, sizeof(characters));
 
     thread regular(
         initGlyph,
@@ -283,9 +307,24 @@ void initFonts(Arena& arena) {
         std::ref(arena)
     );
 
+    thread mono(
+        initGlyph,
+        "assets/fonts/firacode/FiraCode-Regular.ttf",
+        CHARACTER_MONO,
+        std::ref(arena)
+    );
+
+    #ifdef _WIN32
+        SetThreadDescription(regular.native_handle(), L"initGlyph:regular");
+        SetThreadDescription(bold.native_handle(), L"initGlyph:bold");
+        SetThreadDescription(italic.native_handle(), L"initGlyph:italic");
+        SetThreadDescription(mono.native_handle(), L"initGlyph:mono");
+    #endif
+
     regular.join();
     bold.join();
     italic.join();
+    mono.join();
 }
 
 void initFontTexture(uint8_t* pngData) {
