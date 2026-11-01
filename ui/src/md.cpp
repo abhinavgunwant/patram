@@ -112,7 +112,8 @@ void MarkdownParser::parseTableRow() {
 void MarkdownParser::parseBullets() {
     uint32_t index = rci.index();
 
-    if ((match('-') || match('*')) && match(' ')) {
+    if (match('-') || match('*')) {
+        while (match(' ')) {}
         startIndex = rci.index();
         cbType = static_cast<uint8_t>(ContentBlockType::Bullet);
     } else {
@@ -496,7 +497,24 @@ void MarkdownParser::parseNormalText() {
     fragments.push_back({ MarkdownFragmentType::Normal, { index, length } });
 }
 
+void MarkdownParser::parseQuote() {
+    uint32_t index = rci.index();
+
+    if (match('>')) {
+        while (match(' ')) {}
+        startIndex = rci.index();
+        cbType = static_cast<uint8_t>(ContentBlockType::Quote);
+    } else {
+        rci.setIndex(index);
+    }
+}
+
 Markdown MarkdownParser::parse() {
+    #define PUSH_NORMAL_TEXT() if (parsingNormalText) {\
+            pushNormalFragment(normalTextIndex, normalTextLength);\
+            parsingNormalText = false;\
+        }
+
     cbType = static_cast<uint8_t>(ContentBlockType::Paragraph);
     bool _start = true;
     bool parsingNormalText = false;
@@ -524,10 +542,7 @@ Markdown MarkdownParser::parse() {
 
         switch (peek()) {
             case '#':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 if (_start) {
                     parseHeading();
@@ -538,24 +553,18 @@ Markdown MarkdownParser::parse() {
                 break;
 
             case '-':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 if (_start && isspace(peekNext())) {
                     parseBullets();
-                } else {
-                    parseNormalText();
                 }
-                _start = false;
+
+                goto just_parse_normal;
+
                 break;
 
             case '*':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 if (peekNext() == '*') {
                     parseBold();
@@ -568,28 +577,19 @@ Markdown MarkdownParser::parse() {
                 break;
 
             case '~':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 parseStrikethrough();
                 break;
 
             case '`':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 parseCode();
                 break;
 
             case '!':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 if (peekNext() == '[') {
                     parseImage();
@@ -599,21 +599,27 @@ Markdown MarkdownParser::parse() {
                 break;
 
             case '[':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 parseLink();
             case '|':
-                if (parsingNormalText) {
-                    pushNormalFragment(normalTextIndex, normalTextLength);
-                    parsingNormalText = false;
-                }
+                PUSH_NORMAL_TEXT();
 
                 parseTableRow();
                 break;
+
+            case '>':
+                if (_start) {
+                    PUSH_NORMAL_TEXT();
+                    parseQuote();
+                }
+
+                goto just_parse_normal;
+
+                break;
+
             default:
+            just_parse_normal:
                 if (!parsingNormalText) {
                     parsingNormalText = true;
                     normalTextIndex = rci.index();
@@ -639,5 +645,7 @@ Markdown MarkdownParser::parse() {
     }
 
     return { cbType, startIndex, 0, 0, fragments };
+
+    #undef PUSH_NORMAL_TEXT
 }
 

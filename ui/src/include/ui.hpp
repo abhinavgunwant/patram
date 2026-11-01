@@ -427,6 +427,7 @@ enum class ContentBlockType: uint8_t {
     Code,
     Image,
     Link,
+    Quote,
 };
 
 enum class UIAlignment : uint8_t {

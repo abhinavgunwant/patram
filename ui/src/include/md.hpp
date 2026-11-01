@@ -70,6 +70,7 @@ class MarkdownParser {
     void parseImage();
     void parseLink();
     void parseNormalText();
+    void parseQuote();
 public:
     MarkdownParser(Rope* rope);
 

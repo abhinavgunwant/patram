@@ -82,13 +82,14 @@ TEST_START(bulletParsing, "Markdown bullet parsing")
     ASSERT_EQ(md.fragments.size(), 1);
     ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Normal);
 
-    // "some heading 1 text"
+    // "Some bullet"
+    ASSERT_EQ(md.startIndex, 2);
     ASSERT_EQ(md.fragments[0].text.startIndex, 2); 
     ASSERT_EQ(md.fragments[0].text.length, 11); 
 TEST_END
 
 TEST_START(imageParsing, "Markdown Image Parsing Test")
-    Rope* testRope = new Rope("![someImage.jpg](Some Image!)");
+    Rope* testRope = new Rope("![Some Image!](some-image.jpg)");
     MarkdownParser parser(testRope);
     Markdown md = parser.parse();
 
@@ -96,10 +97,24 @@ TEST_START(imageParsing, "Markdown Image Parsing Test")
     ASSERT_EQ(md.fragments.size(), 1);
     ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Image);
 
-    ASSERT_EQ(md.fragments[0].imgOrLink.url.startIndex, 2);
-    ASSERT_EQ(md.fragments[0].imgOrLink.url.length, 13);
-    ASSERT_EQ(md.fragments[0].imgOrLink.text.startIndex, 17);
+    // some-image.jpg
+    ASSERT_EQ(md.fragments[0].imgOrLink.url.startIndex, 15);
+    ASSERT_EQ(md.fragments[0].imgOrLink.url.length, 14);
+    // Some Image!
+    ASSERT_EQ(md.fragments[0].imgOrLink.text.startIndex, 2);
     ASSERT_EQ(md.fragments[0].imgOrLink.text.length, 11);
+TEST_END
+
+TEST_START(quoteParsing, "Markdown Quote Parsing Test")
+    Rope* testRope = new Rope("> This is a simple quote");
+    MarkdownParser parser(testRope);
+    Markdown md = parser.parse();
+
+    ASSERT_EQ((int)md.cbType, (int)ContentBlockType::Quote);
+    ASSERT_EQ(md.fragments.size(), 1);
+    ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[0].text.startIndex, 2);
+    ASSERT_EQ((int)md.fragments[0].text.length, 22);
 TEST_END
 
 int main() {
@@ -109,6 +124,7 @@ int main() {
     RUN_TEST(mdParsingBasic);
     RUN_TEST(bulletParsing);
     RUN_TEST(imageParsing);
+    RUN_TEST(quoteParsing);
 
     WRAP_TESTS();
 
