@@ -9621,19 +9621,6 @@ void renderCBImages() {
     CBImageRenderQueueEntry lastEntry = *lastItr;
     CBImage* prevImg = &cbImageLoader.images[lastEntry.imageIndex];
 
-    if (totalLen == 1 && !grInfo.redraw) {
-        renderCBImage(lastEntry, prevImg, 0, totalLen);
-        return;
-    }
-
-    if (totalLen == 2 && !grInfo.redraw) {
-        renderCBImage(lastEntry, prevImg, 0, totalLen);
-        lastEntry = cbImageLoader.renderQueue[1];
-        prevImg = &cbImageLoader.images[lastEntry.imageIndex];
-        renderCBImage(lastEntry, prevImg, 1, totalLen);
-        return;
-    }
-
     if (grInfo.redraw) {
         uint32_t reqSize = 4 * totalLen;
 
@@ -9642,7 +9629,7 @@ void renderCBImages() {
                 grInfo.image.numVertices *= 2;
             }
 
-            grInfo.image.bufferSize = grInfo.image.numVertices * 4 * sizeof(float);
+            grInfo.image.bufferSize = grInfo.image.numVertices * 4 * sizeof(TextVertex);
 
             glBindVertexArray(grInfo.image.vao);
             glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
@@ -9675,7 +9662,7 @@ void renderCBImages() {
                     lastItr->bufferOffset = bufferOffset;
                     lastItr->vertexOffset = vertexOffset;
                     vertexOffset += 4;
-                    bufferOffset += 64;
+                    bufferOffset += 4 * sizeof(TextVertex);
                 }
 
                 cibsr = loadCBImageIntoPBOBuffer(img, pboIndex);
