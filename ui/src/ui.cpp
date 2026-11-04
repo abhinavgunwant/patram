@@ -7420,7 +7420,9 @@ void renderElement(
                 grInfo.redraw
             );
 
-            renderCBImages();
+            if (!cbImageLoader.images.empty() && !cbImageLoader.renderQueue.empty()) {
+                renderCBImages();
+            }
 
             tab->visibleCBLength = i - tab->firstVisibleCBIndex + 1;
 
@@ -9508,6 +9510,7 @@ CBImageRenderQueueResult queueImageForRender(float x, float y, uint32_t imageID)
         imgItr != cbImageLoader.images.end();
         ++imgItr, ++i
     ) {
+        // TODO: make sure that stale is marked false only if it matches `imageID`
         if (imgItr->stale || imgItr->data == nullptr) {
             imgItr->stale = false;
             break;
@@ -9612,8 +9615,6 @@ inline void renderCBImage(
 }
 
 void renderCBImages() {
-    if (cbImageLoader.images.empty() || cbImageLoader.renderQueue.empty()) { return; }
-
     uint32_t totalLen = cbImageLoader.renderQueue.size();
 
     vector<CBImageRenderQueueEntry>::iterator lastItr = cbImageLoader.renderQueue.begin();
