@@ -2482,9 +2482,13 @@ void setupUI(bool isDarkTheme, Arena& arena, uint8_t* pngData) {
     glBindVertexArray(grInfo.image.vao);
     glGenBuffers(1, &grInfo.image.vbo);
     glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
-    glBufferData(GL_ARRAY_BUFFER, grInfo.image.bufferSize, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+    glBufferData(GL_ARRAY_BUFFER, grInfo.image.bufferSize, nullptr, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TextVertex), (void *)(2 * sizeof(float)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(TextVertex), (void *)(4 * sizeof(float)));
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
 
     glGenBuffers(2, grInfo.imagePBO);
 
@@ -7418,8 +7422,6 @@ void renderElement(
 
             renderCBImages();
 
-            grInfo.redraw = false;
-
             tab->visibleCBLength = i - tab->firstVisibleCBIndex + 1;
 
             renderCBMoveMarker();
@@ -7483,6 +7485,10 @@ void renderElement(
 
             if (showScrollbar) {
                 renderCBScrollbar();
+            }
+
+            if (!grInfo.imageLoaded) {
+                grInfo.redraw = false;
             }
             break;
         }
@@ -8752,6 +8758,7 @@ inline bool renderContentBlock(
 
                     if (cirqr.loaded) {
                         cb->height = cirqr.height;
+                        tab->redrawCursor = true;
                     }
                 }
             }
@@ -8818,7 +8825,7 @@ inline bool renderContentBlock(
                 res.height;
 
             cb->rows = res.rows;
-        } else if (!isCodeStart) {
+        } else if (!isCodeStart && cb->type != ContentBlockType::Image) {
             float height = 0;
             uint32_t rows = 0;
 
@@ -9466,6 +9473,9 @@ void loadCBImagesFromDisk() {
 
         if (loadedSomething) {
             grInfo.redraw = true;
+            grInfo.imageLoaded = true;
+        } else {
+            grInfo.imageLoaded = false;
         }
     } while (cbImageLoader.rerunWorker);
 
@@ -9580,11 +9590,11 @@ inline void renderCBImage(
         float s = img->width / CONTENT_MAX_WIDTH;
         float t = img->height / CONTENT_IMAGE_MAX_HEIGHT;
 
-        float vertices[16] = {
-            imgEntry.x, imgEntry.y, 0, 0,
-            imgEntry.x, y2,         0, t,
-            x2,         imgEntry.y, s, 0,
-            x2,         y2,         s, t,
+        TextVertex vertices[16] = {
+            { imgEntry.x, imgEntry.y, 0, 0, 0 },
+            { imgEntry.x, y2,         0, t, 0 },
+            { x2,         imgEntry.y, s, 0, 0 },
+            { x2,         y2,         s, t, 0 },
         };
 
         glBindBuffer(GL_ARRAY_BUFFER, grInfo.image.vbo);
@@ -9692,7 +9702,12 @@ void renderCBImages() {
     }
 
     if (shouldLoad) {
+        if (!cbImageLoader.workerRunning) {
+            grInfo.imageLoaded = false;
+        }
         loadCBImages();
+    } else {
+        grInfo.imageLoaded = false;
     }
 }
 
