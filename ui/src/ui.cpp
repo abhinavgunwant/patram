@@ -9651,7 +9651,7 @@ void renderCBImages() {
         itr != cbImageLoader.renderQueue.end();
         ++itr
     ) {
-        if (itr->imageIndex < totalLen) {
+        if (itr->imageIndex < cbImageLoader.images.size()) {
             CBImage* img = &*(cbImageLoader.images.begin() + itr->imageIndex);
             shouldLoad = shouldLoad || cibsr.shouldLoad;
 
