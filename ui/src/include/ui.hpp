@@ -927,7 +927,6 @@ void defaultKeyCallback(UIElement*, int, int, int);
 void cbKeyCallback(int, int, int);
 void textInputKeyCallback(UIElement*, int, int, int);
 void textInputMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
-void tabBarMouseDownCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res, int glfwButton);
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
 void textInputMouseUpCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res);
 void textInputUnselect(TextInputData * tid, string token = "");

@@ -1128,13 +1128,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
         }
     } else if (button == GLFW_MOUSE_BUTTON_3) {
         if (action == GLFW_PRESS) {
-            UIElement* elem = getElementFromScreenCoords(&ROOT_CONTAINER, mouseX, mouseY);
+            if (updateMouseDownEvents(mouseX, mouseY, uiMouseEvents)) { rerenderUI = true; }
 
-            if (elem != nullptr) {
-                switch (elem->type) {
-                    case UIElementType::TabBar:
-                        tabBarMouseDownCallback(elem, mouseX, mouseY, resolution, GLFW_MOUSE_BUTTON_3);
-                        break;
+            if (uiMouseEvents.mouseDown) {
+                Bounds b = uiMouseEvents.clickBounds;
+
+                if (b.type == BoundSourceType::Tab || b.type == BoundSourceType::TabClose) {
+                    closeTab(b.source.tabIndex);
                 }
             }
         }
@@ -5310,81 +5310,6 @@ void textInputMouseDownCallback(
     tid->mouseDownY = mouseY;
     globalCursor.time = TIME();
     REDRAW_UI();
-}
-
-void tabBarMouseDownCallback(
-    UIElement* elem,
-    float mouseX,
-    float mouseY,
-    Vec2 res,
-    int glfwButton
-) {
-    float totalWidth = elem->left + tabsDisplay.totalX + 2 * TAB_BAR_HEIGHT;
-
-    if (totalWidth > windowWidth) {
-        if (mouseX > windowWidth - TAB_BAR_HEIGHT) {
-
-            if (totalWidth - tabsDisplay.xOffset > windowWidth) {
-                float newOffset = tabsDisplay.xOffset + 160.0f;
-
-                if (totalWidth - newOffset < windowWidth) {
-                    newOffset = totalWidth - windowWidth;
-                }
-
-                tabsDisplay.xOffset = newOffset;
-
-                REDRAW_UI();
-            }
-
-            return;
-        } else if (mouseX > windowWidth - 2 * TAB_BAR_HEIGHT) {
-            tabsDisplay.xOffset -= 160.0f;
-
-            if (tabsDisplay.xOffset < 0.0f) {
-                tabsDisplay.xOffset = 0.0f;
-            }
-
-            REDRAW_UI();
-            return;
-        }
-    }
-
-    for (int i=0; i<tabs.size(); ++i) {
-        float x = static_cast<float>(tabs[i].xOffset + tabs[i].width) - tabsDisplay.xOffset;
-
-        if (mouseX <= x) {
-            if (
-                glfwButton == GLFW_MOUSE_BUTTON_3
-                || (
-                    mouseX > static_cast<float>(tabs[i].xOffset + tabs[i].closeX - 5) - tabsDisplay.xOffset
-                    && mouseX < x - 5
-                )
-            ) {
-                closeTab(i);
-            } else {
-                activeTabIndex = i;
-                REDRAW_UI();
-                TAB_BAR.active = false;
-
-                if (activeElement != nullptr) {
-                    activeElement->active = false;
-                }
-                activeElement = &CONTENT_CONTAINER;
-                CONTENT_CONTAINER.active = true;
-
-                ContentTab* tab = CURRENT_TAB;
-
-                tab->redrawCursor = true;
-                REDRAW_CB();
-            }
-
-            break;
-        }
-    }
-
-    REDRAW_UI();
-
-    updateWindowTitle();
 }
 
 void textInputMouseDragCallback(UIElement* elem, float mouseX, float mouseY, Vec2 res) {
