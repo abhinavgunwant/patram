@@ -796,11 +796,6 @@ struct ContentTab {
     uint32_t firstVisibleCBIndex;
     uint32_t visibleCBLength;
 
-    uint16_t xOffset;
-    uint16_t width;
-    uint16_t closeX;
-    uint16_t closeY;
-
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
@@ -812,6 +807,8 @@ struct TabsDisplay {
     bool recalcOffset;
     float totalX;
     float xOffset;
+    float activeX;
+    float activeWidth;
 };
 
 extern TabsDisplay tabsDisplay;

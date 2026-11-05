@@ -2030,7 +2030,9 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
             tabtext += "*";
         }
 
-        tab.xOffset = static_cast<uint16_t>(x);
+        if (i == activeTabIndex) {
+            tabsDisplay.activeX = x;
+        }
 
         x += TAB_HORIZONTAL_PADDING;
 
@@ -2054,7 +2056,9 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
 
         x += TAB_HORIZONTAL_PADDING;
 
-        tab.width = static_cast<uint16_t>(x - prevX);
+        if (i == activeTabIndex) {
+            tabsDisplay.activeWidth = x - prevX;
+        }
 
         uiMouseEvents.bounds.push_back(Bounds {
             prevX, 0, x, TAB_BAR_HEIGHT, 0,
@@ -6111,8 +6115,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         true, true, false, false, false, false, false, false, false,
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3],
-        0, 0, 0, 0, 0, 0,
+        8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
         commands, extCommands, content, vector<ContentBlockBounds>(), path
     });
 
@@ -8179,9 +8182,9 @@ void renderElement(
                 setupTabs(uiTextLayer0, uiIconLayer);
 
                 addRectangle(
-                    static_cast<float>(tabs[activeTabIndex].xOffset) - tabsDisplay.xOffset,
+                    tabsDisplay.activeX - tabsDisplay.xOffset,
                     0.0f,
-                    static_cast<float>(tabs[activeTabIndex].width),
+                    tabsDisplay.activeWidth,
                     TAB_BAR_HEIGHT,
                     darkTheme ? ROOT_BG_DARK_INDEX : ROOT_BG_INDEX,
                     0,
