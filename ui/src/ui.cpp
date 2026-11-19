@@ -5093,12 +5093,35 @@ void openFile(bool openDialog, filesystem::path p) {
 
             tab->filePath = path;
 
+            ContentBlockType currentBoundType = ContentBlockType::None;
+
             for (string line: lines) {
-                tab->contentBlocks.emplace_back(ContentBlock {
+                ContentBlock cb = ContentBlock {
                     ContentBlockType::Paragraph,
                     CONTENT_BLOCK_VISIBLE, 0,
                     0.0f, 0.0f, 0.0f, 1, 0, new Rope(line),
-                });
+                };
+
+                MarkdownParser parser(cb.rope);
+                Markdown md = parser.parse();
+
+                ContentBlockType mdContentType = (ContentBlockType) md.cbType;
+
+                if (currentBoundType != ContentBlockType::None) {
+                    cb.type = currentBoundType;
+                } else {
+                    cb.type = mdContentType;
+                }
+
+                if (mdContentType == ContentBlockType::Code || mdContentType == ContentBlockType::Quote) {
+                    if (currentBoundType == mdContentType) {
+                        currentBoundType = ContentBlockType::None;
+                    } else {
+                        currentBoundType = mdContentType;
+                    }
+                }
+
+                tab->contentBlocks.push_back(cb);
             }
 
             #ifdef DEBUG_CONTENT_BLOCKS
