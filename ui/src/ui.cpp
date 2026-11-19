@@ -4619,7 +4619,18 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
         }
     }
 
-    uint8_t variant = (cb->type == ContentBlockType::Code) ? 3 : 0;
+    if (cb->rope->length() == 0) {
+        return SelectionData {
+            .cursorPosition = 0,
+            .row = 0,
+            .col = 0,
+            .cursorCBIndex = tab->activeCBIndex,
+            .x = x,
+            .y = y,
+            .height = static_cast<uint16_t>(fontSize - h),
+        };
+    }
+
 
     while (rt.hasNext()) {
         Rope* r = rt.next();
