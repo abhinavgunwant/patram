@@ -102,7 +102,7 @@ void MarkdownParser::parseHeading() {
         }
     }
 
-    parseNormalText();
+    // parseNormalText();
 }
 
 void MarkdownParser::parseTableRow() {
@@ -121,7 +121,7 @@ void MarkdownParser::parseBullets() {
     }
 }
 
-void MarkdownParser::parseBold() {
+bool MarkdownParser::parseBold() {
     uint32_t initialIndex = rci.index();
     uint32_t index = initialIndex;
     std::stack<uint32_t> asteriskStack;
@@ -130,17 +130,9 @@ void MarkdownParser::parseBold() {
         startIndex = 0;
     }
 
-    /*
-    bool foundAsterisk = false;
-    bool foundSpace = false;
-    bool prevChar = false;
-    bool prevCharAsterisk = false;
-    uint32_t asteriskCount = 0;
-    */
-
     if (!(match('*') && match('*'))) {
         rci.setIndex(initialIndex);
-        return;
+        return false;
     }
 
     index += 2;
@@ -175,81 +167,14 @@ void MarkdownParser::parseBold() {
         ++length;
     }
 
-    /*
-    while (!isAtEnd()) {
-        if (match('*')) {
-            if (!foundAsterisk) {
-                index = rci.index();
-                foundAsterisk = true;
-            }
-
-            if (prevChar) {
-                prevCharAsterisk = true;
-                prevChar = false;
-            }
-
-            ++asteriskCount;
-        } else {
-            if (!prevCharAsterisk && peek() == ' ') {
-                foundSpace = true;
-            } else if (foundAsterisk) {
-                if (prevCharAsterisk) {
-                    if (!asteriskStack.empty()) {
-                        uint32_t startIndex = asteriskStack.top() + 1;
-                        uint32_t lastIndex = asteriskStack.top();
-                        uint32_t popped = 1;
-
-                        asteriskStack.pop();
-
-                        for (uint32_t i=0; i<asteriskCount && !asteriskStack.empty(); ++i) {
-                            if (asteriskStack.top() - lastIndex == 1) {
-                                lastIndex = asteriskStack.top();
-                                asteriskStack.pop();
-                                ++popped;
-                            } else {
-                                // TODO: create new fragment here...
-                            }
-
-                            if (popped == 2) {
-                                // TODO: create a new bold fragment here...
-                                popped = 0;
-                            }
-                        }
-
-                        uint32_t length = index - asteriskCount - startIndex;
-                    }
-
-                    prevCharAsterisk = false;
-                } else {
-                    for (uint32_t i=0; i<asteriskCount; ++i) {
-                        asteriskStack.push(i + index);
-                    }
-                }
-
-                prevChar = false;
-            } else {
-                foundSpace = false;
-                prevChar = true;
-            }
-
-            asteriskCount = 0;
-            foundAsterisk = false;
-            advance();
-        }
-    }
-
-    // TODO: At the end of line... maybe use the lines below...
-    for (uint32_t i=0; i<asteriskCount; ++i) {
-        asteriskStack.push(i + index);
-    }
-    */
-
     if (length) {
         fragments.push_back({ MarkdownFragmentType::Bold, { index, length } });
     }
+
+    return true;
 }
 
-void MarkdownParser::parseItalics() {
+bool MarkdownParser::parseItalics() {
     uint32_t initialIndex = rci.index();
     uint32_t index = initialIndex;
     std::stack<uint32_t> asteriskStack;
@@ -260,7 +185,7 @@ void MarkdownParser::parseItalics() {
 
     if (!match('*')) {
         rci.setIndex(initialIndex);
-        return;
+        return false;
     }
 
     ++index;
@@ -295,6 +220,8 @@ void MarkdownParser::parseItalics() {
             MarkdownFragmentType::Italic, { index, length }
         });
     }
+
+    return true;
 }
 
 void MarkdownParser::parseStrikethrough() {
@@ -302,7 +229,7 @@ void MarkdownParser::parseStrikethrough() {
     }
 }
 
-void MarkdownParser::parseCode() {
+bool MarkdownParser::parseCode() {
     uint32_t beginIndex = rci.index();
 
     uint32_t index = beginIndex;
@@ -313,8 +240,8 @@ void MarkdownParser::parseCode() {
 
     if (!(match('`') && match('`') && match('`'))) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     uint32_t length = 0;
@@ -348,15 +275,17 @@ void MarkdownParser::parseCode() {
         MarkdownFragmentType::Code,
         { index + 3, length },
     });
+
+    return true;
 }
 
-void MarkdownParser::parseImage() {
+bool MarkdownParser::parseImage() {
     uint32_t beginIndex = rci.index();
 
     if (!(match('!') && match('['))) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     uint32_t altTextStartIndex = rci.index();
@@ -376,8 +305,8 @@ void MarkdownParser::parseImage() {
 
     if (!foundText || !match('(')) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     uint32_t urlStartIndex = rci.index();
@@ -396,8 +325,8 @@ void MarkdownParser::parseImage() {
 
     if (!foundUrl) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     cbType = static_cast<uint8_t>(ContentBlockType::Image);
@@ -413,12 +342,15 @@ void MarkdownParser::parseImage() {
     while (!isAtEnd() && match(' ')) { advance(); }
 
     if (!isAtEnd()) {
-        parseNormalText();
+        // parseNormalText();
+        return false;
     }
+
+    return true;
 }
 
 // TODO: parse [[Such Links]]
-void MarkdownParser::parseLink() {
+bool MarkdownParser::parseLink() {
     uint32_t beginIndex = rci.index();
 
     advance();
@@ -440,8 +372,8 @@ void MarkdownParser::parseLink() {
 
     if (!foundText || !match('(')) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     uint32_t urlStartIndex = rci.index();
@@ -460,8 +392,8 @@ void MarkdownParser::parseLink() {
 
     if (!foundUrl) {
         rci.setIndex(beginIndex);
-        parseNormalText();
-        return;
+        // parseNormalText();
+        return false;
     }
 
     cbType = static_cast<uint8_t>(ContentBlockType::Link);
@@ -477,8 +409,11 @@ void MarkdownParser::parseLink() {
     while (!isAtEnd() && match(' ')) { advance(); }
 
     if (!isAtEnd()) {
-        parseNormalText();
+        // parseNormalText();
+        return false;
     }
+
+    return true;
 }
 
 void MarkdownParser::parseNormalText() {
@@ -567,11 +502,15 @@ Markdown MarkdownParser::parse() {
                 PUSH_NORMAL_TEXT();
 
                 if (peekNext() == '*') {
-                    parseBold();
+                    if (!parseBold()) {
+                        goto just_parse_normal;
+                    }
                 } else if (_start && (peekNext() == ' ' || peekNext() == '\t')) {
                     parseBullets();
                 } else {
-                    parseItalics();
+                    if (!parseItalics()) {
+                        goto just_parse_normal;
+                    }
                 }
                 _start = false;
                 break;
@@ -585,16 +524,20 @@ Markdown MarkdownParser::parse() {
             case '`':
                 PUSH_NORMAL_TEXT();
 
-                parseCode();
+                if (!parseCode()) {
+                    goto just_parse_normal;
+                }
                 break;
 
             case '!':
                 PUSH_NORMAL_TEXT();
 
                 if (peekNext() == '[') {
-                    parseImage();
+                    if (!parseImage()) {
+                        goto just_parse_normal;
+                    }
                 } else {
-                    parseNormalText();
+                    goto just_parse_normal;
                 }
                 break;
 
@@ -647,5 +590,11 @@ Markdown MarkdownParser::parse() {
     return { cbType, startIndex, 0, 0, fragments };
 
     #undef PUSH_NORMAL_TEXT
+}
+
+Markdown MarkdownParser::parseAs(uint8_t cbType) {
+    fragments.push_back({ MarkdownFragmentType::Normal, { 0, rope->length() } });
+
+    return { cbType, 0, 0, 0, fragments };
 }
 

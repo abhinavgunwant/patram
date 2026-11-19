@@ -414,6 +414,7 @@ enum class UIElementType: uint8_t {
 };
 
 enum class ContentBlockType: uint8_t {
+    None,
     Title,
     Paragraph,
     Heading1,
@@ -986,11 +987,21 @@ void renderElement(
 );
 Vec2 getActiveContentDimensions();
 void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool calculateHeight);
+void renderContentBlockBounds(
+    ContentBlock start,
+    ContentBlockType currentBoundType,
+    float currentBoundY,
+    float currentBoundHeight,
+    uint32_t index,
+    vector<TextVertex>& textVertices,
+    vector<RectVertex>& rva
+);
 ContentFragmentRenderResult renderContentFragment(
     float& x,
     float& y,
     MarkdownFragment fragment,
     ContentBlock cb,
+    uint32_t fragmentIndex,
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& textVertices,
     vector<RectVertex>& rva
@@ -998,6 +1009,10 @@ ContentFragmentRenderResult renderContentFragment(
 bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
+    ContentBlockType currentBoundType,
+    float& currentBoundY,
+    float& currentBoundHeight,
+    bool& currentBoundActive,
     Vec2 &resolution,
     Vec2 &cursor,
     uint32_t index,

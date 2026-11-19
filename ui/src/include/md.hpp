@@ -63,18 +63,19 @@ class MarkdownParser {
     void parseHeading();
     void parseTableRow();
     void parseBullets();
-    void parseBold();
-    void parseItalics();
+    bool parseBold();
+    bool parseItalics();
     void parseStrikethrough();
-    void parseCode();
-    void parseImage();
-    void parseLink();
+    bool parseCode();
+    bool parseImage();
+    bool parseLink();
     void parseNormalText();
     void parseQuote();
 public:
     MarkdownParser(Rope* rope);
 
     Markdown parse();
+    Markdown parseAs(uint8_t cbType);
 };
 
 bool containsCodeBlockBound(Rope* rope);

@@ -30,6 +30,7 @@ bool debugTextFirstRenderPrint = true;
 #endif
 
 float glyphDescender = 0;
+float monoGlyphDescender = 0;
 uint32_t fontTextureID = 0;
 uint32_t iconTextureID;
 Character* characters[256];
@@ -222,6 +223,10 @@ void initGlyph(
 
     if (glyphDescender == 0.0f && variantIndex == 0) {
         glyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / DEFAULT_FONT_SIZE;
+    }
+
+    if (monoGlyphDescender == 0.0f && variantIndex == CHARACTER_MONO) {
+        monoGlyphDescender = static_cast<float>(face->size->metrics.descender >> 6) / DEFAULT_FONT_SIZE;
     }
 
     while (id != 0) {

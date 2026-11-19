@@ -96,6 +96,7 @@ struct Character {
 };
 
 extern float glyphDescender;
+extern float monoGlyphDescender;
 extern uint32_t fontTextureID;
 extern uint32_t iconTextureID;
 extern Character* characters[CHARACTER_BLOCKS];

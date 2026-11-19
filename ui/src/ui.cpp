@@ -111,6 +111,7 @@
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
 #define LINE_HEIGHT(fontSize) static_cast<float>(fontSize) * (1 - glyphDescender)
+#define LINE_HEIGHT_MONO(fontSize) static_cast<float>(fontSize) * (1 - monoGlyphDescender)
 
 #define SLEEP_ms(ms) std::this_thread::sleep_for(chrono::milliseconds(ms))
 #define SLEEP_s(s) std::this_thread::sleep_for(chrono::seconds(s))
@@ -4604,21 +4605,6 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
     float _x1, _x2, _y1, _y2, xpos_plus_w, ypos_plus_h, advance;
     bool _;
 
-    if (cb->type == ContentBlockType::Code) {
-        bool isActive = false;
-
-        for (ContentBlockBounds bound: tab->codeBlockBounds) {
-            if (bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex) {
-                isActive = true;
-                break;
-            }
-        }
-
-        if (!isActive) {
-            x += 8.0f;
-        }
-    }
-
     if (cb->rope->length() == 0) {
         return SelectionData {
             .cursorPosition = 0,
@@ -4631,19 +4617,37 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
         };
     }
 
+    MarkdownParser parser(cb->rope);
+    Markdown md = parser.parse();
+
+    MarkdownFragment frag = md.fragments[0];
+
+    uint8_t variant = (cb->type == ContentBlockType::Code) ? CHARACTER_MONO : CHARACTER_REGULAR;
+    uint32_t globalIndex = 0;
+    uint32_t fragIndex = 0;
 
     while (rt.hasNext()) {
         Rope* r = rt.next();
         uint32_t len = r->text.length();
 
-        for (uint32_t i=0; i<len; ++i) {
+        for (uint32_t i=0; i<len; ++i, ++globalIndex) {
             const char c = r->text[i];
-
-            Vec2 pos = Vec2(x, y);
 
             prevRow = row;
             prevCol = col;
             yposPrev = ypos;
+
+            if (globalIndex > frag.text.startIndex + frag.text.length - 1) {
+                ++fragIndex;
+                frag = md.fragments[fragIndex];
+
+                switch (frag.fragType) {
+                    case MarkdownFragmentType::Bold: variant = CHARACTER_BOLD; break;
+                    case MarkdownFragmentType::Code: variant = CHARACTER_MONO; break;
+                    case MarkdownFragmentType::Italic: variant = CHARACTER_ITALIC; break;
+                    default: variant = CHARACTER_REGULAR;
+                }
+            }
 
             getCharParams(
                 characters[c >> 8]->glyphs[variant][static_cast<uint8_t>(c)],
@@ -5118,18 +5122,18 @@ void openFile(bool openDialog, filesystem::path p) {
 
                 ContentBlockType mdContentType = (ContentBlockType) md.cbType;
 
-                if (currentBoundType != ContentBlockType::None) {
-                    cb.type = currentBoundType;
-                } else {
-                    cb.type = mdContentType;
-                }
-
                 if (mdContentType == ContentBlockType::Code || mdContentType == ContentBlockType::Quote) {
                     if (currentBoundType == mdContentType) {
                         currentBoundType = ContentBlockType::None;
                     } else {
                         currentBoundType = mdContentType;
                     }
+                }
+
+                if (currentBoundType != ContentBlockType::None) {
+                    cb.type = currentBoundType;
+                } else {
+                    cb.type = mdContentType;
                 }
 
                 tab->contentBlocks.push_back(cb);
@@ -7335,17 +7339,60 @@ void renderElement(
             }
 
             bool visible = false;
+            bool end = false;
 
             renderCBTextSelection(tab);
+            ContentBlockType currentBoundType = ContentBlockType::None;
+            float currentBoundY = -1.0f;
+            float currentBoundHeight = 0.0f;
+            bool currentBoundActive = false;
+            ContentBlock startBlock = { ContentBlockType::None, 0 };
 
             for (
                 auto itr = tab->contentBlocks.begin() + offset;
                 itr != tab->contentBlocks.end();
                 ++itr, ++i
             ) {
+                bool renderBounds = false;
+                ContentBlockType boundType = ContentBlockType::None;
+
+                if (grInfo.redraw) {
+                    if (currentBoundType == ContentBlockType::None) {
+                        if (
+                            itr->type == ContentBlockType::Code
+                            || itr->type == ContentBlockType::Quote
+                        ) {
+                            startBlock = *itr;
+                            currentBoundType = itr->type;
+                            uint32_t j = i;
+
+                            for (
+                                auto itr2 = itr;
+                                itr2 != tab->contentBlocks.end() && itr2->type == currentBoundType;
+                                ++itr2, ++j
+                            ) {
+                                if (j == tab->cursorCBIndex) {
+                                    currentBoundActive = true;
+                                    break;
+                                }
+                            }
+                        }
+                    } else if (itr->type != currentBoundType || end && visible) {
+                        renderBounds = true;
+                        boundType = currentBoundType;
+
+                        if (itr->type == ContentBlockType::Code || itr->type == ContentBlockType::Quote) {
+                            currentBoundType = itr->type;
+                        } else {
+                            currentBoundType = ContentBlockType::None;
+                        }
+                    }
+                }
+
                 if (renderContentBlock(
-                    tab, itr, resolution, cursor, i,
-                    iconVertices, textVertices, rva
+                    tab, itr, currentBoundType, currentBoundY,
+                    currentBoundHeight, currentBoundActive, resolution,
+                    cursor, i, iconVertices, textVertices, rva
                 )) {
                     if (!visible) {
                         tab->firstVisibleCBIndex = i;
@@ -7355,8 +7402,26 @@ void renderElement(
                     #ifdef DEBUG_CONTENT_BLOCKS
                         // cout << "\nDEBUG: breaking render at " << to_string((ContentBlock)(*itr));
                     #endif
-                    break;
+                    end = true;
                 }
+
+                if (renderBounds) {
+                    renderContentBlockBounds(
+                        startBlock,
+                        boundType,
+                        currentBoundY,
+                        currentBoundHeight,
+                        i,
+                        textVertices,
+                        rva
+                    );
+
+                    currentBoundHeight = 0.0f;
+                    currentBoundY = -1.0f;
+                    startBlock = { ContentBlockType::None, 0 };
+                }
+
+                if (end) { break; }
             }
 
             drawRectangles(grInfo.rect, rva, grInfo.redraw);
@@ -8367,11 +8432,57 @@ inline void setCBDimensions(vector<ContentBlock>::iterator cb, bool first, bool 
     }
 }
 
+void renderContentBlockBounds(
+    ContentBlock start,
+    ContentBlockType currentBoundType,
+    float currentBoundY,
+    float currentBoundHeight,
+    uint32_t index,
+    vector<TextVertex>& textVertices,
+    vector<RectVertex>& rva
+) {
+    if (currentBoundType == ContentBlockType::Code) {
+        string languageText = start.rope->substring(3, start.rope->length() - 3);
+
+        addRectangle(
+            contentLeft,
+            currentBoundY,
+            contentRight - contentLeft,
+            currentBoundHeight,
+            darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+            0,
+            rva
+        );
+
+        if (!languageText.empty()) {
+            RopeRenderResult dimensions = getTextDimensions(
+                languageText,
+                contentLeft, currentBoundY, 0,
+                16,
+                contentLeft,
+                contentRight - contentLeft,
+                false
+            );
+
+            appendTextVertices(
+                contentRight - dimensions.width - 8.0f,
+                currentBoundY,
+                languageText,
+                0,
+                darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX,
+                getCBFontSize(start.type),
+                textVertices
+            );
+        }
+    }
+}
+
 inline ContentFragmentRenderResult renderContentFragment(
     float& x,
     float& y,
     MarkdownFragment fragment,
     ContentBlock cb,
+    uint32_t fragmentIndex,
     vector<TextVertex>& iconVertices,
     vector<TextVertex>& textVertices,
     vector<RectVertex>& rva
@@ -8379,11 +8490,28 @@ inline ContentFragmentRenderResult renderContentFragment(
     RopeRenderResult rrr;
 
     if (cb.type == ContentBlockType::Code) {
+        uint32_t startIndex = fragment.text.startIndex;
+        uint32_t length = fragment.text.length;
+
+        if (fragmentIndex == 0) {
+            length += startIndex;
+            startIndex = cb.startIndex;
+        }
+
+        if (
+            cb.rope->length() == 3
+            && (*cb.rope)[0] == '`' && (*cb.rope)[1] == '`'
+            && (*cb.rope)[2] == '`'
+        ) {
+            return { x, y, 0, 0, 0 };
+        }
+
         rrr = appendRopeVertices(
             x, y,
             cb.rope,
             CHARACTER_MONO,
-            fragment.text.startIndex, fragment.text.length,
+            startIndex,
+            length,
             getCBFontSize(cb.type),
             darkTheme ? WHITE_INDEX : BLACK_INDEX,
             textVertices
@@ -8483,6 +8611,10 @@ inline ContentFragmentRenderResult renderContentFragment(
 inline bool renderContentBlock(
     ContentTab* tab,
     vector<ContentBlock>::iterator cb,
+    ContentBlockType currentBoundType,
+    float& currentBoundY,
+    float& currentBoundHeight,
+    bool& currentBoundActive,
     Vec2 &resolution,
     Vec2 &cursor,
     uint32_t index,
@@ -8512,8 +8644,7 @@ inline bool renderContentBlock(
         || bottom >= 0 && bottom <= windowHeight
         || top < 0 && bottom > windowHeight;
 
-    bool isActive = tab->cursorCBIndex == index;
-    bool isCodeStart = false;
+    bool isActive = currentBoundActive || tab->cursorCBIndex == index;
 
     float x = contentLeft;
     float y = top;
@@ -8532,47 +8663,6 @@ inline bool renderContentBlock(
         bool renderCodeFragment = false;
         bool codeBlockActive = false;
         uint32_t lightTextIndex = darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX;
-
-        for (ContentBlockBounds bound: tab->codeBlockBounds) {
-            if (bound.start < index && bound.end > index) {
-                renderCodeFragment = true;
-                codeBlockActive = bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex;
-                break;
-            }
-        }
-
-        if (renderCodeFragment) {
-            float height = 0;
-            uint32_t rows = 0;
-            cb->type = ContentBlockType::Code;
-
-            if (!codeBlockActive) {
-                x += 8.0f;
-            }
-
-            for (MarkdownFragment frag: md.fragments) {
-                ContentFragmentRenderResult res = renderContentFragment(
-                    x, y, frag, *cb, iconVertices, textVertices, rva
-                );
-
-                if (height == 0) {
-                    height = res.height;
-                } else if (res.rows > 1) {
-                    height += res.height - LINE_HEIGHT(getCBFontSize(cb->type));
-                }
-
-                if (rows == 0) {
-                    rows = res.rows;
-                } else if (res.rows > 1) {
-                    rows += res.rows - 1;
-                }
-            }
-
-            cb->height = height;
-            cb->rows = rows;
-
-            return visible;
-        }
 
         switch (cb->type) {
             case ContentBlockType::Paragraph: renderRope = isActive; break;
@@ -8615,85 +8705,8 @@ inline bool renderContentBlock(
                 ContentBlockBounds bounds;
 
                 // If the cursor is in the code bounds, show the start and end of the block
-                if (!isActive) {
-                    for (ContentBlockBounds codeBounds: tab->codeBlockBounds) {
-                        if (codeBounds.start <= tab->cursorCBIndex && codeBounds.end >= tab->cursorCBIndex) {
-                            isActive = true;
-                            break;
-                        }
+                renderRope = isActive;
 
-                        if (codeBounds.end == index) {
-                            cb->height = LINE_HEIGHT(getCBFontSize(cb->type));
-                            return visible;
-                        }
-
-                        if (codeBounds.start == index) {
-                            isCodeStart = true;
-                            renderRope = false;
-                            bounds = codeBounds;
-                            break;
-                        }
-                    }
-
-                    if (!isActive) {
-                        x += 8.0f;
-                    }
-                }
-
-                if (
-                    isCodeStart && (
-                        tab->cursorCBIndex < bounds.start
-                        || tab->cursorCBIndex > bounds.end
-                    )
-                    && bounds.end != 0
-                ) {
-                    cout << "\nDEBUG: Found code bounds: { start: " << bounds.start
-                        << ", end: " << bounds.end << " }";
-
-                    string languageText;
-
-                    if ((ContentBlockType)md.cbType == ContentBlockType::Code) {
-                        languageText = cb->rope->substring(md.startIndex, cb->rope->length() - md.startIndex);
-                    }
-
-                    float height = static_cast<float>(bounds.end - bounds.start + 1)
-                        * LINE_HEIGHT(
-                            getCBFontSize(ContentBlockType::Code)
-                        );
-
-                    addRectangle(
-                        left,
-                        top,
-                        contentRight - contentLeft,
-                        height,
-                        darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
-                        0,
-                        rva
-                    );
-
-                    if (!languageText.empty()) {
-                        RopeRenderResult dimensions = getTextDimensions(
-                            languageText,
-                            left, top, 0,
-                            16,
-                            contentLeft,
-                            contentRight - contentLeft,
-                            false
-                        );
-
-                        appendTextVertices(
-                            contentRight - dimensions.width - 8.0f,
-                            top,
-                            languageText,
-                            0,
-                            lightTextIndex,
-                            getCBFontSize(cb->type),
-                            textVertices
-                        );
-                    }
-                } else {
-                    renderRope = true;
-                }
                 break;
 
             case ContentBlockType::Image: {
@@ -8789,25 +8802,74 @@ inline bool renderContentBlock(
                 res.height;
 
             cb->rows = res.rows;
-        } else if (!isCodeStart && cb->type != ContentBlockType::Image) {
+        } else if (cb->type != ContentBlockType::Image) {
             float height = 0;
             uint32_t rows = 0;
+            uint32_t index = 0;
 
-            for (MarkdownFragment frag: md.fragments) {
-                ContentFragmentRenderResult res = renderContentFragment(
-                    x, y, frag, *cb, iconVertices, textVertices, rva
-                );
+            if (
+                currentBoundType == ContentBlockType::Code
+                || currentBoundType == ContentBlockType::Quote
+            ) {
+                if (currentBoundY == -1.0f) {
+                    currentBoundY = y;
 
-                if (height == 0) {
-                    height = res.height;
-                } else if (res.rows > 1) {
-                    height += res.height - LINE_HEIGHT(getCBFontSize(cb->type));
+                    if (currentBoundType == ContentBlockType::Code) {
+                        float lineHeight = currentBoundType == ContentBlockType::Code
+                            ? LINE_HEIGHT_MONO(getCBFontSize(cb->type))
+                                : LINE_HEIGHT(getCBFontSize(cb->type));
+
+                        currentBoundHeight = lineHeight;
+                        cb->height = lineHeight;
+                        cb->rows = 1;
+                        return visible;
+                    }
                 }
 
-                if (rows == 0) {
-                    rows = res.rows;
-                } else if (res.rows > 1) {
-                    rows += res.rows - 1;
+                Markdown boundMd = parser.parseAs((uint8_t) currentBoundType);
+
+                if (!boundMd.fragments.empty()) {
+                    ContentFragmentRenderResult res = renderContentFragment(
+                        x, y, boundMd.fragments[0], *cb, index, iconVertices, textVertices, rva
+                    );
+
+                    float lineHeight = currentBoundType == ContentBlockType::Code
+                        ? LINE_HEIGHT_MONO(getCBFontSize(cb->type))
+                            : LINE_HEIGHT(getCBFontSize(cb->type));
+
+                    if (res.rows > 1) {
+                        height = res.height - lineHeight;
+                    } else {
+                        height = lineHeight;
+                    }
+
+                    if (res.rows > 1) {
+                        rows = res.rows - 1;
+                    } else {
+                        rows = res.rows;
+                    }
+
+                    currentBoundHeight += height;
+                }
+            } else {
+                for (MarkdownFragment frag: md.fragments) {
+                    ContentFragmentRenderResult res = renderContentFragment(
+                        x, y, frag, *cb, index, iconVertices, textVertices, rva
+                    );
+
+                    if (height == 0) {
+                        height = res.height;
+                    } else if (res.rows > 1) {
+                        height += res.height - LINE_HEIGHT(getCBFontSize(cb->type));
+                    }
+
+                    if (rows == 0) {
+                        rows = res.rows;
+                    } else if (res.rows > 1) {
+                        rows += res.rows - 1;
+                    }
+
+                    ++index;
                 }
             }
 
