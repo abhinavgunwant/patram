@@ -1032,6 +1032,10 @@ inline void renderCBImage(CBImageRenderQueueEntry imgEntry, CBImage* img, uint32
 void renderCBImages();
 void removeOldCBImages(std::stop_token stopToken);
 void hideCBMoveMarker();
+void updateCBTypeForBounds(
+    ContentBlock& cb,
+    ContentBlockType& currentBoundType
+);
 
 void insertCBs(
     ContentTab* tab,

@@ -5102,24 +5102,7 @@ void openFile(bool openDialog, filesystem::path p) {
                     0.0f, 0.0f, 0.0f, 1, 0, new Rope(line),
                 };
 
-                MarkdownParser parser(cb.rope);
-                Markdown md = parser.parse();
-
-                ContentBlockType mdContentType = (ContentBlockType) md.cbType;
-
-                if (mdContentType == ContentBlockType::Code || mdContentType == ContentBlockType::Quote) {
-                    if (currentBoundType == mdContentType) {
-                        currentBoundType = ContentBlockType::None;
-                    } else {
-                        currentBoundType = mdContentType;
-                    }
-                }
-
-                if (currentBoundType != ContentBlockType::None) {
-                    cb.type = currentBoundType;
-                } else {
-                    cb.type = mdContentType;
-                }
+                updateCBTypeForBounds(cb, currentBoundType);
 
                 tab->contentBlocks.push_back(cb);
             }
@@ -9779,6 +9762,32 @@ void hideCBMoveMarker() {
     cbMove.vao = 0;
     cbMove.vbo = 0;
     cbMove.targetIndex = 0;
+}
+
+inline void updateCBTypeForBounds(
+    ContentBlock& cb,
+    ContentBlockType& currentBoundType
+) {
+    if (cb.type == ContentBlockType::Title) { return; }
+
+    MarkdownParser parser(cb.rope);
+    Markdown md = parser.parse();
+
+    ContentBlockType mdContentType = (ContentBlockType) md.cbType;
+
+    if (mdContentType == ContentBlockType::Code || mdContentType == ContentBlockType::Quote) {
+        if (currentBoundType == mdContentType) {
+            currentBoundType = ContentBlockType::None;
+        } else {
+            currentBoundType = mdContentType;
+        }
+    }
+
+    if (currentBoundType != ContentBlockType::None) {
+        cb.type = currentBoundType;
+    } else {
+        cb.type = mdContentType;
+    }
 }
 
 void insertCBs(
