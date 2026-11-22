@@ -800,7 +800,6 @@ struct ContentTab {
     vector<ContentCommand> commands;
     vector<ContentCommandExt> extCommands;
     vector<ContentBlock> contentBlocks;
-    vector<ContentBlockBounds> codeBlockBounds;
     filesystem::path filePath;
 };
 
@@ -1033,7 +1032,6 @@ inline void renderCBImage(CBImageRenderQueueEntry imgEntry, CBImage* img, uint32
 void renderCBImages();
 void removeOldCBImages(std::stop_token stopToken);
 void hideCBMoveMarker();
-bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex);
 
 void insertCBs(
     ContentTab* tab,

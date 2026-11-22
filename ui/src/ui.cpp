@@ -6139,7 +6139,7 @@ void newTab(filesystem::path path = getVaultPath(selectedVault) / "Untitled Note
         0.0f, 0.0f, 0.0f, 0.0f,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         8, vao[0], vbo[0], vao[1], vbo[1], vao[2], vbo[2], vao[3], vbo[3], 0, 0,
-        commands, extCommands, content, vector<ContentBlockBounds>(), path
+        commands, extCommands, content, path
     });
 
     activeTabIndex = tabs.size() - 1;
@@ -9780,16 +9780,6 @@ void hideCBMoveMarker() {
     cbMove.targetIndex = 0;
 }
 
-bool isCBInCodeBlock(ContentTab* tab, uint32_t contentIndex) {
-    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
-        if (itr->start <= contentIndex && itr->end > contentIndex) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 void insertCBs(
     ContentTab* tab,
     uint32_t index,
@@ -10275,59 +10265,6 @@ bool processCBTypeCommand(
             increment = false;
         }
 
-        if (cmd->startCBIndex != 0) {
-            MarkdownParser parser(cb->rope);
-            Markdown md = parser.parse();
-
-            if (
-                cb->type != ContentBlockType::Code && (ContentBlockType) md.cbType == ContentBlockType::Code
-                || cb->type == ContentBlockType::Code && cmd->str == "`"
-                    && containsCodeBlockBound(cb->rope)
-            ) {
-                cb->type = ContentBlockType::Code;
-
-                if (tab->codeBlockBounds.empty()) {
-                    tab->codeBlockBounds.push_back(ContentBlockBounds { cmd->startCBIndex, 0 });
-                } else {
-                    bool foundMissingStart = false;
-                    bool foundMissingEnd = false;
-
-                    vector<ContentBlockBounds>::iterator cbbIter = tab->codeBlockBounds.begin();
-
-                    for (; cbbIter != tab->codeBlockBounds.end(); ++cbbIter) {
-                        if (cbbIter->start == 0) {
-                            foundMissingStart = true;
-                            break;
-                        }
-
-                        if (cbbIter->end == 0) {
-                            foundMissingEnd = true;
-                            break;
-                        }
-                    }
-
-                    if (foundMissingEnd) {
-                        cbbIter->end = cmd->startCBIndex;
-                    } else if (foundMissingStart) {
-                        cbbIter->start = cmd->startCBIndex;
-                    } else {
-                        tab->codeBlockBounds.push_back(ContentBlockBounds {
-                            cmd->startCBIndex, 0
-                        });
-                    }
-                }
-            } else {
-                for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end();++itr) {
-                    if (itr->start <= cmd->startCBIndex && itr->end > cmd->startCBIndex) {
-                        if (cb->type == ContentBlockType::Paragraph) {
-                            cb->type = ContentBlockType::Code;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
         return increment;
     }
 
@@ -10589,15 +10526,34 @@ bool processCBNewLineCommand(
 
     bool isCodeEndBound = false;
 
-    for (auto itr=tab->codeBlockBounds.begin(); itr!=tab->codeBlockBounds.end(); ++itr) {
-        if (itr->end == cmd->startCBIndex) {
-            isCodeEndBound = true;
-            break;
+    MarkdownParser mpCurrent(cb->rope);
+    Markdown mdCurrent = mpCurrent.parse();
+
+    if (
+        cb->type == ContentBlockType::Code
+        && (ContentBlockType) mdCurrent.cbType == ContentBlockType::Code
+    ) {
+        uint32_t codeBoundCount = 1;
+        auto currentCBItr = tab->contentBlocks.begin() + tab->cursorCBIndex - 1;
+
+        for (
+            auto itr = make_reverse_iterator(currentCBItr);
+            itr != tab->contentBlocks.rend();
+            ++itr
+        ) {
+            MarkdownParser mp(itr->rope);
+            Markdown md = mp.parse();
+
+            if (
+                (ContentBlockType) md.cbType == ContentBlockType::Code
+                && itr->rope->length() >= 3
+            ) {
+                ++codeBoundCount;
+            }
         }
 
-        if (itr->start <= cmd->startCBIndex && itr->end > cmd->startCBIndex) {
-            ++itr->end;
-            break;
+        if (codeBoundCount%2 == 0) {
+            isCodeEndBound = true;
         }
     }
 
