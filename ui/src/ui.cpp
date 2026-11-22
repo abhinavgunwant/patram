@@ -4470,17 +4470,6 @@ SelectionData getCBTextCursor(Vec2 &resolution) {
         y = prev->top + getCBVerticalMargins(prev->type).y;
     }
 
-    if (cb->type == ContentBlockType::Code) {
-        bool isActive = false;
-
-        for (ContentBlockBounds bound: tab->codeBlockBounds) {
-            if (bound.start <= tab->cursorCBIndex && bound.end >= tab->cursorCBIndex) {
-                isActive = true;
-                break;
-            }
-        }
-    }
-
     float xpos = x;
     float ypos;
     float yNet = y;
