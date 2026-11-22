@@ -7403,6 +7403,7 @@ void renderElement(
 
                     currentBoundHeight = 0.0f;
                     currentBoundY = -1.0f;
+                    currentBoundActive = false;
                     startBlock = { ContentBlockType::None, 0 };
                 }
 
