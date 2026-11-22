@@ -4479,10 +4479,6 @@ SelectionData getCBTextCursor(Vec2 &resolution) {
                 break;
             }
         }
-
-        if (!isActive) {
-            x += 8.0f;
-        }
     }
 
     float xpos = x;
