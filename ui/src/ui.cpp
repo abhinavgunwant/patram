@@ -4622,7 +4622,10 @@ SelectionData getCBTextCursorFromScreenCoords(float mouseX, float mouseY, Vec2 r
             prevCol = col;
             yposPrev = ypos;
 
-            if (globalIndex > frag.text.startIndex + frag.text.length - 1) {
+            if (
+                globalIndex > frag.text.startIndex + frag.text.length - 1
+                && fragIndex + 1 < md.fragments.size()
+            ) {
                 ++fragIndex;
                 frag = md.fragments[fragIndex];
 
