@@ -107,6 +107,24 @@
     });\
 } while (false)
 
+#define UPDATE_BOUNDS() do {\
+    MarkdownParser mp(cb->rope);\
+    Markdown md = mp.parse();\
+    if (\
+        cb->type != (ContentBlockType) md.cbType\
+        && (\
+            cb->type == ContentBlockType::Code\
+            || (ContentBlockType) md.cbType == ContentBlockType::Code\
+        )\
+    ) {\
+        ContentBlockType currentBlockType = ContentBlockType::None;\
+        for (ContentBlock& cb: tab->contentBlocks) {\
+            updateCBTypeForBounds(cb, currentBlockType);\
+        }\
+        REDRAW_CB();\
+    }\
+} while (false)
+
 #define MOUSE_ON_EXPLORER_LINE(x, y) x >= EXPLORER.width - 3\
     && x <= EXPLORER.width + 2 && y > EXPLORER.top
 
@@ -10278,6 +10296,8 @@ bool processCBTypeCommand(
             append = false;
         }
 
+        UPDATE_BOUNDS();
+
         return append;
     }
 
@@ -10342,6 +10362,8 @@ bool processCBPasteCommand(
             setCBDimensions(itr, itr == tab->contentBlocks.begin(), true);
         }
     }
+
+    UPDATE_BOUNDS();
 
     return true;
 }
@@ -10517,6 +10539,7 @@ bool processCBReplaceCommand(
         }
     }
 
+    UPDATE_BOUNDS();
     REDRAW_CB();
 
     #undef START
@@ -10641,6 +10664,8 @@ bool processCBBackspaceCommand(
         cb->rope->remove(cmd->startCursorPos - 1, cmd->str.length());
         REDRAW_CB();
 
+        bool append = true;
+
         if (
             newCmd && !tab->commands.empty()
             && tab->currentCommand == tab->commands.size() - 1
@@ -10649,10 +10674,12 @@ bool processCBBackspaceCommand(
         ) {
             tab->commands.back().str = cmd->str + tab->commands.back().str;
             --tab->commands.back().startCursorPos;
-            return false;
+            append = false;
         }
 
-        return true;
+        UPDATE_BOUNDS();
+
+        return append;
     }
 
     return false;
@@ -10662,6 +10689,8 @@ bool processCBDeleteCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
     if (cmd->startCursorPos < cb->rope->length()) {
+        bool append = true;
+
         cb->rope->remove(cmd->startCursorPos, cmd->str.length());
 
         if (
@@ -10671,10 +10700,12 @@ bool processCBDeleteCommand(
             && tab->commands.back().startCursorPos == cmd->startCursorPos
         ) {
             tab->commands.back().str += cmd->str;
-            return false;
+            append = false;
         }
 
-        return true;
+        UPDATE_BOUNDS();
+
+        return append;
     }
 
     return false;
@@ -10699,6 +10730,7 @@ bool processCBDeleteMergeCBCommand(
             tab->contentBlocks.begin() + cmd->startCBIndex + 2
         );
 
+        UPDATE_BOUNDS();
         REDRAW_CB();
 
         return true;
@@ -10712,6 +10744,7 @@ bool processCBDeleteSelectedCommand(
 ) {
     auto extCmd = tab->extCommands.rbegin();
     (*extCmd).delType = deleteSelectedCBText(tab, cmd, &*extCmd);
+    UPDATE_BOUNDS();
     REDRAW_CB();
     return true;
 }
