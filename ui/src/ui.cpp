@@ -10261,7 +10261,7 @@ bool processCBTypeCommand(
     ContentTab* tab, ContentCommand* cmd, ContentBlock* cb, bool newCmd
 ) {
     if (cmd->str != "") {
-        bool increment = true;
+        bool append = true;
 
         cb->rope->insert(cmd->startCursorPos, cmd->str);
 
@@ -10275,10 +10275,10 @@ bool processCBTypeCommand(
             && tab->commands.back().type == CommandType::Type
         ) {
             tab->commands.back().str += cmd->str;
-            increment = false;
+            append = false;
         }
 
-        return increment;
+        return append;
     }
 
     return false;
@@ -11265,33 +11265,33 @@ void processCBRedo(ContentTab* tab) {
     ContentCommand* cmd = &tab->commands[tab->currentCommand + 1];
     ContentBlock* cb = &tab->contentBlocks[cmd->startCBIndex];
 
-    bool increment = false;
+    bool append = false;
 
     switch (cmd->type) {
         case CommandType::Type: {
-            increment = processCBTypeCommand(tab, cmd, cb, false);
+            append = processCBTypeCommand(tab, cmd, cb, false);
             tab->cursorPosition = cmd->startCursorPos + cmd->str.length();
             tab->redrawCursor = true;
             break;
         }
 
-        case CommandType::Paste: increment = PROC(Paste); break;
-        case CommandType::Replace: increment = PROC(Replace); break;
-        case CommandType::NewLine: increment = PROC(NewLine); break;
-        case CommandType::Backspace: increment = PROC(Backspace); break;
-        case CommandType::Delete: increment = PROC(Delete); break;
-        case CommandType::DeleteMergeCB: increment = PROC(DeleteMergeCB); break;
-        case CommandType::DeleteSelected: increment = PROC(DeleteSelected); break;
+        case CommandType::Paste: append = PROC(Paste); break;
+        case CommandType::Replace: append = PROC(Replace); break;
+        case CommandType::NewLine: append = PROC(NewLine); break;
+        case CommandType::Backspace: append = PROC(Backspace); break;
+        case CommandType::Delete: append = PROC(Delete); break;
+        case CommandType::DeleteMergeCB: append = PROC(DeleteMergeCB); break;
+        case CommandType::DeleteSelected: append = PROC(DeleteSelected); break;
 
         case CommandType::MoveContentBlock: {
-            increment = true;
+            append = true;
             moveContentBlock(activeTabIndex, cmd->moveCBTo, cmd->moveCBFrom);
             REDRAW_CB();
             break;
         }
     }
 
-    if (increment) {
+    if (append) {
         ++tab->currentCommand;
     }
 
