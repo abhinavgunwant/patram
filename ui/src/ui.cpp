@@ -4460,6 +4460,7 @@ inline Vec2 getCBVerticalMargins(ContentBlockType cbType) {
         case ContentBlockType::Heading6: return { 4.0f, 8.0f };
         case ContentBlockType::Numbering:
         case ContentBlockType::Bullet: return { 4.0f, 0.0f };
+        case ContentBlockType::Quote:
         case ContentBlockType::Code: return { 0.0f, 0.0f };
 
         default: return { 16.0f, 8.0f };
@@ -8464,6 +8465,26 @@ void renderContentBlockBounds(
                 textVertices
             );
         }
+    } else if (currentBoundType == ContentBlockType::Quote) {
+        addRectangle(
+            contentLeft + 4.0f,
+            currentBoundY,
+            contentRight - contentLeft,
+            currentBoundHeight,
+            darkTheme ? CODE_DARK_INDEX : CODE_INDEX,
+            0,
+            rva
+        );
+
+        addRectangle(
+            contentLeft + 4.0f,
+            currentBoundY,
+            8.0f,
+            currentBoundHeight,
+            darkTheme ? CONTENT_HIGHLIGHT_DRAG_DARK_INDEX : CONTENT_HIGHLIGHT_DRAG_INDEX,
+            0,
+            rva
+        );
     }
 }
 
@@ -8502,6 +8523,24 @@ inline ContentFragmentRenderResult renderContentFragment(
             CHARACTER_MONO,
             startIndex,
             length,
+            getCBFontSize(cb.type),
+            darkTheme ? WHITE_INDEX : BLACK_INDEX,
+            textVertices
+        );
+
+        x = rrr.endX;
+
+        if (rrr.rows > 1) {
+            y = rrr.endY;
+        }
+
+        return { rrr.x, rrr.y, rrr.width, rrr.height, rrr.rows };
+    } else if (cb.type == ContentBlockType::Quote) {
+        rrr = appendRopeVertices(
+            x + 16.0f, y,
+            cb.rope,
+            CHARACTER_REGULAR,
+            fragment.text.startIndex, fragment.text.length,
             getCBFontSize(cb.type),
             darkTheme ? WHITE_INDEX : BLACK_INDEX,
             textVertices
@@ -8697,6 +8736,10 @@ inline bool renderContentBlock(
                 // If the cursor is in the code bounds, show the start and end of the block
                 renderRope = isActive;
 
+                break;
+
+            case ContentBlockType::Quote:
+                renderRope = isActive;
                 break;
 
             case ContentBlockType::Image: {
