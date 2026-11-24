@@ -3436,6 +3436,8 @@ void cbKeyCallback(int key, int action, int mod) {
                 break;
 
             case GLFW_KEY_PAGE_DOWN: {
+                    if (tab->maxHeight < CONTENT_CONTAINER.height) { break; }
+
                     Vec2 dim = getActiveContentDimensions();
 
                     if (tab->scrollOffsetY + dim.y < tab->maxHeight - dim.y) {
