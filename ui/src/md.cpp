@@ -105,10 +105,6 @@ void MarkdownParser::parseHeading() {
     // parseNormalText();
 }
 
-void MarkdownParser::parseTableRow() {
-    // TODO: Implement!
-}
-
 void MarkdownParser::parseBullets() {
     uint32_t index = rci.index();
 
@@ -444,6 +440,77 @@ void MarkdownParser::parseQuote() {
     }
 }
 
+bool MarkdownParser::parseTableRow() {
+    uint32_t oldIndex = rci.index();
+    bool expectedEnd = false;
+
+    cbType = static_cast<uint8_t>(ContentBlockType::TableRow);
+
+    if (match('|')) {
+        while (match(' ')) {} // TODO: change this to match any whitespace
+
+        bool gotFirstNonWhitespaceChar = true;
+        bool gotDash = false;
+        bool isLastCharWhitespace = false;
+
+        uint32_t startIndex = rci.index();
+        uint32_t length = 0;
+        uint32_t trailingWhitespaceLength = 0;
+
+        while (!isAtEnd()) {
+            if (match('|')) {
+                // append fragment
+                gotFirstNonWhitespaceChar = false;
+
+                if (gotDash) {
+                    fragments.push_back({
+                        MarkdownFragmentType::Separator, { 0, 0 }
+                    });
+                    gotDash = false;
+                } else {
+                    fragments.push_back({
+                        MarkdownFragmentType::Normal, { startIndex, length }
+                    });
+                }
+
+                startIndex = 0;
+                length = 0;
+                expectedEnd = true;
+            } else if (match(' ')) { // TODO: change this to match any whitespace
+                if (isLastCharWhitespace) {
+                    ++trailingWhitespaceLength;
+                } else {
+                    isLastCharWhitespace = true;
+                    trailingWhitespaceLength = 1;
+                }
+                expectedEnd = true;
+            } else if (length == 0 && match('-')) {
+                gotDash = true;
+            } else {
+                if (!gotFirstNonWhitespaceChar) {
+                    startIndex = rci.index();
+                    gotFirstNonWhitespaceChar = true;
+                    trailingWhitespaceLength = 0;
+                }
+
+                length += trailingWhitespaceLength + 1;
+                isLastCharWhitespace = false;
+                trailingWhitespaceLength = 0;
+                expectedEnd = false;
+                advance();
+            }
+        }
+    }
+
+    if (!expectedEnd) {
+        rci.setIndex(oldIndex);
+        cbType = static_cast<uint8_t>(ContentBlockType::Paragraph);
+        return false;
+    }
+
+    return true;
+}
+
 Markdown MarkdownParser::parse() {
     #define PUSH_NORMAL_TEXT() if (parsingNormalText) {\
             pushNormalFragment(normalTextIndex, normalTextLength);\
@@ -545,10 +612,14 @@ Markdown MarkdownParser::parse() {
                 PUSH_NORMAL_TEXT();
 
                 parseLink();
+                break;
+
             case '|':
                 PUSH_NORMAL_TEXT();
 
-                parseTableRow();
+                if (!parseTableRow()) {
+                    goto just_parse_normal;
+                }
                 break;
 
             case '>':
@@ -558,7 +629,6 @@ Markdown MarkdownParser::parse() {
                 }
 
                 goto just_parse_normal;
-
                 break;
 
             default:

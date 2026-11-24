@@ -429,6 +429,7 @@ enum class ContentBlockType: uint8_t {
     Image,
     Link,
     Quote,
+    TableRow,
 };
 
 enum class UIAlignment : uint8_t {

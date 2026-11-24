@@ -117,6 +117,72 @@ TEST_START(quoteParsing, "Markdown Quote Parsing Test")
     ASSERT_EQ((int)md.fragments[0].text.length, 22);
 TEST_END
 
+TEST_START(tableBasic, "Basic Table Test")
+    Rope* testRope = new Rope("| This | is | a | simple | table | row |");
+
+    MarkdownParser parser(testRope);
+    Markdown md = parser.parse();
+
+    ASSERT_EQ((int)md.cbType, (int)ContentBlockType::TableRow);
+    ASSERT_EQ(md.fragments.size(), 6);
+    ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[0].text.startIndex, 2);
+    ASSERT_EQ((int)md.fragments[0].text.length, 4);
+
+    ASSERT_EQ((int)md.fragments[1].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[1].text.startIndex, 9);
+    ASSERT_EQ((int)md.fragments[1].text.length, 2);
+
+    ASSERT_EQ((int)md.fragments[2].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[2].text.startIndex, 14);
+    ASSERT_EQ((int)md.fragments[2].text.length, 1);
+
+    ASSERT_EQ((int)md.fragments[3].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[3].text.startIndex, 18);
+    ASSERT_EQ((int)md.fragments[3].text.length, 6);
+
+    ASSERT_EQ((int)md.fragments[4].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[4].text.startIndex, 27);
+    ASSERT_EQ((int)md.fragments[4].text.length, 5);
+
+    ASSERT_EQ((int)md.fragments[5].fragType, (int)MarkdownFragmentType::Normal);
+    ASSERT_EQ((int)md.fragments[5].text.startIndex, 35);
+    ASSERT_EQ((int)md.fragments[5].text.length, 3);
+TEST_END
+
+TEST_START(tableSeparator, "Table Separator Test")
+    Rope* testRope = new Rope("| --- | --- | --- | --- | --- | --- |");
+
+    MarkdownParser parser(testRope);
+    Markdown md = parser.parse();
+
+    ASSERT_EQ((int)md.cbType, (int)ContentBlockType::TableRow);
+    ASSERT_EQ(md.fragments.size(), 6);
+    ASSERT_EQ((int)md.fragments[0].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[0].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[0].text.length, 0);
+
+    ASSERT_EQ((int)md.fragments[1].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[1].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[1].text.length, 0);
+
+    ASSERT_EQ((int)md.fragments[2].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[2].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[2].text.length, 0);
+
+    ASSERT_EQ((int)md.fragments[3].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[3].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[3].text.length, 0);
+
+    ASSERT_EQ((int)md.fragments[4].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[4].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[4].text.length, 0);
+
+    ASSERT_EQ((int)md.fragments[5].fragType, (int)MarkdownFragmentType::Separator);
+    ASSERT_EQ((int)md.fragments[5].text.startIndex, 0);
+    ASSERT_EQ((int)md.fragments[5].text.length, 0);
+TEST_END
+
 int main() {
     cout << "\nRunning md tests (" << __FILE__ << ")";
 
@@ -125,6 +191,7 @@ int main() {
     RUN_TEST(bulletParsing);
     RUN_TEST(imageParsing);
     RUN_TEST(quoteParsing);
+    RUN_TEST(tableBasic);
 
     WRAP_TESTS();
 

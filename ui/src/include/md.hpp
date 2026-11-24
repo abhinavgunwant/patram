@@ -13,6 +13,7 @@ enum class MarkdownFragmentType: uint8_t {
     Code,
     Image,
     Link,
+    Separator,
 };
 
 struct MarkdownImageOrLink {
@@ -61,7 +62,6 @@ class MarkdownParser {
     void pushNormalFragment(uint32_t index, uint32_t length);
 
     void parseHeading();
-    void parseTableRow();
     void parseBullets();
     bool parseBold();
     bool parseItalics();
@@ -71,6 +71,7 @@ class MarkdownParser {
     bool parseLink();
     void parseNormalText();
     void parseQuote();
+    bool parseTableRow();
 public:
     MarkdownParser(Rope* rope);
 
