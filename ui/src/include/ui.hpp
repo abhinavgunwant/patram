@@ -274,7 +274,6 @@ struct UIElement;
 
 extern UIElement elements[DEFAULT_ELEM_LENGTH];
 
-extern float iconButtonVertices[16];
 extern bool darkTheme;
 
 extern float contentLeft;

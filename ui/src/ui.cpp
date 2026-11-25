@@ -136,13 +136,6 @@
 
 using namespace std;
 
-float iconButtonVertices[16] = {
-    -1.0, -1.0, -1.0, -1.0,
-    -1.0, -1.0, -1.0, -1.0,
-    -1.0, -1.0, -1.0, -1.0,
-    -1.0, -1.0, -1.0, -1.0,
-};
-
 bool darkTheme = false;
 bool rerenderUI = false;
 
@@ -449,22 +442,6 @@ void updateCursorShape(CursorShape shape) {
             glfwSetCursor(window, moveCursor);
             currentCursorShape = CursorShape::Move;
             break;
-    }
-}
-
-void inputClickCallback(UIElement* elem) {
-    if (activeElement != nullptr) {
-        #ifdef DEBUG_TEXT_SELECTION
-            cout << "\nSetting text input as active!";
-        #endif
-        activeElement->active = false;
-    }
-
-    elem->active = true;
-    activeElement = elem;
-
-    if (elem->textInputData != nullptr) {
-        elem->textInputData->lastActiveTime = glfwGetTime();
     }
 }
 
@@ -2034,7 +2011,7 @@ void setupTabs(vector<TextVertex>& textVertices, vector<TextVertex>& xVertices) 
     uint32_t i = 0;
 
     uint32_t textIndex = darkTheme ? WHITE_INDEX : BLACK_INDEX;
-    float verticalPadding = (TAB_BAR_HEIGHT - 16 * (1 - glyphDescender)) / 2;
+    float verticalPadding = (TAB_BAR_HEIGHT - LINE_HEIGHT(16)) / 2;
 
     for (ContentTab& tab: tabs) {
         float prevX = x;
@@ -5262,7 +5239,7 @@ SelectionData getTextIndexForScreenCoords(UIElement* elem, float mouseX, float m
     uint32_t index = 0;
     uint32_t row = 0;
     uint32_t col = 0;
-    float height = elem->fontSize - elem->fontSize * glyphDescender;
+    float height = LINE_HEIGHT(elem->fontSize);
 
     uint32_t prevRow = row;
     uint32_t prevCol = col;
@@ -8099,7 +8076,7 @@ void renderElement(
                     }
 
                     if (grInfo.redrawUI) {
-                        float height = static_cast<float>(elem.fontSize) * (1 - glyphDescender);
+                        float height = LINE_HEIGHT(elem.fontSize);
 
                         updateTextCursor(globalCursor, cursorX, cursorY - height, height);
                     }
@@ -8177,7 +8154,7 @@ void renderElement(
                             selectStartX,
                             y,
                             x - selectStartX,
-                            static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                            LINE_HEIGHT(elem.fontSize),
                             darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
                             0,
                             selectionVertices
@@ -8215,7 +8192,7 @@ void renderElement(
                             selectStartX,
                             y,
                             x - selectStartX,
-                            static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                            LINE_HEIGHT(elem.fontSize),
                             darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
                             0,
                             selectionVertices
@@ -8243,7 +8220,7 @@ void renderElement(
                     selectStartX,
                     y,
                     x - selectStartX,
-                    static_cast<float>(elem.fontSize) * (1 - glyphDescender),
+                    LINE_HEIGHT(elem.fontSize),
                     darkTheme ? SELECT_COLOR_DARK_INDEX : SELECT_COLOR_INDEX,
                     0,
                     selectionVertices
@@ -8697,7 +8674,13 @@ inline bool renderContentBlock(
         uint32_t lightTextIndex = darkTheme ? LIGHT_TEXT_COLOR_DARK_INDEX : LIGHT_TEXT_COLOR_INDEX;
 
         switch (cb->type) {
-            case ContentBlockType::Paragraph: renderRope = isActive; break;
+            case ContentBlockType::Paragraph:
+            case ContentBlockType::Code:
+            case ContentBlockType::Quote:
+            case ContentBlockType::TableRow:
+                renderRope = isActive;
+                break;
+
             case ContentBlockType::Bullet:
                 if (isActive) {
                     PUSH_ICON_VERTICES(
@@ -8730,19 +8713,6 @@ inline bool renderContentBlock(
                     );
                 }
                 // TODO: Check for the maximum width of the number characters.
-                // TODO: append the text vertices with the numbering text.
-                break;
-
-            case ContentBlockType::Code:
-                ContentBlockBounds bounds;
-
-                // If the cursor is in the code bounds, show the start and end of the block
-                renderRope = isActive;
-
-                break;
-
-            case ContentBlockType::Quote:
-                renderRope = isActive;
                 break;
 
             case ContentBlockType::Image: {
@@ -8757,8 +8727,8 @@ inline bool renderContentBlock(
                     } else {
                         cout << "\nDEBUG: fragments: " << md.fragments.size();
                     }
-                    // TODO: don't render image. Set the height to the text height.
-                    cb->height = 16.0f - glyphDescender;
+
+                    cb->height = LINE_HEIGHT(getCBFontSize(cb->type));
                 } else {
                     renderRope = false;
 
@@ -8787,7 +8757,8 @@ inline bool renderContentBlock(
                     } else {
                         cout << "\nDEBUG: fragments: " << md.fragments.size();
                     }
-                    cb->height = 16.0f - glyphDescender;
+
+                    cb->height = LINE_HEIGHT(cb->type);
                 } else {
                     renderRope = false;
 
@@ -8803,7 +8774,7 @@ inline bool renderContentBlock(
                             x,
                             y,
                             cb->rope->substring(md.fragments[0].imgOrLink.text),
-                            0,
+                            CHARACTER_REGULAR,
                             colorIndex,
                             getCBFontSize(cb->type),
                             textVertices
@@ -8824,7 +8795,7 @@ inline bool renderContentBlock(
             RopeRenderResult res = appendRopeVertices(
                 x, y,
                 cb->rope,
-                cb->type == ContentBlockType::Code ? 3 : 0,
+                cb->type == ContentBlockType::Code ? CHARACTER_MONO : CHARACTER_REGULAR,
                 isActive ? 0 : cb->startIndex,
                 isActive ? cb->rope->length() : cb->rope->length() - cb->startIndex,
                 getCBFontSize(cb->type),
@@ -8833,7 +8804,7 @@ inline bool renderContentBlock(
             );
 
             cb->height = (res.height == 0.0f && glyphDescender < 0) ?
-                static_cast<float>(getCBFontSize(cb->type)) * (1.0f - glyphDescender)
+                LINE_HEIGHT(getCBFontSize(cb->type))
                 :
                 res.height;
 
@@ -8935,7 +8906,7 @@ void renderContentBlockHighlight(vector<TextVertex>& iconVerts, vector<RectVerte
     if (!highlightedContentBlock.show) { return; }
 
     float height = highlightedContentBlock.bottom - highlightedContentBlock.top;
-    float iconHeight = 16.0f * (1 - glyphDescender);
+    float iconHeight = LINE_HEIGHT(16);
     float y = highlightedContentBlock.top;
 
     addRectangle(
@@ -9001,6 +8972,8 @@ void renderCBTextSelection(ContentTab* tab) {
             float xpos = initialX;
             float yNet = initialY;
 
+            const float lineHeight = LINE_HEIGHT(fontSize);
+
             while (rt.hasNext()) {
                 Rope* rope = rt.next();
 
@@ -9044,7 +9017,7 @@ void renderCBTextSelection(ContentTab* tab) {
                         selectionFinished = true;
                         endX = xpos;
                         endY_h = yNet;
-                        endY = yNet + fontSize - fontSize * glyphDescender;
+                        endY = yNet + lineHeight;
 
                         cout << "\n  (cb: "
                             << distance(tab->contentBlocks.begin(), cbIter)
@@ -9069,7 +9042,7 @@ void renderCBTextSelection(ContentTab* tab) {
                         if (selectionStarted) {
                             endX = xpos;
                             endY_h = yNet;
-                            endY = yNet + fontSize - fontSize * glyphDescender;
+                            endY = yNet + lineHeight;
 
                             cout << "\n  (cb: "
                                 << distance(tab->contentBlocks.begin(), cbIter)
@@ -9089,13 +9062,13 @@ void renderCBTextSelection(ContentTab* tab) {
                             });
                         }
 
-                        yNet += fontSize - fontSize * glyphDescender;
+                        yNet += lineHeight;
                         xpos = initialX;
                         row++;
 
                         startX = xpos;
                         startY_h = yNet;
-                        startY = yNet + fontSize - fontSize * glyphDescender;
+                        startY = yNet + lineHeight;
                     }
 
                     float ypos = yNet + glyphHeight - bearingTop + fontSize;
@@ -9117,7 +9090,7 @@ void renderCBTextSelection(ContentTab* tab) {
                             << "), ";
 
                         startX = xpos;
-                        startY = yNet + fontSize - fontSize * glyphDescender;
+                        startY = yNet + lineHeight;
                         startY_h = yNet;
                     }
 
@@ -9140,7 +9113,7 @@ void renderCBTextSelection(ContentTab* tab) {
 
                 endX = xpos;
                 endY_h = yNet;
-                endY = yNet + fontSize - fontSize * glyphDescender;
+                endY = yNet + lineHeight;
 
                 vertices.insert(vertices.end(), {
                     startX, startY_h,
