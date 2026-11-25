@@ -937,6 +937,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         ContentTab* tab = CURRENT_TAB;
                         tab->redrawCursor = true;
                         REDRAW_CB();
+                        updateWindowTitle();
                     }
                     break;
 
